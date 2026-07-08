@@ -31,7 +31,7 @@ No remote font dependency is required.
 - Wide desktop: 312-336px navigation plus a flexible editor workspace.
 - Medium desktop: editor and preview stack vertically; metadata uses two columns.
 - Below 760px: navigation and workspace become a single column with a horizontal question strip.
-- The default workspace is focused editing with one active module. Overview mode renders all three modules as read-only paper sections.
+- The workspace uses focused editing with one active module at a time. Question, solution, and note switch through tabs, and the preview follows the active module.
 
 ## Interaction
 
