@@ -115,6 +115,8 @@ function basePreamble(): string {
 \usepackage{graphicx}
 \usepackage{tikz}
 \usepackage{pgfplots}
+\usepackage{extarrows}
+\usepackage{listings}
 \usepackage{hyperref}
 \pgfplotsset{compat=1.18}
 \graphicspath{{./assets/}}
