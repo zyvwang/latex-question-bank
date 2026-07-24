@@ -65,10 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: |
-            release/*.exe
-            release/*.blockmap
-            release/latest*.yml
+          path: release/*.exe
           if-no-files-found: error
 
   build-macos:
@@ -100,10 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: |
-            release/*.dmg
-            release/*.blockmap
-            release/latest*.yml
+          path: release/*.dmg
           if-no-files-found: error
 
   publish-github-release:
