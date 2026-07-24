@@ -35,7 +35,7 @@ describe("Electron shell path allowlist", () => {
     expect(mainSource).toContain('ipcMain.handle("shell:reveal-export"');
     expect(mainSource).toContain('ipcMain.on("app:close-response"');
     expect(mainSource).toContain("quitRequested = true");
-    expect(preloadSource).toContain('contextBridge.exposeInMainWorld("kmb"');
+    expect(preloadSource).toContain('contextBridge.exposeInMainWorld("lqb"');
     expect(preloadSource).toContain("revealExportFolder");
     expect(preloadSource).not.toContain("ipcRenderer:");
   });
@@ -43,7 +43,7 @@ describe("Electron shell path allowlist", () => {
   it("keeps development boot compatible without weakening packaged storage", async () => {
     const mainSource = await readFile(path.resolve("electron/main.ts"), "utf8");
     const packageMetadata = JSON.parse(await readFile(path.resolve("package.json"), "utf8")) as {
-      build?: { extraMetadata?: { kmbUseMockKeychain?: boolean } };
+      build?: { extraMetadata?: { lqbUseMockKeychain?: boolean } };
       scripts?: { "dist:mac"?: string };
     };
     const viteSource = await readFile(path.resolve("vite.config.ts"), "utf8");
@@ -60,10 +60,10 @@ describe("Electron shell path allowlist", () => {
     expect(mainSource).toContain("if (isDevelopment)");
     expect(mainSource).toContain("if (configuredAppDataDir)");
     expect(mainSource).toContain("function shouldUseMockKeychain()");
-    expect(mainSource).toContain("packageMetadata.kmbUseMockKeychain === true");
+    expect(mainSource).toContain("packageMetadata.lqbUseMockKeychain === true");
     expect(mainSource).toContain('app.setPath("sessionData"');
     expect(mainSource).toContain('app.commandLine.appendSwitch("use-mock-keychain")');
-    expect(packageMetadata.build?.extraMetadata?.kmbUseMockKeychain).toBe(true);
+    expect(packageMetadata.build?.extraMetadata?.lqbUseMockKeychain).toBe(true);
     expect(packageMetadata.scripts?.["dist:mac"]).toContain("cleanup-macos-unpacked.mjs");
   });
 });

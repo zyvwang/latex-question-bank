@@ -13,7 +13,7 @@ ipcRenderer.on("app:before-close", () => {
     });
 });
 
-contextBridge.exposeInMainWorld("kmb", {
+contextBridge.exposeInMainWorld("lqb", {
   platform: process.platform,
   selectWorkspaceDirectory: (title?: string) =>
     ipcRenderer.invoke("workspace:select-directory", title) as Promise<string | null>,

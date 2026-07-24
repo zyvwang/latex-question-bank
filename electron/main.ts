@@ -6,9 +6,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const isDevelopment = Boolean(process.env.KMB_DEV_SERVER_URL);
-const configuredAppDataDir = process.env.KMB_APP_DATA_DIR?.trim();
+const isDevelopment = Boolean(process.env.LQB_DEV_SERVER_URL);
+const configuredAppDataDir = process.env.LQB_APP_DATA_DIR?.trim();
 const useMockKeychain = shouldUseMockKeychain();
+
+app.setName("LaTeX Question Bank");
 
 if (configuredAppDataDir) {
   const appDataDir = path.resolve(configuredAppDataDir);
@@ -17,7 +19,7 @@ if (configuredAppDataDir) {
   app.setPath("userData", appDataDir);
   app.setPath("sessionData", sessionDataDir);
 } else if (isDevelopment) {
-  const sessionDataDir = path.join(app.getPath("temp"), "kaoyan-math-bank-electron-session");
+  const sessionDataDir = path.join(app.getPath("temp"), "latex-question-bank-electron-session");
   mkdirSync(sessionDataDir, { recursive: true });
   app.setPath("sessionData", sessionDataDir);
 }
@@ -36,9 +38,9 @@ let quitRequested = false;
 let allowAppQuit = false;
 
 async function createWindow() {
-  process.env.KMB_DESKTOP = "1";
-  process.env.KMB_APP_DATA_DIR = app.getPath("userData");
-  process.env.KMB_ROOT_DIR = app.getAppPath();
+  process.env.LQB_DESKTOP = "1";
+  process.env.LQB_APP_DATA_DIR = app.getPath("userData");
+  process.env.LQB_ROOT_DIR = app.getAppPath();
 
   if (!apiServer || !apiServerUrl) {
     const { startApiServer } = await import("../server/index.js");
@@ -52,7 +54,7 @@ async function createWindow() {
     height: 880,
     minWidth: 1040,
     minHeight: 720,
-    title: "Kaoyan Math Bank",
+    title: "LaTeX 题库",
     backgroundColor: "#f7f5ef",
     webPreferences: {
       preload: path.join(currentDir, "preload.cjs"),
@@ -62,7 +64,7 @@ async function createWindow() {
     }
   });
 
-  const appUrl = process.env.KMB_DEV_SERVER_URL || apiServerUrl;
+  const appUrl = process.env.LQB_DEV_SERVER_URL || apiServerUrl;
   const trustedOrigin = new URL(appUrl).origin;
   mainWindow.webContents.on("will-navigate", (event, targetUrl) => {
     if (!hasOrigin(targetUrl, trustedOrigin)) event.preventDefault();
@@ -92,6 +94,13 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === "darwin") {
+    app.setAboutPanelOptions({
+      applicationName: "LaTeX Question Bank",
+      applicationVersion: app.getVersion(),
+      copyright: "Copyright © 2026 LaTeX Question Bank contributors"
+    });
+  }
   registerIpcHandlers();
   await createWindow();
 
@@ -205,7 +214,7 @@ function isTrustedExternalUrl(value: string): boolean {
   try {
     const url = new URL(value);
     if (url.protocol === "https:") return true;
-    const localAppUrl = process.env.KMB_DEV_SERVER_URL || apiServerUrl;
+    const localAppUrl = process.env.LQB_DEV_SERVER_URL || apiServerUrl;
     return Boolean(localAppUrl && hasOrigin(value, new URL(localAppUrl).origin));
   } catch {
     return false;
@@ -219,8 +228,8 @@ function shouldUseMockKeychain(): boolean {
   try {
     const packageMetadata = JSON.parse(
       readFileSync(path.join(app.getAppPath(), "package.json"), "utf8")
-    ) as { kmbUseMockKeychain?: unknown };
-    return packageMetadata.kmbUseMockKeychain === true;
+    ) as { lqbUseMockKeychain?: unknown };
+    return packageMetadata.lqbUseMockKeychain === true;
   } catch {
     return false;
   }

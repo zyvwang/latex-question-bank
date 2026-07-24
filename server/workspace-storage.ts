@@ -17,8 +17,8 @@ import { resetSessionHistory } from "./storage-session.js";
 import { cleanupOldTempDirs } from "./recovery-storage.js";
 import { fileExists, safeOptionalString } from "./storage-utils.js";
 
-const forcedWorkspacePath = process.env.KMB_WORKSPACE_DIR
-  ? path.resolve(process.env.KMB_WORKSPACE_DIR)
+const forcedWorkspacePath = process.env.LQB_WORKSPACE_DIR
+  ? path.resolve(process.env.LQB_WORKSPACE_DIR)
   : "";
 
 export async function ensureProjectDirs() {
@@ -41,7 +41,7 @@ export async function readAppState(): Promise<AppState> {
       version: 1,
       currentWorkspacePath: forcedWorkspacePath,
       recentWorkspacePaths: [forcedWorkspacePath],
-      texPathOverride: safeOptionalString(process.env.KMB_LATEXMK_PATH)
+      texPathOverride: safeOptionalString(process.env.LQB_LATEXMK_PATH)
     };
   }
 
@@ -178,7 +178,7 @@ export function workspaceNameFromPath(workspacePath: string): string {
 }
 
 export function getDefaultWorkspaceRoot(): string {
-  return path.join(os.homedir(), "Documents", "Kaoyan Math Bank");
+  return path.join(os.homedir(), "Documents", "LaTeX Question Bank");
 }
 
 export async function workspaceExists(workspacePath: string): Promise<boolean> {

@@ -13,13 +13,13 @@ vi.mock("../../src/components/LatexEditor.js", () => ({
 const appInfo: AppInfo = {
   appState: {
     version: 1,
-    currentWorkspacePath: "/tmp/math-bank",
-    recentWorkspacePaths: ["/tmp/math-bank", "/tmp/other-bank"]
+    currentWorkspacePath: "/tmp/latex-bank",
+    recentWorkspacePaths: ["/tmp/latex-bank", "/tmp/other-bank"]
   },
-  currentWorkspaceName: "math-bank",
-  currentWorkspacePath: "/tmp/math-bank",
+  currentWorkspaceName: "latex-bank",
+  currentWorkspacePath: "/tmp/latex-bank",
   recentWorkspaces: [
-    { name: "math-bank", path: "/tmp/math-bank", exists: true },
+    { name: "latex-bank", path: "/tmp/latex-bank", exists: true },
     { name: "other-bank", path: "/tmp/other-bank", exists: true }
   ],
   texStatus: {
@@ -33,7 +33,7 @@ const appInfo: AppInfo = {
 };
 
 const bank: Bank = {
-  version: 2,
+  version: 1,
   settings: {
     pageSize: "a4",
     spacing: { item: "1.0em", module: "0.45em" },
@@ -75,12 +75,12 @@ const bank: Bank = {
   ]
 };
 
-let nextExportName = "math-2026-06-13-1";
+let nextExportName = "questions-2026-06-13-1";
 let compileResponder: (() => Promise<Response>) | null = null;
 
 beforeEach(() => {
   vi.useRealTimers();
-  nextExportName = "math-2026-06-13-1";
+  nextExportName = "questions-2026-06-13-1";
   compileResponder = null;
   vi.stubGlobal("fetch", vi.fn(handleFetch));
 });
@@ -90,11 +90,42 @@ describe("App UI", () => {
     vi.clearAllMocks();
   });
 
+  it("offers blank, existing, and sample banks on first launch", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/app") {
+        return json({
+          ...appInfo,
+          appState: { version: 1, recentWorkspacePaths: [] },
+          currentWorkspaceName: "未设置",
+          currentWorkspacePath: "",
+          recentWorkspaces: [],
+          setupRequired: true
+        });
+      }
+      if (url === "/api/bank" && !init) {
+        return json({
+          workspacePath: "",
+          revision: "revision-empty",
+          bank: { ...bank, items: [] }
+        });
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("建立你的第一个题库")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "新建空白题库" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开已有题库" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "体验示例题库" })).toBeInTheDocument();
+  });
+
   it("loads the workspace and filters items", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByText("考研数学一题库")).toBeInTheDocument();
+    expect(screen.getByText("LaTeX 题库")).toBeInTheDocument();
     expect(await screen.findByText("2024-1")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("搜索"), "矩阵");
@@ -192,7 +223,7 @@ describe("App UI", () => {
     });
   });
 
-  it("autosaves module edits as v2 modules", async () => {
+  it("autosaves module edits in the launch schema", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
@@ -208,7 +239,7 @@ describe("App UI", () => {
       );
       expect(saveCall).toBeTruthy();
       const payload = JSON.parse(String(saveCall?.[1]?.body)) as { bank: Bank };
-      expect(payload.bank.version).toBe(2);
+      expect(payload.bank.version).toBe(1);
       expect(payload.bank.items[0].modules.question.tex).toBe("新版题面");
     });
   });
@@ -229,7 +260,7 @@ describe("App UI", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
-    expect(await screen.findByLabelText("导出名")).toHaveValue("math-2026-06-13-1");
+    expect(await screen.findByLabelText("导出名")).toHaveValue("questions-2026-06-13-1");
 
     await user.click(screen.getByRole("button", { name: /导出 2 题/ }));
 
@@ -242,7 +273,7 @@ describe("App UI", () => {
       );
     });
     expect(await screen.findByText(/导出完成/)).toBeInTheDocument();
-    expect(screen.getByLabelText("导出名")).toHaveValue("math-2026-06-13-2");
+    expect(screen.getByLabelText("导出名")).toHaveValue("questions-2026-06-13-2");
 
     await user.click(screen.getByRole("button", { name: "打开文件位置" }));
     await waitFor(() => {
@@ -401,7 +432,7 @@ describe("App UI", () => {
         });
       }
       if (url === "/api/recovery" && init?.method === "POST") {
-        return json({ workspacePath: "/tmp/math-bank", revision: "recovered", bank });
+        return json({ workspacePath: "/tmp/latex-bank", revision: "recovered", bank });
       }
       return handleFetch(input, init);
     });
@@ -418,7 +449,7 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   const url = String(input);
   if (url === "/api/app") return json(appInfo);
   if (url === "/api/bank" && !init) {
-    return json({ workspacePath: "/tmp/math-bank", revision: "revision-1", bank });
+    return json({ workspacePath: "/tmp/latex-bank", revision: "revision-1", bank });
   }
   if (url === "/api/bank" && init?.method === "PUT") {
     const request = JSON.parse(String(init.body)) as { workspacePath: string; bank: Bank };
@@ -461,12 +492,12 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   }
   if (url === "/api/export") {
     const request = JSON.parse(String(init?.body)) as { fileName: string };
-    const sequence = /^(math-\d{4}-\d{2}-\d{2})-(\d+)$/.exec(request.fileName);
+    const sequence = /^(questions-\d{4}-\d{2}-\d{2})-(\d+)$/.exec(request.fileName);
     if (sequence) nextExportName = `${sequence[1]}-${Number(sequence[2]) + 1}`;
     return json({
       ok: true,
       exportName: request.fileName,
-      exportPath: `/tmp/math-bank/exports/${request.fileName}`,
+      exportPath: `/tmp/latex-bank/exports/${request.fileName}`,
       files: ["questions.tex", "questions.pdf", "full.tex", "full.pdf"],
       results: {
         questions: { ok: true, texPath: "questions.tex", pdfPath: "questions.pdf", log: "" },

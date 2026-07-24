@@ -2,7 +2,7 @@ export {};
 
 declare global {
   interface Window {
-    kmb?: {
+    lqb?: {
       platform: string;
       selectWorkspaceDirectory: (title?: string) => Promise<string | null>;
       openPath: (targetPath: string) => Promise<string>;

@@ -42,8 +42,8 @@ function TopBar() {
     try {
       if (action.type === "open-url") {
         openUrl(action.href);
-      } else if (window.kmb?.revealExportFolder) {
-        await window.kmb.revealExportFolder(action.exportName);
+      } else if (window.lqb?.revealExportFolder) {
+        await window.lqb.revealExportFolder(action.exportName);
       } else {
         await revealExportFolder(action.exportName);
       }
@@ -179,6 +179,6 @@ function compileStatusTone(state: "compiling" | "success" | "failure" | "stale")
 
 function openUrl(href: string) {
   const url = new URL(href, window.location.href).href;
-  if (window.kmb?.openExternal) void window.kmb.openExternal(url);
+  if (window.lqb?.openExternal) void window.lqb.openExternal(url);
   else window.open(url, "_blank", "noopener,noreferrer");
 }

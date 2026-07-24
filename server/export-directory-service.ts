@@ -12,7 +12,7 @@ export async function nextDefaultExportName(
   exportDir: string,
   date = new Date()
 ): Promise<string> {
-  const prefix = `math-${formatLocalDate(date)}`;
+  const prefix = `questions-${formatLocalDate(date)}`;
   const pattern = new RegExp(`^${escapeRegExp(prefix)}-([1-9]\\d*)$`);
   const entries = await readdir(exportDir, { withFileTypes: true });
   let maxSequence = 0;

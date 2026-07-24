@@ -21,7 +21,8 @@
 .danger { color: var(--coral); }
 
 .primaryAction,
-.secondaryAction {
+.secondaryAction,
+.tertiaryAction {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
@@ -45,13 +46,21 @@
   border: 1px solid var(--hairline);
 }
 
+.tertiaryAction {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
 .iconButton:active,
 .primaryAction:active,
-.secondaryAction:active { transform: scale(0.96); }
+.secondaryAction:active,
+.tertiaryAction:active { transform: scale(0.96); }
 
 @media (hover: hover) {
   .iconButton:hover,
-  .secondaryAction:hover {
+  .secondaryAction:hover,
+  .tertiaryAction:hover {
     background: var(--teal-soft);
     border-color: oklch(0.76 0.055 175);
   }

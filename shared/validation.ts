@@ -91,7 +91,7 @@ export function validateCompileItemRequest(value: unknown): ValidationResult<Com
     return {
       ok: true,
       value: {
-        item: parseQuestionItem(value.item, { allowLegacy: false }),
+        item: parseQuestionItem(value.item),
         settings: parseLatexSettings(value.settings)
       }
     };
@@ -138,17 +138,16 @@ export function validateRevealExportRequest(value: unknown): ValidationResult<Re
 
 function parseBank(value: unknown): Bank {
   if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
-  if (value.version !== 1 && value.version !== 2) throw new ValidationError("题库版本必须为 1 或 2。");
+  if (value.version !== 1) throw new ValidationError("题库版本必须为 1。");
   if (!Array.isArray(value.items)) throw new ValidationError("题库 items 必须是数组。");
-  const allowLegacy = value.version === 1;
-  const items = value.items.map((item) => parseQuestionItem(item, { allowLegacy }));
+  const items = value.items.map((item) => parseQuestionItem(item));
   const ids = new Set<string>();
   for (const item of items) {
     if (ids.has(item.id)) throw new ValidationError(`题目 id 重复：${item.id}`);
     ids.add(item.id);
   }
   return {
-    version: 2,
+    version: 1,
     settings: parseLatexSettings(value.settings),
     items: items
       .sort((left, right) => left.order - right.order)
@@ -156,7 +155,7 @@ function parseBank(value: unknown): Bank {
   };
 }
 
-function parseQuestionItem(value: unknown, options: { allowLegacy: boolean }): QuestionItem {
+function parseQuestionItem(value: unknown): QuestionItem {
   if (!isRecord(value)) throw new ValidationError("题目必须是对象。");
   const sourceNumber = getOptionalStringField(value, "sourceNumber");
   if (sourceNumber instanceof ValidationError) throw sourceNumber;
@@ -167,14 +166,14 @@ function parseQuestionItem(value: unknown, options: { allowLegacy: boolean }): Q
     chapter: requiredString(value, "chapter"),
     tags: parseStringArray(value.tags, "tags"),
     star: parseStarRating(value.star),
-    modules: parseModules(value, options.allowLegacy),
+    modules: parseModules(value),
     assets: parseAssets(value.assets),
     createdAt: requiredString(value, "createdAt"),
     updatedAt: requiredString(value, "updatedAt")
   };
 }
 
-function parseModules(value: Record<string, unknown>, allowLegacy: boolean): QuestionItem["modules"] {
+function parseModules(value: Record<string, unknown>): QuestionItem["modules"] {
   if (isRecord(value.modules)) {
     const invalidKind = Object.keys(value.modules).find(
       (kind) => kind !== "question" && kind !== "solution" && kind !== "note"
@@ -186,12 +185,7 @@ function parseModules(value: Record<string, unknown>, allowLegacy: boolean): Que
       note: parseQuestionModule(value.modules.note, "note")
     };
   }
-  if (!allowLegacy) throw new ValidationError("题目缺少有效的 modules。");
-  return {
-    question: { tex: requiredString(value, "questionTex") },
-    solution: { tex: requiredString(value, "solutionTex") },
-    note: { tex: requiredString(value, "noteTex") }
-  };
+  throw new ValidationError("题目缺少有效的 modules。");
 }
 
 function parseQuestionModule(value: unknown, kind: ModuleKind): { tex: string } {

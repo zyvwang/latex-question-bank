@@ -39,7 +39,7 @@ const items: QuestionItem[] = [
     modules: {
       question: { tex: "求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$。" },
       solution: { tex: "由基本极限可得 $\\lim_{x\\to 0}\\frac{\\sin x}{x}=1$。" },
-      note: { tex: "注意这是考研数学一常用基本极限。" }
+      note: { tex: "这个基本极限可用于检查中文排版与公式渲染。" }
     },
     assets: [],
     createdAt: now,

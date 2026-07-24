@@ -1,8 +1,8 @@
 {
-  "name": "kaoyan-math-bank",
-  "version": "0.1.4",
-  "description": "A local-first LaTeX question bank for kaoyan math study.",
-  "author": "Kaoyan Math Bank contributors",
+  "name": "latex-question-bank",
+  "version": "0.1.0",
+  "description": "A local-first desktop question bank for writing, organizing, and exporting LaTeX.",
+  "author": "LaTeX Question Bank contributors",
   "private": true,
   "engines": {
     "node": ">=24 <25"
@@ -12,18 +12,16 @@
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/copy-mathjax.mjs",
-    "dev": "concurrently -k -n api,web -c cyan,green \"cross-env KMB_DEV_SERVER_URL=http://127.0.0.1:5173 tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
-    "dev:api": "cross-env KMB_DEV_SERVER_URL=http://127.0.0.1:5173 tsx watch server/index.ts",
+    "dev": "concurrently -k -n api,web -c cyan,green \"cross-env LQB_DEV_SERVER_URL=http://127.0.0.1:5173 tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
+    "dev:api": "cross-env LQB_DEV_SERVER_URL=http://127.0.0.1:5173 tsx watch server/index.ts",
     "dev:web": "vite --host 127.0.0.1",
-    "desktop:dev": "npm run build:desktop && concurrently -k -n web,electron -c green,blue \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env KMB_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "desktop:dev": "npm run build:desktop && concurrently -k -n web,electron -c green,blue \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env LQB_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "typecheck": "tsc -b && tsc -p tsconfig.desktop.json --noEmit",
     "build:desktop": "tsc -p tsconfig.desktop.json",
     "build": "npm run typecheck && vite build && npm run build:desktop",
     "lint": "eslint .",
     "start": "tsx server/index.ts",
     "start:prod": "node build/server/index.js",
-    "migrate:legacy": "tsx scripts/migrate-legacy-workspace.ts",
-    "migrate:v2": "tsx scripts/migrate-v2-workspace.ts",
     "test:unit": "vitest run --config vitest.node.config.ts tests/unit",
     "test:api": "vitest run --config vitest.node.config.ts tests/api",
     "test:electron": "vitest run --config vitest.node.config.ts tests/electron",
@@ -31,7 +29,7 @@
     "test": "npm run test:unit && npm run test:api && npm run test:electron && npm run test:ui",
     "test:coverage": "vitest run --config vitest.node.config.ts --coverage",
     "test:desktop": "playwright test --config playwright.config.ts",
-    "verify": "npm run lint && npm run test && npm run build && npm run test:coverage && cross-env KMB_WORKSPACE_DIR=.tmp/verify-workspace tsx scripts/verify-export.ts",
+    "verify": "npm run lint && npm run test && npm run build && npm run test:coverage && cross-env LQB_WORKSPACE_DIR=.tmp/verify-workspace tsx scripts/verify-export.ts",
     "dist": "npm run build && electron-builder --publish never",
     "dist:mac": "npm run build && electron-builder --mac dmg --publish never && node scripts/cleanup-macos-unpacked.mjs",
     "dist:win": "npm run build && electron-builder --win nsis --publish never"
@@ -82,10 +80,10 @@
     "wait-on": "^9.0.10"
   },
   "build": {
-    "appId": "com.kaoyanmathbank.app",
-    "productName": "Kaoyan Math Bank",
+    "appId": "com.zyvwang.latexquestionbank",
+    "productName": "LaTeX Question Bank",
     "extraMetadata": {
-      "kmbUseMockKeychain": true
+      "lqbUseMockKeychain": true
     },
     "directories": {
       "output": "release"
@@ -97,11 +95,13 @@
     ],
     "mac": {
       "category": "public.app-category.education",
+      "icon": "build-resources/icon.png",
       "target": [
         "dmg"
       ]
     },
     "win": {
+      "icon": "build-resources/icon.png",
       "target": [
         {
           "target": "nsis",

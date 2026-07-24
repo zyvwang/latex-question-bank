@@ -52,7 +52,7 @@ describe("shared validation", () => {
     ).toBe("seed");
   });
 
-  it("rejects structurally unsafe banks while preserving v1 compatibility", () => {
+  it("rejects structurally unsafe banks and unsupported layouts", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
     const validSave = validateSaveBankRequest({
@@ -151,20 +151,13 @@ describe("shared validation", () => {
     ];
     invalidBanks.forEach((value) => expect(validateBankPayload(value).ok).toBe(false));
 
-    const legacy = {
-      version: 1,
-      settings: bank.settings,
-      items: [
-        {
-          ...item,
-          modules: undefined,
-          questionTex: "q",
-          solutionTex: "s",
-          noteTex: "n"
-        }
-      ]
-    };
-    expect(validateBankPayload(legacy).value?.items[0].modules.question.tex).toBe("q");
+    expect(
+      validateBankPayload({
+        version: 1,
+        settings: bank.settings,
+        items: [{ ...item, modules: undefined }]
+      }).ok
+    ).toBe(false);
   });
 
   it("validates compile requests independently", () => {

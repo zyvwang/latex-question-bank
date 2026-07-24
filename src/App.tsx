@@ -21,7 +21,7 @@ function AppContent() {
   flushRef.current = lifecycle.flushPendingChanges;
 
   useEffect(() => {
-    return window.kmb?.onBeforeClose?.(() => flushRef.current());
+    return window.lqb?.onBeforeClose?.(() => flushRef.current());
   }, []);
 
   if (lifecycle.loadError) return <RecoveryScreen />;

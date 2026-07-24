@@ -20,8 +20,7 @@ import {
 } from "../../server/app-state.js";
 import {
   createEmptyBank,
-  createSampleBank,
-  normalizeBank
+  createSampleBank
 } from "../../server/bank-schema.js";
 import {
   readBank,
@@ -221,60 +220,20 @@ describe("domain helpers", () => {
     const exportDir = path.join(workspacePath, "exports");
     await mkdir(exportDir, { recursive: true });
     const date = new Date(2026, 5, 13, 23, 30);
-    equal(await nextDefaultExportName(exportDir, date), "math-2026-06-13-1");
+    equal(await nextDefaultExportName(exportDir, date), "questions-2026-06-13-1");
 
     await Promise.all([
-      mkdir(path.join(exportDir, "math-2026-06-13-1")),
-      mkdir(path.join(exportDir, "math-2026-06-13-3")),
-      mkdir(path.join(exportDir, "math-2026-06-13-108")),
-      mkdir(path.join(exportDir, "math-2026-06-12-999")),
-      writeFile(path.join(exportDir, "math-2026-06-13-999"), "not a directory", "utf8")
+      mkdir(path.join(exportDir, "questions-2026-06-13-1")),
+      mkdir(path.join(exportDir, "questions-2026-06-13-3")),
+      mkdir(path.join(exportDir, "questions-2026-06-13-108")),
+      mkdir(path.join(exportDir, "questions-2026-06-12-999")),
+      writeFile(path.join(exportDir, "questions-2026-06-13-999"), "not a directory", "utf8")
     ]);
-    equal(await nextDefaultExportName(exportDir, date), "math-2026-06-13-109");
+    equal(await nextDefaultExportName(exportDir, date), "questions-2026-06-13-109");
   });
 });
 
 describe("storage", () => {
-  it("migrates legacy v1 banks into v2 modules", () => {
-    const migrated = normalizeBank({
-      version: 1,
-      settings: createEmptyBank().settings,
-      items: [
-        {
-          id: "legacy",
-          order: 3,
-          sourceNumber: "2025-1",
-          chapter: "高等数学",
-          tags: ["极限"],
-          star: 4,
-          questionTex: "legacy question",
-          solutionTex: "legacy solution",
-          noteTex: "legacy note",
-          assets: [],
-          createdAt: fixedNow,
-          updatedAt: fixedNow
-        }
-      ]
-    });
-
-    equal(migrated.version, 2);
-    equal(migrated.items[0].order, 1);
-    equal(migrated.items[0].modules.question.tex, "legacy question");
-    equal(migrated.items[0].modules.solution.tex, "legacy solution");
-    equal(migrated.items[0].modules.note.tex, "legacy note");
-  });
-
-  it("keeps v2 module text intact when normalizing", () => {
-    const item = createItems(["v2"])[0];
-    const normalized = normalizeBank({
-      version: 2,
-      settings: createEmptyBank().settings,
-      items: [item]
-    });
-
-    deepStrictEqual(normalized.items[0].modules, item.modules);
-  });
-
   it("manages workspace state and bank data", async () => {
     const freshAppState = await readAppState();
     equal(freshAppState.currentWorkspacePath, undefined);
@@ -420,7 +379,7 @@ describe("storage", () => {
   it("resolves only real direct-child export directories", async () => {
     await createEmptyWorkspace(workspacePath);
     const exportDir = path.join(workspacePath, "exports");
-    const validDir = path.join(exportDir, "math-2026-06-13-1");
+    const validDir = path.join(exportDir, "questions-2026-06-13-1");
     const externalDir = path.join(workspacePathB, "external");
     await Promise.all([
       mkdir(validDir, { recursive: true }),
@@ -432,7 +391,7 @@ describe("storage", () => {
       process.platform === "win32" ? "junction" : "dir"
     );
 
-    equal(await resolveCurrentExportDirectory("math-2026-06-13-1"), validDir);
+    equal(await resolveCurrentExportDirectory("questions-2026-06-13-1"), validDir);
     await expectStorageError(() => resolveCurrentExportDirectory("../external"), "EXPORT_NAME_INVALID");
     await expectStorageError(() => resolveCurrentExportDirectory("missing"), "EXPORT_DIRECTORY_MISSING");
     await expectStorageError(() => resolveCurrentExportDirectory("linked"), "EXPORT_DIRECTORY_INVALID");

@@ -16,6 +16,19 @@
   gap: 12px;
 }
 
+.brandIdentity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandIdentity img {
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgb(23 33 29 / 0.12);
+}
+
 .brandBar h1 {
   margin: 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;

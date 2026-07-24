@@ -1,6 +1,6 @@
 # Architecture
 
-Kaoyan Math Bank is a local-first React, Express, and Electron app. The browser UI talks to the local API through same-origin requests in packaged desktop builds and through the Vite proxy in development.
+LaTeX Question Bank is a local-first React, Express, and Electron app. The browser UI talks to the local API through same-origin requests in packaged desktop builds and through the Vite proxy in development.
 
 ## Data Flow
 
@@ -31,7 +31,7 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `server/index.ts` only assembles middleware, routers, frontend serving, and server startup.
 - `server/routes/` groups workspace, bank/recovery, and document/export HTTP adapters. `server/http/` owns shared middleware and API error responses.
 - `server/app-state.ts` owns pure app-state reads and serialized app-state updates.
-- `server/bank-schema.ts` owns v1/v2 normalization and default/sample bank creation.
+- `server/bank-schema.ts` owns default and sample bank creation.
 - `server/json-file.ts` owns atomic JSON writes and immediate `.bak` files.
 - `server/storage.ts` is a compatibility facade. Workspace lifecycle, revision-checked bank saves, and recovery/history are implemented by separate storage modules.
 - `server/asset-service.ts` validates image extension, MIME, and signature before generating a safe server-side filename.
@@ -44,9 +44,9 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 
 The first bank modification in an application session also records a validated snapshot under `.history/`, retaining the newest ten snapshots. Recovery accepts only candidate IDs enumerated by the server and never accepts an arbitrary path.
 
-The workspace schema is `version: 2`; version 1 banks are normalized into version 2 on read, and the explicit `npm run migrate:v2 -- <workspace>` command can rewrite an older workspace with a backup.
+The workspace schema is `version: 1`. Readers and save requests reject unknown versions or missing module structures instead of silently rewriting incompatible content.
 
-In schema version 2, each question stores its three editable LaTeX snippets under `modules.question.tex`, `modules.solution.tex`, and `modules.note.tex`. This keeps module rendering, upload insertion, validation, compile, and export paths on one shared shape instead of parallel `questionTex`, `solutionTex`, and `noteTex` fields.
+Each question stores its three editable LaTeX snippets under `modules.question.tex`, `modules.solution.tex`, and `modules.note.tex`. Module rendering, upload insertion, validation, compile, and export all use this shared shape.
 
 ## Desktop Boundary
 
@@ -54,4 +54,4 @@ Electron exposes only narrow preload capabilities for selecting a directory, ope
 
 Every IPC entry validates its sender. Main-window navigation is locked to the application origin, new Electron windows are denied, and trusted HTTPS or local PDF links are delegated to the system browser. App quit and window close both wait for the renderer save queue; failures offer either returning to edit or explicitly discarding unsaved changes.
 
-Packaged pages receive a strict CSP. Development additionally allows Vite's inline React Refresh bootstrap, local HMR, and local API connections. The macOS development runtime uses an isolated Chromium session and mock keychain so it does not contend with or request credentials for an installed build. Until Developer ID signing and notarization are configured, packaged macOS builds also enable the mock keychain through `kmbUseMockKeychain`; remove that metadata after signing is available, then verify packaged builds use the system keychain without repeated prompts.
+Packaged pages receive a strict CSP. Development additionally allows Vite's inline React Refresh bootstrap, local HMR, and local API connections. The macOS development runtime uses an isolated Chromium session and mock keychain so it does not contend with or request credentials for an installed build. Until Developer ID signing and notarization are configured, packaged macOS builds also enable the mock keychain through `lqbUseMockKeychain`; remove that metadata after signing is available, then verify packaged builds use the system keychain without repeated prompts.

@@ -37,8 +37,8 @@ describe("API validation", () => {
   });
 
   it("allows only the explicitly configured Vite development origin", async () => {
-    const previousDevUrl = process.env.KMB_DEV_SERVER_URL;
-    process.env.KMB_DEV_SERVER_URL = "http://127.0.0.1:5173";
+    const previousDevUrl = process.env.LQB_DEV_SERVER_URL;
+    process.env.LQB_DEV_SERVER_URL = "http://127.0.0.1:5173";
     try {
       await request(createApiApp())
         .post("/api/tex-path")
@@ -46,8 +46,8 @@ describe("API validation", () => {
         .send({ texPath: "" })
         .expect(200);
     } finally {
-      if (previousDevUrl === undefined) delete process.env.KMB_DEV_SERVER_URL;
-      else process.env.KMB_DEV_SERVER_URL = previousDevUrl;
+      if (previousDevUrl === undefined) delete process.env.LQB_DEV_SERVER_URL;
+      else process.env.LQB_DEV_SERVER_URL = previousDevUrl;
     }
   });
 
@@ -62,21 +62,20 @@ describe("API validation", () => {
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
     const initial = await request(app).get("/api/bank").expect(200);
-    const legacyResponse = await request(app)
+    await request(app)
       .put("/api/bank")
       .send({
         workspacePath,
         baseRevision: initial.body.revision,
-        bank: createLegacyBank()
+        bank: { ...createSampleBank(), version: 3 }
       })
-      .expect(200);
-    expect(legacyResponse.body.bank.version).toBe(2);
-    expect(legacyResponse.body.bank.items[0].modules.question.tex).toBe("legacy question");
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
     const sampleResponse = await request(app)
       .put("/api/bank")
       .send({
         workspacePath,
-        baseRevision: legacyResponse.body.revision,
+        baseRevision: initial.body.revision,
         bank: createSampleBank()
       })
       .expect(200);
@@ -202,12 +201,12 @@ describe("API validation", () => {
     const app = createApiApp();
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
     await Promise.all([
-      mkdir(path.join(workspacePath, "exports", "math-2026-06-13-1")),
-      mkdir(path.join(workspacePath, "exports", "math-2026-06-13-3"))
+      mkdir(path.join(workspacePath, "exports", "questions-2026-06-13-1")),
+      mkdir(path.join(workspacePath, "exports", "questions-2026-06-13-3"))
     ]);
 
     const response = await request(app).get("/api/exports/default-name").expect(200);
-    expect(response.body.exportName).toMatch(/^math-\d{4}-\d{2}-\d{2}-\d+$/);
+    expect(response.body.exportName).toMatch(/^questions-\d{4}-\d{2}-\d{2}-\d+$/);
     await request(app)
       .post("/api/exports/reveal")
       .send({ exportName: "../outside" })
@@ -220,26 +219,3 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("EXPORT_DIRECTORY_MISSING"));
   });
 });
-
-function createLegacyBank() {
-  return {
-    version: 1,
-    settings: createSampleBank().settings,
-    items: [
-      {
-        id: "legacy",
-        order: 1,
-        sourceNumber: "legacy-1",
-        chapter: "高等数学",
-        tags: ["极限"],
-        star: 3,
-        questionTex: "legacy question",
-        solutionTex: "legacy solution",
-        noteTex: "legacy note",
-        assets: [],
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z"
-      }
-    ]
-  };
-}

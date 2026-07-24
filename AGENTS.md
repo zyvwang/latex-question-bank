@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-Kaoyan Math Bank 是一个本地优先的考研数学 LaTeX 题库桌面应用。技术栈为 React 19、Vite、TypeScript、Express 和 Electron。
+LaTeX Question Bank 是一个本地优先的个人 LaTeX 题库桌面应用。技术栈为 React 19、Vite、TypeScript、Express 和 Electron。
 
 核心数据流：
 
@@ -39,7 +39,7 @@ React UI
 - 完整验证：`npm run verify`
 - 桌面冒烟测试：`npm run test:desktop`
 
-`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
+`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证。未检测到 `latexmk` 或 `xelatex` 时，`scripts/verify-export.ts` 会跳过真实 PDF 编译并以成功状态退出；只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
 
 开发端口约定：
 
@@ -61,7 +61,7 @@ React UI
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
 - `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export 分组。
 - `server/http/`：共享 middleware 和 API 错误响应。
-- `server/bank-schema.ts`：v1/v2 题库规范化、默认题库和示例题库创建。
+- `server/bank-schema.ts`：默认题库和示例题库创建。
 - `server/*-storage.ts`、`server/json-file.ts`：workspace 生命周期、原子 JSON 写入、revision 检查、恢复与历史快照。
 - `server/asset-service.ts`：图片扩展名、MIME 和文件签名校验。
 - `server/export-service.ts`：导出 staging、PDF 编译和最终目录原子替换。
@@ -75,18 +75,17 @@ React UI
 
 ## 数据模型与安全
 
-当前 workspace schema 是 `version: 2`。每道题的 LaTeX 内容存在：
+当前 workspace schema 是 `version: 1`。每道题的 LaTeX 内容存在：
 
 - `modules.question.tex`
 - `modules.solution.tex`
 - `modules.note.tex`
 
-不要重新引入旧字段 `questionTex`、`solutionTex`、`noteTex` 作为运行时主形态。若改 schema，需要同时检查：
+若改 schema，需要同时检查：
 
 - `shared/types.ts`
 - `shared/validation.ts`
 - `server/bank-schema.ts`
-- `scripts/migrate-v2-workspace.ts`
 - `examples/sample-bank/bank.json`
 - `data/bank.json`
 - `tests/unit/`

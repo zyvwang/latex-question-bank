@@ -44,7 +44,7 @@ export function useWorkspaceActions({
   async function createSampleWorkspace() {
     const workspacePath = await pickWorkspaceDirectory(
       "选择示例工作区文件夹",
-      "输入示例工作区文件夹路径，例如 /Users/me/Documents/Kaoyan Math Bank/Sample Bank"
+      "输入示例工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/Sample Bank"
     );
     if (!workspacePath?.trim()) return;
     setIsChangingWorkspace(true);
@@ -62,7 +62,7 @@ export function useWorkspaceActions({
   async function createNewWorkspace() {
     const workspacePath = await pickWorkspaceDirectory(
       "选择新工作区文件夹",
-      "输入新工作区文件夹路径，例如 /Users/me/Documents/Kaoyan Math Bank/My Bank"
+      "输入新工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
     );
     if (!workspacePath?.trim()) return;
     setIsChangingWorkspace(true);
@@ -81,7 +81,7 @@ export function useWorkspaceActions({
   async function openWorkspace() {
     const workspacePath = await pickWorkspaceDirectory(
       "打开已有工作区",
-      "输入题库工作区文件夹路径，例如 /Users/me/Documents/Kaoyan Math Bank/My Bank"
+      "输入题库工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
     );
     if (!workspacePath?.trim()) return;
     if (workspacePath === appInfo?.currentWorkspacePath) return;
@@ -145,7 +145,7 @@ export function useWorkspaceActions({
   async function deleteWorkspace(workspacePath: string) {
     const workspace = appInfo?.recentWorkspaces.find((item) => item.path === workspacePath);
     const name = workspace?.name ?? workspacePath;
-    const canTrash = Boolean(window.kmb?.trashPath && workspace?.exists);
+    const canTrash = Boolean(window.lqb?.trashPath && workspace?.exists);
     const message = canTrash
       ? `确定要删除工作区“${name}”吗？\n\n工作区文件夹会移到废纸篓/回收站，并从列表移除。`
       : `确定要从列表移除工作区“${name}”吗？\n\n当前环境不能移动文件夹到废纸篓，磁盘文件不会被删除。`;
@@ -156,8 +156,8 @@ export function useWorkspaceActions({
       if (workspacePath === appInfo?.currentWorkspacePath) {
         await saveBeforeWorkspaceChange();
       }
-      if (canTrash && window.kmb?.trashPath) {
-        await window.kmb.trashPath(workspacePath);
+      if (canTrash && window.lqb?.trashPath) {
+        await window.lqb.trashPath(workspacePath);
       }
       const nextAppInfo = await removeWorkspace(workspacePath);
       await reloadWorkspace(nextAppInfo);
@@ -184,8 +184,8 @@ export function useWorkspaceActions({
 
   function openCurrentWorkspaceFolder() {
     if (!appInfo?.currentWorkspacePath) return;
-    if (window.kmb?.openPath) {
-      void window.kmb.openPath(appInfo.currentWorkspacePath);
+    if (window.lqb?.openPath) {
+      void window.lqb.openPath(appInfo.currentWorkspacePath);
       return;
     }
     setNotice({ type: "info", text: appInfo.currentWorkspacePath });
@@ -208,8 +208,8 @@ export function useWorkspaceActions({
 }
 
 async function pickWorkspaceDirectory(title: string, fallbackPrompt: string): Promise<string | null> {
-  if (window.kmb?.selectWorkspaceDirectory) {
-    return window.kmb.selectWorkspaceDirectory(title);
+  if (window.lqb?.selectWorkspaceDirectory) {
+    return window.lqb.selectWorkspaceDirectory(title);
   }
   return window.prompt(fallbackPrompt);
 }

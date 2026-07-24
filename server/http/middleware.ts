@@ -12,7 +12,7 @@ export function contentSecurityPolicy(
   response: express.Response,
   next: express.NextFunction
 ) {
-  if (!process.env.KMB_DEV_SERVER_URL) {
+  if (!process.env.LQB_DEV_SERVER_URL) {
     response.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
@@ -39,8 +39,8 @@ export function rejectForeignMutatingOrigins(
   try {
     const originUrl = new URL(origin);
     const requestUrl = new URL(`${request.protocol}://${request.get("host")}`);
-    const devOrigin = process.env.KMB_DEV_SERVER_URL
-      ? new URL(process.env.KMB_DEV_SERVER_URL).origin
+    const devOrigin = process.env.LQB_DEV_SERVER_URL
+      ? new URL(process.env.LQB_DEV_SERVER_URL).origin
       : "";
     const allowedOrigins = new Set([requestUrl.origin, devOrigin].filter(Boolean));
     if (isLoopbackHostname(requestUrl.hostname) && allowedOrigins.has(originUrl.origin)) {

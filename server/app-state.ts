@@ -3,8 +3,8 @@ import path from "node:path";
 import type { AppState } from "../shared/types.js";
 import { writeJsonFileAtomic } from "./json-file.js";
 
-export const rootDir = path.resolve(process.env.KMB_ROOT_DIR ?? process.cwd());
-export const appDataDir = path.resolve(process.env.KMB_APP_DATA_DIR ?? path.join(rootDir, ".app-data"));
+export const rootDir = path.resolve(process.env.LQB_ROOT_DIR ?? process.cwd());
+export const appDataDir = path.resolve(process.env.LQB_APP_DATA_DIR ?? path.join(rootDir, ".app-data"));
 export const appStatePath = path.join(appDataDir, "app-state.json");
 
 let updateQueue: Promise<unknown> = Promise.resolve();

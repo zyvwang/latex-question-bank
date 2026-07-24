@@ -1,4 +1,4 @@
-name: Build Release Installers
+name: Build LaTeX Question Bank Installers
 
 on:
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
       - name: Verify real LaTeX exports
         run: |
           npm run build
-          KMB_WORKSPACE_DIR=.tmp/release-tex-workspace npx tsx scripts/verify-export.ts
+          LQB_WORKSPACE_DIR=.tmp/release-tex-workspace npx tsx scripts/verify-export.ts
 
   build-windows:
     name: Windows NSIS

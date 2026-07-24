@@ -75,7 +75,7 @@ export async function compileLatex(
 
 export async function detectTexInstallation(): Promise<TexStatus> {
   const state = await readAppState();
-  const override = state.texPathOverride ?? process.env.KMB_LATEXMK_PATH;
+  const override = state.texPathOverride ?? process.env.LQB_LATEXMK_PATH;
   const candidates: Array<{ command: string; source: TexStatus["source"] }> = [
     ...(override ? [{ command: override, source: "override" as const }] : []),
     { command: "latexmk", source: "path" },

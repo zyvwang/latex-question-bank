@@ -39,7 +39,7 @@ export interface LatexSettings {
 }
 
 export interface Bank {
-  version: 2;
+  version: 1;
   settings: LatexSettings;
   items: QuestionItem[];
 }

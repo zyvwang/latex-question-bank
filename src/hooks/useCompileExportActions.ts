@@ -231,11 +231,11 @@ function defaultExportName(date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `math-${year}-${month}-${day}-1`;
+  return `questions-${year}-${month}-${day}-1`;
 }
 
 function incrementAutomaticExportName(exportName: string): string {
-  const match = /^(math-\d{4}-\d{2}-\d{2})-([1-9]\d*)$/.exec(exportName);
+  const match = /^(questions-\d{4}-\d{2}-\d{2})-([1-9]\d*)$/.exec(exportName);
   if (!match) return exportName;
   return `${match[1]}-${Number(match[2]) + 1}`;
 }

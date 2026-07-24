@@ -17,7 +17,7 @@ export async function buildAppInfo(): Promise<AppInfo> {
     currentWorkspacePath,
     recentWorkspaces: await listRecentWorkspaces(),
     texStatus: await detectTexInstallation(),
-    isDesktop: process.env.KMB_DESKTOP === "1",
+    isDesktop: process.env.LQB_DESKTOP === "1",
     setupRequired: !currentWorkspacePath
   };
 }

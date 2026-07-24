@@ -14,8 +14,8 @@ test("persists an edited item in the packaged desktop runtime", async () => {
     args: ["."],
     env: {
       ...process.env,
-      KMB_WORKSPACE_DIR: workspacePath,
-      KMB_APP_DATA_DIR: appDataPath
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
     }
   };
   const electronApp = await electron.launch(launchOptions);
@@ -24,7 +24,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
     const page = await electronApp.firstWindow();
     const browserWindow = await electronApp.browserWindow(page);
     await expect(page.getByText("当前工作区还没有题目")).toBeVisible();
-    expect(await page.evaluate(() => Boolean(window.kmb))).toBe(true);
+    expect(await page.evaluate(() => Boolean(window.lqb))).toBe(true);
     const runtimePaths = await electronApp.evaluate(({ app }) => ({
       userData: app.getPath("userData"),
       sessionData: app.getPath("sessionData"),
@@ -37,7 +37,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
     }
     await page.evaluate(() => {
       const testWindow = window as Window & { closeProbeCleanup?: () => void };
-      testWindow.closeProbeCleanup = window.kmb?.onBeforeClose(async () => {
+      testWindow.closeProbeCleanup = window.lqb?.onBeforeClose(async () => {
         document.body.dataset.closeProbe = "received";
       });
     });
@@ -94,20 +94,20 @@ test("keeps MathJax previews working after switching questions", async () => {
     args: ["."],
     env: {
       ...process.env,
-      KMB_WORKSPACE_DIR: workspacePath,
-      KMB_APP_DATA_DIR: appDataPath
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
     }
   });
 
   try {
     const page = await electronApp.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue("自造示例 1");
+    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
     await expect
       .poll(() => page.locator('[role="tabpanel"] mjx-container').count())
       .toBeGreaterThan(0);
 
-    await page.getByText("自造示例 2", { exact: true }).click();
-    await expect(page.getByLabel("原编号")).toHaveValue("自造示例 2");
+    await page.getByText("示例 2", { exact: true }).click();
+    await expect(page.getByLabel("原编号")).toHaveValue("示例 2");
     await expect
       .poll(() => page.locator('[role="tabpanel"] mjx-container').count())
       .toBeGreaterThan(0);
