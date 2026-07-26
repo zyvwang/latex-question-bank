@@ -40,7 +40,8 @@ export function useReviewHistory({
 
   const applyReviewMutationAt = useCallback((
     updater: (current: Bank) => Bank,
-    now: Date
+    now: Date,
+    options: { protectedHistoryId?: string } = {}
   ): boolean => {
     if (!bank) return false;
     if (capacityRequest) {
@@ -48,22 +49,29 @@ export function useReviewHistory({
       return false;
     }
     if (needsHistoryCapacityDecision(bank, now)) {
-      const selectedId = oldestMasteryHistoryId(bank.masteryHistory);
-      if (!selectedId) return false;
-      setCapacityRequest({
-        entries: bank.masteryHistory,
-        selectedId,
-        updater
-      });
+      // 恢复某份历史时不能把它列为删除候选:确认后会先恢复再删,刚恢复的那份就没了。
+      const entries = bank.masteryHistory.filter(
+        (entry) => entry.id !== options.protectedHistoryId
+      );
+      const selectedId = oldestMasteryHistoryId(entries);
+      if (!selectedId) {
+        setNotice({ type: "error", text: "没有可删除的掌握历史。" });
+        return false;
+      }
+      setCapacityRequest({ entries, selectedId, updater });
       return false;
     }
-    updateBank((current) =>
-      recordReviewMutation(current, updater, {
-        workspaceName,
-        now,
-        createId: () => crypto.randomUUID()
-      })
-    );
+    // 在事件回调里算完再交给 setBank:updater 里抛错会在 render 阶段炸开。
+    const result = recordReviewMutation(bank, updater, {
+      workspaceName,
+      now,
+      createId: () => crypto.randomUUID()
+    });
+    if (!result.ok) {
+      setNotice({ type: "error", text: result.error });
+      return false;
+    }
+    updateBank(() => result.bank);
     return true;
   }, [
     bank,
@@ -89,23 +97,26 @@ export function useReviewHistory({
   }, []);
 
   const confirmCapacityDeletion = useCallback(() => {
-    if (!capacityRequest) return;
+    if (!bank || !capacityRequest) return;
     const request = capacityRequest;
+    const result = recordReviewMutation(bank, request.updater, {
+      workspaceName,
+      now: new Date(),
+      createId: () => crypto.randomUUID(),
+      deleteHistoryId: request.selectedId
+    });
+    if (!result.ok) {
+      // 保留对话框,让用户改选一份仍然存在的历史。
+      setNotice({ type: "error", text: result.error });
+      return;
+    }
     setCapacityRequest(null);
-    const now = new Date();
-    updateBank((current) =>
-      recordReviewMutation(current, request.updater, {
-        workspaceName,
-        now,
-        createId: () => crypto.randomUUID(),
-        deleteHistoryId: request.selectedId
-      })
-    );
+    updateBank(() => result.bank);
     setNotice({
       type: "ok",
       text: "已删除所选历史，并保存本次掌握修改。"
     });
-  }, [capacityRequest, setNotice, updateBank, workspaceName]);
+  }, [bank, capacityRequest, setNotice, updateBank, workspaceName]);
 
   const cancelCapacityDeletion = useCallback(() => {
     if (!capacityRequest) return;
@@ -118,19 +129,14 @@ export function useReviewHistory({
 
   const renameHistory = useCallback((id: string, name: string): boolean => {
     if (!bank) return false;
-    const now = new Date();
-    try {
-      renameMasteryHistory(bank, id, name, now);
-      updateBank((current) => renameMasteryHistory(current, id, name, now));
-      setNotice({ type: "ok", text: "掌握历史名称已更新。" });
-      return true;
-    } catch (error) {
-      setNotice({
-        type: "error",
-        text: error instanceof Error ? error.message : "历史名称无效。"
-      });
+    const result = renameMasteryHistory(bank, id, name, new Date());
+    if (!result.ok) {
+      setNotice({ type: "error", text: result.error });
       return false;
     }
+    updateBank(() => result.bank);
+    setNotice({ type: "ok", text: "掌握历史名称已更新。" });
+    return true;
   }, [bank, setNotice, updateBank]);
 
   const deleteHistory = useCallback((id: string) => {
@@ -159,11 +165,14 @@ export function useReviewHistory({
     ) {
       return;
     }
-    applyReviewMutationAt(
-      (current) => restoreMasteryHistoryState(current, id, new Date()),
-      new Date()
-    );
-  }, [applyReviewMutationAt, bank]);
+    const now = new Date();
+    const restored = restoreMasteryHistoryState(bank, id, now);
+    if (!restored.ok) {
+      setNotice({ type: "error", text: restored.error });
+      return;
+    }
+    applyReviewMutationAt(() => restored.bank, now, { protectedHistoryId: id });
+  }, [applyReviewMutationAt, bank, setNotice]);
 
   return {
     masteryHistory: bank?.masteryHistory ?? [],

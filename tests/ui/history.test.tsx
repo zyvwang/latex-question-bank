@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSampleBank } from "../../server/bank-schema.js";
 import type { AppInfo, Bank, QuestionItem } from "../../shared/types.js";
 import App from "../../src/App.js";
-import { recordReviewMutation } from "../../src/review-history.js";
+import {
+  recordReviewMutation,
+  type ReviewMutationResult
+} from "../../src/review-history.js";
 
 vi.mock("../../src/components/LatexEditor.js", () => ({
   default: ({ value }: { value: string }) => (
@@ -108,7 +111,7 @@ describe("mastery history UI", () => {
 
   it("restores review state without removing items added later and records the restore", async () => {
     const snapshotDate = daysAgo(2);
-    currentBank = recordReviewMutation(
+    currentBank = expectOk(recordReviewMutation(
       currentBank,
       (bank) => ({
         ...bank,
@@ -123,7 +126,7 @@ describe("mastery history UI", () => {
         )
       }),
       historyOptions(snapshotDate, "restore-source")
-    );
+    ));
     const added: QuestionItem = {
       ...currentBank.items[0],
       id: "added-later",
@@ -214,6 +217,58 @@ describe("mastery history UI", () => {
     expect(within(historyNav).queryByText(secondName)).not.toBeInTheDocument();
     expect(within(historyNav).getByText(oldestName)).toBeInTheDocument();
   });
+
+  it("edits an option definition at full capacity without demanding a deletion", async () => {
+    currentBank = withPastHistory(5);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+    expect(screen.getByText("5 / 5")).toBeInTheDocument();
+
+    // 选项定义的改动不触碰任何题目的复习状态,不应记入当天历史、更不该逼用户删一份。
+    await user.selectOptions(
+      screen.getByLabelText("很简单图案"),
+      "crosshatch"
+    );
+
+    expect(screen.queryByRole("dialog", { name: "选择一份历史删除" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText("选项已更新。")).toBeInTheDocument();
+    expect(screen.getByText("5 / 5")).toBeInTheDocument();
+  });
+
+  it("never offers the history being restored as the deletion candidate", async () => {
+    currentBank = withPastHistory(5);
+    const oldestName = currentBank.masteryHistory[0].name;
+    const secondOldestName = currentBank.masteryHistory[1].name;
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+
+    const historyNav = screen.getByRole("navigation", {
+      name: "掌握历史记录"
+    });
+    // 列表按新到旧排列,最后一个才是最早那份。
+    const historyButtons = within(historyNav).getAllByRole("button");
+    await user.click(historyButtons[historyButtons.length - 1]);
+    await user.click(screen.getByRole("button", { name: "恢复" }));
+
+    // 默认删除最早一份 == 正在恢复的这份,确认后它会被恢复完又立刻删掉。
+    const dialog = screen.getByRole("dialog", { name: "选择一份历史删除" });
+    expect(within(dialog).queryByRole("radio", {
+      name: new RegExp(oldestName)
+    })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("radio", {
+      name: new RegExp(secondOldestName)
+    })).toBeChecked();
+
+    await user.click(within(dialog).getByRole("button", {
+      name: "删除所选并继续"
+    }));
+    expect(within(historyNav).getByText(oldestName)).toBeInTheDocument();
+    expect(within(historyNav).queryByText(secondOldestName))
+      .not.toBeInTheDocument();
+  });
 });
 
 async function handleFetch(
@@ -250,7 +305,7 @@ async function handleFetch(
 function withPastHistory(count: number): Bank {
   let bank = currentBank;
   for (let index = count; index >= 1; index -= 1) {
-    bank = recordReviewMutation(
+    bank = expectOk(recordReviewMutation(
       bank,
       (current) => ({
         ...current,
@@ -265,9 +320,16 @@ function withPastHistory(count: number): Bank {
         )
       }),
       historyOptions(daysAgo(index), `past-history-${index}`)
-    );
+    ));
   }
   return bank;
+}
+
+function expectOk(result: ReviewMutationResult): Bank {
+  if (!result.ok) {
+    throw new Error(`预期变更成功，实际失败：${result.error}`);
+  }
+  return result.bank;
 }
 
 function historyOptions(now: Date, id: string) {

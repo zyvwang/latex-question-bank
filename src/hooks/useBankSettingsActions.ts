@@ -198,16 +198,16 @@ export function useBankSettingsActions({
       pattern: option.pattern,
       order: currentOptions.length + 1
     };
-    const applied = updateReviewBank((current) => replaceOptions(
+    // 选项定义的增改排序不改变任何题目的复习状态,不记入当天掌握历史,
+    // 也就不会在历史满五份时把用户拦在删除对话框前。
+    updateBank((current) => replaceOptions(
       current,
       kind,
       [...optionsForKind(current, kind), next]
     ));
-    if (applied) {
-      setNotice({ type: "ok", text: `已创建选项“${name}”。` });
-    }
-    return applied;
-  }, [bank, setNotice, updateReviewBank]);
+    setNotice({ type: "ok", text: `已创建选项“${name}”。` });
+    return true;
+  }, [bank, setNotice, updateBank]);
 
   const updateReviewOption = useCallback((
     kind: ReviewKind,
@@ -239,12 +239,10 @@ export function useBankSettingsActions({
       setNotice({ type: "error", text: "颜色必须使用 #RRGGBB 格式。" });
       return false;
     }
-    const applied = updateReviewBank((current) =>
-      replaceOptions(current, kind, nextOptions)
-    );
-    if (applied) setNotice({ type: "ok", text: "选项已更新。" });
-    return applied;
-  }, [bank, setNotice, updateReviewBank]);
+    updateBank((current) => replaceOptions(current, kind, nextOptions));
+    setNotice({ type: "ok", text: "选项已更新。" });
+    return true;
+  }, [bank, setNotice, updateBank]);
 
   const moveReviewOption = useCallback((
     kind: ReviewKind,
@@ -257,7 +255,7 @@ export function useBankSettingsActions({
     const target = index + direction;
     if (index < 0 || target < 0 || target >= options.length) return;
     [options[index], options[target]] = [options[target], options[index]];
-    updateReviewBank((current) => replaceOptions(
+    updateBank((current) => replaceOptions(
       current,
       kind,
       options.map((option, optionIndex) => ({
@@ -265,7 +263,7 @@ export function useBankSettingsActions({
         order: optionIndex + 1
       }))
     ));
-  }, [bank, updateReviewBank]);
+  }, [bank, updateBank]);
 
   const moveReviewOptionToIndex = useCallback((
     kind: ReviewKind,
@@ -278,7 +276,7 @@ export function useBankSettingsActions({
     if (index < 0 || targetIndex < 0 || targetIndex >= options.length) return;
     const [option] = options.splice(index, 1);
     options.splice(targetIndex, 0, option);
-    updateReviewBank((current) => replaceOptions(
+    updateBank((current) => replaceOptions(
       current,
       kind,
       options.map((candidate, optionIndex) => ({
@@ -286,7 +284,7 @@ export function useBankSettingsActions({
         order: optionIndex + 1
       }))
     ));
-  }, [bank, updateReviewBank]);
+  }, [bank, updateBank]);
 
   const deleteReviewOption = useCallback((kind: ReviewKind, id: string) => {
     if (!bank) return;
@@ -304,6 +302,8 @@ export function useBankSettingsActions({
     ) {
       return;
     }
+    // 与增改排序不同:删除会清掉题目上的 masteryOptionId / errorReasonOptionIds,
+    // 属于题目复习状态变更,必须记入当天掌握历史。
     const applied = updateReviewBank((current) => ({
       ...replaceOptions(
         current,

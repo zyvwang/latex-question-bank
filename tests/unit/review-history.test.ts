@@ -9,7 +9,8 @@ import {
   oldestMasteryHistoryId,
   recordReviewMutation,
   renameMasteryHistory,
-  restoreMasteryHistoryState
+  restoreMasteryHistoryState,
+  type ReviewMutationResult
 } from "../../src/review-history.js";
 
 describe("review history", () => {
@@ -17,13 +18,13 @@ describe("review history", () => {
     const initial = createSampleBank();
     const morning = localDate(2026, 7, 25, 9);
     const evening = localDate(2026, 7, 25, 21);
-    const first = recordReviewMutation(
+    const first = expectOk(recordReviewMutation(
       initial,
       (bank) => updateFirstItem(bank, {
         masteryOptionId: "mastery-hard"
       }),
       mutationOptions(morning, "history-day-1")
-    );
+    ));
 
     expect(first.masteryHistory).toHaveLength(1);
     expect(first.masteryHistory[0]).toMatchObject({
@@ -36,13 +37,13 @@ describe("review history", () => {
     expect(first.masteryHistory[0].itemStates[first.items[0].id])
       .toMatchObject({ masteryOptionId: "mastery-hard" });
 
-    const second = recordReviewMutation(
+    const second = expectOk(recordReviewMutation(
       first,
       (bank) => updateFirstItem(bank, {
         errorReasonOptionIds: ["error-knowledge", "error-method"]
       }),
       mutationOptions(evening, "must-not-create")
-    );
+    ));
     expect(second.masteryHistory).toHaveLength(1);
     expect(second.masteryHistory[0]).toMatchObject({
       id: "history-day-1",
@@ -59,26 +60,30 @@ describe("review history", () => {
   it("requires an explicit deletion before creating a sixth daily snapshot", () => {
     let bank = createSampleBank();
     for (let day = 21; day <= 25; day += 1) {
-      bank = recordReviewMutation(
+      bank = expectOk(recordReviewMutation(
         bank,
         (current) => updateFirstItem(current, {
           masteryOptionId: day % 2 ? "mastery-hard" : "mastery-easy"
         }),
         mutationOptions(localDate(2026, 7, day, 12), `history-${day}`)
-      );
+      ));
     }
     const sixthDay = localDate(2026, 7, 26, 12);
     expect(needsHistoryCapacityDecision(bank, sixthDay)).toBe(true);
     expect(oldestMasteryHistoryId(bank.masteryHistory)).toBe("history-21");
-    expect(() =>
+    // 校验失败必须以 Result 返回:抛异常会在 setBank 的 updater 里炸开整棵树。
+    expect(
       recordReviewMutation(
         bank,
         (current) => current,
         mutationOptions(sixthDay, "history-26")
       )
-    ).toThrow("必须选择一份历史删除");
+    ).toEqual({
+      ok: false,
+      error: expect.stringContaining("必须选择一份历史删除")
+    });
 
-    const next = recordReviewMutation(
+    const next = expectOk(recordReviewMutation(
       bank,
       (current) => updateFirstItem(current, {
         masteryOptionId: "mastery-challenging"
@@ -87,7 +92,7 @@ describe("review history", () => {
         ...mutationOptions(sixthDay, "history-26"),
         deleteHistoryId: "history-21"
       }
-    );
+    ));
     expect(next.masteryHistory).toHaveLength(5);
     expect(next.masteryHistory.map((entry) => entry.localDate)).toEqual([
       "2026-07-22",
@@ -101,41 +106,51 @@ describe("review history", () => {
   it("normalizes unique names and suffixes automatic conflicts", () => {
     const firstDate = localDate(2026, 7, 25, 12);
     const secondDate = localDate(2026, 7, 26, 12);
-    let bank = recordReviewMutation(
+    let bank = expectOk(recordReviewMutation(
       createSampleBank(),
       (current) => current,
       mutationOptions(firstDate, "history-first")
-    );
-    bank = renameMasteryHistory(
+    ));
+    bank = expectOk(renameMasteryHistory(
       bank,
       "history-first",
       defaultMasteryHistoryName("示例题库", secondDate),
       firstDate
-    );
-    bank = recordReviewMutation(
+    ));
+    bank = expectOk(recordReviewMutation(
       bank,
       (current) => current,
       mutationOptions(secondDate, "history-second")
-    );
+    ));
     expect(bank.masteryHistory[1].name).toBe("示例题库 · 2026-Jul-26 (2)");
 
-    expect(() =>
+    expect(
       renameMasteryHistory(
         bank,
         "history-second",
         "  示例题库 · ２０２６－ＪＵＬ－２６  ",
         secondDate
       )
-    ).toThrow("历史名称已存在");
+    ).toEqual({ ok: false, error: expect.stringContaining("历史名称已存在") });
+    expect(renameMasteryHistory(bank, "history-second", "   ", secondDate))
+      .toEqual({ ok: false, error: expect.stringContaining("不能为空") });
+  });
+
+  it("reports a missing history instead of throwing", () => {
+    expect(restoreMasteryHistoryState(
+      createSampleBank(),
+      "does-not-exist",
+      localDate(2026, 7, 26, 12)
+    )).toEqual({ ok: false, error: expect.stringContaining("掌握历史不存在") });
   });
 
   it("restores existing items, preserves new items, and merges option definitions", () => {
     const snapshotDate = localDate(2026, 7, 24, 12);
-    const captured = recordReviewMutation(
+    const captured = expectOk(recordReviewMutation(
       createSampleBank(),
       (current) => current,
       mutationOptions(snapshotDate, "history-snapshot")
-    );
+    ));
     const firstId = captured.items[0].id;
     const removedId = captured.items[1].id;
     const newItem: QuestionItem = {
@@ -177,11 +192,11 @@ describe("review history", () => {
         newItem
       ]
     };
-    const restored = restoreMasteryHistoryState(
+    const restored = expectOk(restoreMasteryHistoryState(
       changed,
       "history-snapshot",
       localDate(2026, 7, 26, 12)
-    );
+    ));
 
     expect(restored.items.find((item) => item.id === firstId)).toMatchObject({
       masteryOptionId: "replacement-challenging",
@@ -202,18 +217,18 @@ describe("review history", () => {
   it("records a restore in today's history and deletes only product history", () => {
     const firstDate = localDate(2026, 7, 24, 12);
     const secondDate = localDate(2026, 7, 25, 12);
-    const captured = recordReviewMutation(
+    const captured = expectOk(recordReviewMutation(
       createSampleBank(),
       (current) => current,
       mutationOptions(firstDate, "history-old")
-    );
+    ));
     const changed = updateFirstItem(captured, { masteryOptionId: null });
-    const restored = recordReviewMutation(
+    const restored = expectOk(recordReviewMutation(
       changed,
       (current) =>
-        restoreMasteryHistoryState(current, "history-old", secondDate),
+        expectOk(restoreMasteryHistoryState(current, "history-old", secondDate)),
       mutationOptions(secondDate, "history-restore")
-    );
+    ));
 
     expect(restored.masteryHistory).toHaveLength(2);
     expect(restored.masteryHistory[1].itemStates[restored.items[0].id])
@@ -227,6 +242,13 @@ describe("review history", () => {
     expect(localDateKey(date)).toBe("2026-01-02");
   });
 });
+
+function expectOk(result: ReviewMutationResult): Bank {
+  if (!result.ok) {
+    throw new Error(`预期变更成功，实际失败：${result.error}`);
+  }
+  return result.bank;
+}
 
 function mutationOptions(now: Date, id: string) {
   return {

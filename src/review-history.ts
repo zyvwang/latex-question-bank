@@ -1,4 +1,5 @@
 import {
+  MAX_MASTERY_HISTORY_ENTRIES,
   normalizeReviewOptionOrder,
   normalizeUniqueName
 } from "../shared/review-options.js";
@@ -15,6 +16,14 @@ export interface ReviewHistoryMutationOptions {
   createId: () => string;
   deleteHistoryId?: string;
 }
+
+/**
+ * 这些变更由 React 事件处理器驱动,结果最终会喂给 setBank。抛异常会在 render
+ * 阶段炸开并卸载整棵树,所以校验失败一律以 Result 返回,由调用方转成 notice。
+ */
+export type ReviewMutationResult =
+  | { ok: true; bank: Bank }
+  | { ok: false; error: string };
 
 export function localDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -39,7 +48,7 @@ export function defaultMasteryHistoryName(
 export function needsHistoryCapacityDecision(bank: Bank, now: Date): boolean {
   const today = localDateKey(now);
   return (
-    bank.masteryHistory.length >= 5 &&
+    bank.masteryHistory.length >= MAX_MASTERY_HISTORY_ENTRIES &&
     !bank.masteryHistory.some((entry) => entry.localDate === today)
   );
 }
@@ -54,7 +63,7 @@ export function recordReviewMutation(
   bank: Bank,
   mutate: (current: Bank) => Bank,
   options: ReviewHistoryMutationOptions
-): Bank {
+): ReviewMutationResult {
   const needsCapacity = needsHistoryCapacityDecision(bank, options.now);
   const mutated = mutate(bank);
   let base = mutated;
@@ -63,7 +72,7 @@ export function recordReviewMutation(
       !options.deleteHistoryId ||
       !bank.masteryHistory.some((entry) => entry.id === options.deleteHistoryId)
     ) {
-      throw new Error("创建今日掌握历史前必须选择一份历史删除。");
+      return { ok: false, error: "创建今日掌握历史前必须选择一份历史删除。" };
     }
     base = deleteMasteryHistory(mutated, options.deleteHistoryId);
   }
@@ -80,24 +89,27 @@ export function renameMasteryHistory(
   id: string,
   name: string,
   now: Date
-): Bank {
+): ReviewMutationResult {
   const normalized = normalizeUniqueName(name);
-  if (!normalized) throw new Error("历史名称不能为空。");
+  if (!normalized) return { ok: false, error: "历史名称不能为空。" };
   if (
     bank.masteryHistory.some(
       (entry) =>
         entry.id !== id && normalizeUniqueName(entry.name) === normalized
     )
   ) {
-    throw new Error("历史名称已存在。");
+    return { ok: false, error: "历史名称已存在。" };
   }
   const nextName = name.trim().normalize("NFKC");
   const updatedAt = now.toISOString();
   return {
-    ...bank,
-    masteryHistory: bank.masteryHistory.map((entry) =>
-      entry.id === id ? { ...entry, name: nextName, updatedAt } : entry
-    )
+    ok: true,
+    bank: {
+      ...bank,
+      masteryHistory: bank.masteryHistory.map((entry) =>
+        entry.id === id ? { ...entry, name: nextName, updatedAt } : entry
+      )
+    }
   };
 }
 
@@ -112,9 +124,9 @@ export function restoreMasteryHistoryState(
   bank: Bank,
   id: string,
   now: Date
-): Bank {
+): ReviewMutationResult {
   const entry = bank.masteryHistory.find((candidate) => candidate.id === id);
-  if (!entry) throw new Error("掌握历史不存在。");
+  if (!entry) return { ok: false, error: "掌握历史不存在。" };
   const mastery = mergeHistoricalOptions(
     bank.masteryOptions,
     entry.masteryOptions
@@ -125,26 +137,29 @@ export function restoreMasteryHistoryState(
   );
   const updatedAt = now.toISOString();
   return {
-    ...bank,
-    masteryOptions: mastery.options,
-    errorReasonOptions: errors.options,
-    items: bank.items.map((item) => {
-      const state = entry.itemStates[item.id];
-      if (!state) return item;
-      return {
-        ...item,
-        masteryOptionId:
-          state.masteryOptionId === null
-            ? null
-            : (mastery.idMap.get(state.masteryOptionId) ?? null),
-        errorReasonOptionIds: unique(
-          state.errorReasonOptionIds
-            .map((optionId) => errors.idMap.get(optionId))
-            .filter((optionId): optionId is string => Boolean(optionId))
-        ),
-        updatedAt
-      };
-    })
+    ok: true,
+    bank: {
+      ...bank,
+      masteryOptions: mastery.options,
+      errorReasonOptions: errors.options,
+      items: bank.items.map((item) => {
+        const state = entry.itemStates[item.id];
+        if (!state) return item;
+        return {
+          ...item,
+          masteryOptionId:
+            state.masteryOptionId === null
+              ? null
+              : (mastery.idMap.get(state.masteryOptionId) ?? null),
+          errorReasonOptionIds: unique(
+            state.errorReasonOptionIds
+              .map((optionId) => errors.idMap.get(optionId))
+              .filter((optionId): optionId is string => Boolean(optionId))
+          ),
+          updatedAt
+        };
+      })
+    }
   };
 }
 
@@ -159,7 +174,7 @@ function captureDailyMasteryHistory(
   workspaceName: string,
   now: Date,
   createId: () => string
-): Bank {
+): ReviewMutationResult {
   const localDate = localDateKey(now);
   const timestamp = now.toISOString();
   const itemStates = Object.fromEntries(
@@ -181,16 +196,19 @@ function captureDailyMasteryHistory(
   );
   if (existing) {
     return {
-      ...bank,
-      masteryHistory: bank.masteryHistory.map((entry) =>
-        entry.id === existing.id
-          ? { ...entry, ...snapshot, updatedAt: timestamp }
-          : entry
-      )
+      ok: true,
+      bank: {
+        ...bank,
+        masteryHistory: bank.masteryHistory.map((entry) =>
+          entry.id === existing.id
+            ? { ...entry, ...snapshot, updatedAt: timestamp }
+            : entry
+        )
+      }
     };
   }
-  if (bank.masteryHistory.length >= 5) {
-    throw new Error("掌握历史最多保留五份。");
+  if (bank.masteryHistory.length >= MAX_MASTERY_HISTORY_ENTRIES) {
+    return { ok: false, error: "掌握历史最多保留五份。" };
   }
   const baseName = defaultMasteryHistoryName(workspaceName, now);
   const entry: MasteryHistoryEntry = {
@@ -201,7 +219,10 @@ function captureDailyMasteryHistory(
     updatedAt: timestamp,
     ...snapshot
   };
-  return { ...bank, masteryHistory: [...bank.masteryHistory, entry] };
+  return {
+    ok: true,
+    bank: { ...bank, masteryHistory: [...bank.masteryHistory, entry] }
+  };
 }
 
 function uniqueHistoryName(
