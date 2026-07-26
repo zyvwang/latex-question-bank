@@ -133,7 +133,7 @@
 .emptyChapter { margin: 13px 0; color: var(--muted); font-size: 12px; }
 
 .cell {
-  --cell-color: #858681;
+  --cell-color: var(--review-unset);
   --cell-text: #ffffff;
   position: relative;
   width: 48px;

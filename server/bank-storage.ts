@@ -12,6 +12,7 @@ import {
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import {
   isNotFound,
+  MAX_HISTORY_SNAPSHOTS,
   parseStoredBank,
   requireValidBank,
   revisionForContent,
@@ -95,5 +96,9 @@ async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision:
     .filter((file) => file.endsWith(".json"))
     .sort()
     .reverse();
-  await Promise.all(files.slice(10).map((file) => rm(path.join(dirs.historyDir, file), { force: true })));
+  await Promise.all(
+    files
+      .slice(MAX_HISTORY_SNAPSHOTS)
+      .map((file) => rm(path.join(dirs.historyDir, file), { force: true }))
+  );
 }

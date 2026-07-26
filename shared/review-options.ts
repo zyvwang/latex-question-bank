@@ -1,6 +1,13 @@
 import type { ReviewOption } from "./types.js";
 
+/** 未设置掌握程度/错误原因的中性色。CSS 侧对应 foundation.css 的 --review-unset。 */
 export const UNSET_REVIEW_COLOR = "#858681";
+
+/**
+ * 按日掌握历史的保留上限。前端的容量决策(src/review-history.ts)和持久化校验
+ * (shared/bank-validation.ts)必须用同一个值,否则会出现 UI 允许保存但服务端拒收。
+ */
+export const MAX_MASTERY_HISTORY_ENTRIES = 5;
 
 export const DEFAULT_MASTERY_OPTIONS: ReviewOption[] = [
   {

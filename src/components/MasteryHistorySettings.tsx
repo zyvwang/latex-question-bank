@@ -6,6 +6,7 @@ import type {
   ReviewOption
 } from "../../shared/types.js";
 import { useQuestions, useReview } from "../context/questionBankContexts.js";
+import { MAX_MASTERY_HISTORY_ENTRIES } from "../../shared/review-options.js";
 import { sortMasteryHistoryNewestFirst } from "../review-history.js";
 import controls from "../styles/controls.module.css";
 import settings from "./SettingsScreen.module.css";
@@ -42,7 +43,7 @@ export function MasteryHistorySettings() {
         </div>
         <strong className={styles.capacity}>
           <History size={16} aria-hidden="true" />
-          {entries.length} / 5
+          {entries.length} / {MAX_MASTERY_HISTORY_ENTRIES}
         </strong>
       </header>
       {selected ? (

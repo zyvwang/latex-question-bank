@@ -13,6 +13,8 @@
   --coral: oklch(0.543 0.137 31.5);
   --amber: oklch(0.573 0.122 73.2);
   --blue: oklch(0.469 0.096 253.9);
+  /* 未设置掌握程度/错误原因的中性色。必须与 shared/review-options.ts 的 UNSET_REVIEW_COLOR 一致。 */
+  --review-unset: #858681;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;

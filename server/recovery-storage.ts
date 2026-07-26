@@ -6,6 +6,7 @@ import { withWorkspaceWriteLock } from "./storage-lock.js";
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import {
   isNotFound,
+  MAX_HISTORY_SNAPSHOTS,
   parseStoredBank,
   revisionForContent,
   serializeJson
@@ -30,7 +31,7 @@ async function listRecoveryCandidatesForDirs(dirs: WorkspaceDirs): Promise<Recov
       .filter((file) => file.endsWith(".json"))
       .sort()
       .reverse();
-    for (const file of files.slice(0, 10)) {
+    for (const file of files.slice(0, MAX_HISTORY_SNAPSHOTS)) {
       const candidate = await recoveryCandidateFromFile(
         file,
         path.join(dirs.historyDir, file),

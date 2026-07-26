@@ -5,6 +5,12 @@ import type { Bank } from "../shared/types.js";
 import { validateBankPayload } from "../shared/validation.js";
 import { StorageError } from "./storage-types.js";
 
+/**
+ * `.history/` 保留的磁盘快照份数。写侧的裁剪(bank-storage)和读侧的候选枚举
+ * (recovery-storage)必须用同一个值,否则会列出已被裁掉的候选或漏列可恢复版本。
+ */
+export const MAX_HISTORY_SNAPSHOTS = 10;
+
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath, constants.R_OK);

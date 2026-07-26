@@ -3,6 +3,7 @@ import { normalizeChapterItemOrders } from "./chapter-order.js";
 import {
   hasUniqueNormalizedNames,
   isHexColor,
+  MAX_MASTERY_HISTORY_ENTRIES,
   normalizeReviewOptionOrder
 } from "./review-options.js";
 import type {
@@ -114,7 +115,7 @@ export function parseV2Bank(value: unknown): Bank {
     }
   }
 
-  if (value.masteryHistory.length > 5) {
+  if (value.masteryHistory.length > MAX_MASTERY_HISTORY_ENTRIES) {
     throw new ValidationError("掌握历史最多保留五份。");
   }
   const masteryHistory = value.masteryHistory.map(parseMasteryHistoryEntry);

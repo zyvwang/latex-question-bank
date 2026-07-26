@@ -23,7 +23,7 @@
 }
 
 .mark {
-  --mark-color: #858681;
+  --mark-color: var(--review-unset);
   width: 10px;
   height: 10px;
   flex: 0 0 auto;

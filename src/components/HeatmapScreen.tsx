@@ -11,6 +11,7 @@ import {
   useQuestions
 } from "../context/questionBankContexts.js";
 import { buildHeatmapGroups } from "../heatmap.js";
+import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
 import type { ModuleKind } from "../../shared/types.js";
 import { HeatmapGrid } from "./HeatmapGrid.js";
 import { HeatmapPreview } from "./HeatmapPreview.js";
@@ -194,11 +195,11 @@ function HeatmapLegend({
   mode: ReturnType<typeof useAppView>["heatmapMode"];
 }) {
   const mastery = [
-    { id: "unset-mastery", name: "未设置", color: "#858681", pattern: "dots" as const },
+    { id: "unset-mastery", name: "未设置", color: UNSET_REVIEW_COLOR, pattern: "dots" as const },
     ...bank.masteryOptions
   ];
   const errors = [
-    { id: "unset-error", name: "未设置", color: "#858681", pattern: "dots" as const },
+    { id: "unset-error", name: "未设置", color: UNSET_REVIEW_COLOR, pattern: "dots" as const },
     ...bank.errorReasonOptions
   ];
   return (

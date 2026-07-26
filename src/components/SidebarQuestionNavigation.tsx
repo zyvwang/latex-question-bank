@@ -20,6 +20,7 @@ import {
   UNCATEGORIZED_FILTER,
   UNSET_REVIEW_FILTER
 } from "../questionFilters.js";
+import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
 import metadataStyles from "./MetadataTokens.module.css";
 import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import styles from "./Sidebar.module.css";
@@ -124,7 +125,7 @@ function FilterPanel() {
               selected={selection.masteryFilters}
               onChange={selection.setMasteryFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: "#858681" },
+                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
                 ...review.masteryOptions.map((option) => ({
                   value: option.id,
                   label: option.name,
@@ -139,7 +140,7 @@ function FilterPanel() {
               selected={selection.errorReasonFilters}
               onChange={selection.setErrorReasonFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: "#858681" },
+                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
                 ...review.errorReasonOptions.map((option) => ({
                   value: option.id,
                   label: option.name,
