@@ -123,6 +123,12 @@ await writeFile(fullPath, buildFullLatex(exportItems, defaultSettings), "utf8");
 const texStatus = await detectTexInstallation();
 if (!texStatus.available) {
   await rm(sourceAssetPath, { force: true });
+  // CI 里必须真的编译:否则 "verify 通过" 只证明了 tex 文件写出来了,没证明能出 PDF。
+  if (process.env.LQB_REQUIRE_TEX === "1") {
+    throw new Error(
+      `LQB_REQUIRE_TEX=1 要求真实编译，但未检测到 TeX：${texStatus.message}`
+    );
+  }
   console.log(`Verification export skipped PDF compile: ${texStatus.message}`);
   console.log(`- ${questionsPath}`);
   console.log(`- ${fullPath}`);

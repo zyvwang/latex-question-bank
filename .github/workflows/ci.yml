@@ -22,6 +22,37 @@ jobs:
       - run: npm ci
       - run: npm run verify
 
+  # PR 上的 verify job 没有 TeX，scripts/verify-export.ts 会跳过真实编译并成功退出。
+  # 这个 job 是「导出真的能编译出 PDF」的唯一凭据；放在 PR 之外跑，不拖慢代码评审。
+  latex-export:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # 对应 server/latex-renderer.ts 的 basePreamble()：
+      # ctexart + fandol 字体、xelatex、mathtools/extarrows/listings、tikz/pgfplots。
+      - name: Install minimal TeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            latexmk \
+            texlive-xetex \
+            texlive-lang-chinese \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-pictures \
+            texlive-fonts-recommended
+      - name: Verify real PDF export
+        env:
+          LQB_WORKSPACE_DIR: .tmp/verify-workspace
+          LQB_REQUIRE_TEX: "1"
+        run: npx tsx scripts/verify-export.ts
+
   desktop-smoke:
     strategy:
       fail-fast: false
