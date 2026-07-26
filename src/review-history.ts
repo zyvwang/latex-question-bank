@@ -7,6 +7,7 @@ import type {
   Bank,
   MasteryHistoryEntry,
   MasteryHistoryItemState,
+  QuestionItem,
   ReviewOption
 } from "../shared/types.js";
 
@@ -82,6 +83,31 @@ export function recordReviewMutation(
     options.now,
     options.createId
   );
+}
+
+/**
+ * 只比较进快照的两个字段。不能退化成 `previous === item` 的引用比较:
+ * useBankSettingsActions 的 deleteReviewOption 会 map 全部 items 换掉每个引用,
+ * 但其中绝大多数题目的复习状态并没有变。
+ */
+function reviewStateDiffers(
+  previous: MasteryHistoryItemState,
+  item: QuestionItem
+): boolean {
+  if (previous.masteryOptionId !== item.masteryOptionId) return true;
+  if (previous.errorReasonOptionIds.length !== item.errorReasonOptionIds.length) {
+    return true;
+  }
+  return previous.errorReasonOptionIds.some(
+    (optionId, index) => optionId !== item.errorReasonOptionIds[index]
+  );
+}
+
+function itemStateOf(item: QuestionItem): MasteryHistoryItemState {
+  return {
+    masteryOptionId: item.masteryOptionId,
+    errorReasonOptionIds: [...item.errorReasonOptionIds]
+  };
 }
 
 export function renameMasteryHistory(
@@ -177,20 +203,6 @@ function captureDailyMasteryHistory(
 ): ReviewMutationResult {
   const localDate = localDateKey(now);
   const timestamp = now.toISOString();
-  const itemStates = Object.fromEntries(
-    bank.items.map((item) => [
-      item.id,
-      {
-        masteryOptionId: item.masteryOptionId,
-        errorReasonOptionIds: [...item.errorReasonOptionIds]
-      } satisfies MasteryHistoryItemState
-    ])
-  );
-  const snapshot = {
-    masteryOptions: cloneOptions(bank.masteryOptions),
-    errorReasonOptions: cloneOptions(bank.errorReasonOptions),
-    itemStates
-  };
   const existing = bank.masteryHistory.find(
     (entry) => entry.localDate === localDate
   );
@@ -201,7 +213,13 @@ function captureDailyMasteryHistory(
         ...bank,
         masteryHistory: bank.masteryHistory.map((entry) =>
           entry.id === existing.id
-            ? { ...entry, ...snapshot, updatedAt: timestamp }
+            ? {
+                ...entry,
+                masteryOptions: cloneOptions(bank.masteryOptions),
+                errorReasonOptions: cloneOptions(bank.errorReasonOptions),
+                itemStates: patchItemStates(existing.itemStates, bank.items),
+                updatedAt: timestamp
+              }
             : entry
         )
       }
@@ -211,18 +229,45 @@ function captureDailyMasteryHistory(
     return { ok: false, error: "掌握历史最多保留五份。" };
   }
   const baseName = defaultMasteryHistoryName(workspaceName, now);
+  // 每天首次复习才走这条全量路径,一天一次的 O(N) 可以接受。
   const entry: MasteryHistoryEntry = {
     id: createId(),
     localDate,
     name: uniqueHistoryName(baseName, bank.masteryHistory),
     createdAt: timestamp,
     updatedAt: timestamp,
-    ...snapshot
+    masteryOptions: cloneOptions(bank.masteryOptions),
+    errorReasonOptions: cloneOptions(bank.errorReasonOptions),
+    itemStates: Object.fromEntries(
+      bank.items.map((item) => [item.id, itemStateOf(item)])
+    )
   };
   return {
     ok: true,
     bank: { ...bank, masteryHistory: [...bank.masteryHistory, entry] }
   };
+}
+
+/**
+ * 当天条目每次复习变更都要刷新,但整天下来只有零星几道题真的换了状态。全量重建
+ * 会给 1000 题的库每次点击分配 ~2N 个对象(N 个 state + N 个 id 数组),所以这里
+ * 只为真正变化的题新建对象,其余按引用复用。
+ *
+ * 键集合取自当前 items,会话中途增删题目也能自然对上。
+ */
+function patchItemStates(
+  previous: MasteryHistoryEntry["itemStates"],
+  items: QuestionItem[]
+): MasteryHistoryEntry["itemStates"] {
+  const itemStates: MasteryHistoryEntry["itemStates"] = {};
+  for (const item of items) {
+    const previousState = previous[item.id];
+    itemStates[item.id] =
+      previousState && !reviewStateDiffers(previousState, item)
+        ? previousState
+        : itemStateOf(item);
+  }
+  return itemStates;
 }
 
 function uniqueHistoryName(

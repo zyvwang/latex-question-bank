@@ -57,6 +57,98 @@ describe("review history", () => {
     });
   });
 
+  it("reuses the stored state object for questions whose review state did not change", () => {
+    const morning = localDate(2026, 7, 25, 9);
+    const evening = localDate(2026, 7, 25, 21);
+    const first = expectOk(recordReviewMutation(
+      createSampleBank(),
+      (bank) => updateFirstItem(bank, { masteryOptionId: "mastery-hard" }),
+      mutationOptions(morning, "history-day-1")
+    ));
+    const untouchedId = first.items[1].id;
+    const storedBefore = first.masteryHistory[0].itemStates[untouchedId];
+
+    const second = expectOk(recordReviewMutation(
+      first,
+      (bank) => updateFirstItem(bank, { masteryOptionId: "mastery-easy" }),
+      mutationOptions(evening, "must-not-create")
+    ));
+
+    // 行为契约,不是实现细节:整天下来只有零星几道题真的换状态。全量重建会给
+    // 1000 题的库在每次点击时分配 ~2N 个对象,所以未变动的必须按引用复用。
+    expect(second.masteryHistory[0].itemStates[untouchedId]).toBe(storedBefore);
+    expect(second.masteryHistory[0].itemStates[first.items[0].id]).toMatchObject({
+      masteryOptionId: "mastery-easy"
+    });
+  });
+
+  it("reuses stored states when every question object is replaced but no review state changes", () => {
+    const morning = localDate(2026, 7, 25, 9);
+    const evening = localDate(2026, 7, 25, 21);
+    const first = expectOk(recordReviewMutation(
+      createSampleBank(),
+      (bank) => updateFirstItem(bank, { masteryOptionId: "mastery-hard" }),
+      mutationOptions(morning, "history-day-1")
+    ));
+    const storedBefore = { ...first.masteryHistory[0].itemStates };
+
+    // deleteReviewOption 的形状:map 全部 items 换掉每个引用,但只有引用了被删
+    // 选项的题真的变了。复用判断因此不能退化成对 QuestionItem 的引用比较。
+    const second = expectOk(recordReviewMutation(
+      first,
+      (bank) => ({
+        ...bank,
+        items: bank.items.map((item) => ({
+          ...item,
+          updatedAt: evening.toISOString()
+        }))
+      }),
+      mutationOptions(evening, "must-not-create")
+    ));
+
+    for (const item of second.items) {
+      expect(second.masteryHistory[0].itemStates[item.id]).toBe(storedBefore[item.id]);
+    }
+  });
+
+  it("tracks questions added and removed after the day's snapshot exists", () => {
+    const morning = localDate(2026, 7, 25, 9);
+    const noon = localDate(2026, 7, 25, 12);
+    const evening = localDate(2026, 7, 25, 21);
+    const first = expectOk(recordReviewMutation(
+      createSampleBank(),
+      (bank) => updateFirstItem(bank, { masteryOptionId: "mastery-hard" }),
+      mutationOptions(morning, "history-day-1")
+    ));
+    const removedId = first.items[0].id;
+
+    const withAdded = expectOk(recordReviewMutation(
+      first,
+      (bank) => ({
+        ...bank,
+        items: [...bank.items, addedItem(bank.items[0], "added-item")]
+      }),
+      mutationOptions(noon, "must-not-create")
+    ));
+    expect(withAdded.masteryHistory[0].itemStates["added-item"]).toEqual({
+      masteryOptionId: "mastery-easy",
+      errorReasonOptionIds: []
+    });
+
+    const withRemoved = expectOk(recordReviewMutation(
+      withAdded,
+      (bank) => ({
+        ...bank,
+        items: bank.items.filter((item) => item.id !== removedId)
+      }),
+      mutationOptions(evening, "must-not-create")
+    ));
+    expect(withRemoved.masteryHistory[0].itemStates).not.toHaveProperty(removedId);
+    expect(Object.keys(withRemoved.masteryHistory[0].itemStates)).toHaveLength(
+      withRemoved.items.length
+    );
+  });
+
   it("requires an explicit deletion before creating a sixth daily snapshot", () => {
     let bank = createSampleBank();
     for (let day = 21; day <= 25; day += 1) {
@@ -277,4 +369,15 @@ function localDate(
   hour: number
 ): Date {
   return new Date(year, month - 1, day, hour, 0, 0, 0);
+}
+
+function addedItem(template: QuestionItem, id: string): QuestionItem {
+  return {
+    ...template,
+    id,
+    sourceNumber: "",
+    chapterOrder: template.chapterOrder + 1,
+    masteryOptionId: "mastery-easy",
+    errorReasonOptionIds: []
+  };
 }

@@ -67,3 +67,13 @@ Heatmap navigation and preview actions do not write history and do not introduce
 - Restore is itself a review mutation and is recorded in the current local date.
 
 The workspace `.history/` directory and `bank.json.bak` remain disk disaster-recovery storage. They are not the same as mastery history and are not changed by deleting a mastery-history record.
+
+### Snapshot cost
+
+Every review mutation refreshes that day's record, but a day only changes the state of a handful of questions. `patchItemStates` therefore rebuilds the `itemStates` container while reusing the stored state object by reference for every question whose `masteryOptionId` and `errorReasonOptionIds` are unchanged. Rebuilding the whole map instead would allocate roughly `2N` objects per click on a 1000-question bank.
+
+Reuse is decided by comparing those two fields, never by comparing `QuestionItem` references: deleting a review option replaces every item object while leaving almost every review state untouched. `tests/unit/review-history.test.ts` pins both cases.
+
+Only the first review of a local day takes the full `O(N)` path that creates the record.
+
+Storage stays bounded at five records times the question count. One serialized `itemStates` entry is about 181 bytes, so 1000 questions times five records adds roughly 884 KiB to `bank.json` — about +60% against a bank whose questions average 1.4 KiB of LaTeX, and proportionally less as question bodies grow. This is an accepted design limit. Removing it would require moving `masteryHistory` out of `bank.json` into its own revision-checked file, which is a schema change and is not planned.
