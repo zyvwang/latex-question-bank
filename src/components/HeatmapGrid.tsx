@@ -1,11 +1,7 @@
 import { memo, useCallback, useMemo } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
-import type {
-  Bank,
-  QuestionItem,
-  ReviewOption
-} from "../../shared/types.js";
+import type { Bank, ReviewOption } from "../../shared/types.js";
 import { bestTextColor } from "../color-contrast.js";
 import {
   describeHeatmapItem,
@@ -89,26 +85,37 @@ export function HeatmapGrid({
           </header>
           {group.items.length ? (
             <div className={styles.cells}>
-              {group.items.map((item) => (
-                <HeatmapCell
-                  key={item.id}
-                  bank={bank}
-                  group={group}
-                  item={item}
-                  mode={mode}
-                  focused={focusedId === item.id}
-                  previewed={previewedId === item.id}
-                  mastery={item.masteryOptionId
-                    ? (masteryById.get(item.masteryOptionId) ?? null)
-                    : null}
-                  errors={errorsByItemId.get(item.id) ?? emptyErrors}
-                  onFocusedIdChange={onFocusedIdChange}
-                  onPreviewStart={onPreviewStart}
-                  onPreviewEnd={onPreviewEnd}
-                  onOpenItem={onOpenItem}
-                  onKeyDown={handleKeyDown}
-                />
-              ))}
+              {group.items.map((item) => {
+                const mastery = item.masteryOptionId
+                  ? (masteryById.get(item.masteryOptionId) ?? null)
+                  : null;
+                const errors = errorsByItemId.get(item.id) ?? emptyErrors;
+                return (
+                  <HeatmapCell
+                    key={item.id}
+                    itemId={item.id}
+                    chapterOrder={item.chapterOrder}
+                    sourceNumber={item.sourceNumber}
+                    description={describeHeatmapItem({
+                      chapterName: group.name,
+                      chapterOrder: item.chapterOrder,
+                      sourceNumber: item.sourceNumber,
+                      masteryName: mastery?.name,
+                      errorReasonNames: errors.map((option) => option.name)
+                    })}
+                    mode={mode}
+                    focused={focusedId === item.id}
+                    previewed={previewedId === item.id}
+                    mastery={mastery}
+                    errors={errors}
+                    onFocusedIdChange={onFocusedIdChange}
+                    onPreviewStart={onPreviewStart}
+                    onPreviewEnd={onPreviewEnd}
+                    onOpenItem={onOpenItem}
+                    onKeyDown={handleKeyDown}
+                  />
+                );
+              })}
             </div>
           ) : (
             <p className={styles.emptyChapter}>暂无题目</p>
@@ -119,10 +126,15 @@ export function HeatmapGrid({
   );
 }
 
+/**
+ * props 里刻意不出现 bank 或 group:两者每次题库变更都换引用,传进来会让 memo 恒失效,
+ * 而格子数量是 1000 题量级。这里只收已解析好的标量和选项对象。
+ */
 const HeatmapCell = memo(function HeatmapCell({
-  bank,
-  group,
-  item,
+  itemId,
+  chapterOrder,
+  sourceNumber,
+  description,
   mode,
   focused,
   previewed,
@@ -134,9 +146,10 @@ const HeatmapCell = memo(function HeatmapCell({
   onOpenItem,
   onKeyDown
 }: {
-  bank: Bank;
-  group: HeatmapGroup;
-  item: QuestionItem;
+  itemId: string;
+  chapterOrder: number;
+  sourceNumber?: string;
+  description: string;
   mode: HeatmapMode;
   focused: boolean;
   previewed: boolean;
@@ -159,8 +172,8 @@ const HeatmapCell = memo(function HeatmapCell({
   } as CSSProperties;
   return (
     <button
-      id={`heatmap-cell-${item.id}`}
-      data-heatmap-cell={item.id}
+      id={`heatmap-cell-${itemId}`}
+      data-heatmap-cell={itemId}
       data-heatmap-mode={mode}
       data-error-count={errors.length}
       className={[
@@ -170,17 +183,17 @@ const HeatmapCell = memo(function HeatmapCell({
       ].filter(Boolean).join(" ")}
       style={style}
       tabIndex={focused ? 0 : -1}
-      aria-label={describeHeatmapItem(bank, group, item)}
-      title={item.sourceNumber?.trim() || `章内第 ${item.chapterOrder} 题`}
+      aria-label={description}
+      title={sourceNumber?.trim() || `章内第 ${chapterOrder} 题`}
       onFocus={() => {
-        onFocusedIdChange(item.id);
-        onPreviewStart(item.id, "focus");
+        onFocusedIdChange(itemId);
+        onPreviewStart(itemId, "focus");
       }}
       onBlur={() => onPreviewEnd("focus")}
-      onMouseEnter={() => onPreviewStart(item.id, "hover")}
+      onMouseEnter={() => onPreviewStart(itemId, "hover")}
       onMouseLeave={() => onPreviewEnd("hover")}
-      onClick={() => onOpenItem(item.id)}
-      onKeyDown={(event) => onKeyDown(event, item.id)}
+      onClick={() => onOpenItem(itemId)}
+      onKeyDown={(event) => onKeyDown(event, itemId)}
     >
       {mode === "errorReason" && (
         <span
@@ -197,7 +210,7 @@ const HeatmapCell = memo(function HeatmapCell({
           ))}
         </span>
       )}
-      <strong>{item.chapterOrder}</strong>
+      <strong>{chapterOrder}</strong>
       {mode === "combined" && errors.length > 0 && (
         <span
           className={styles.errorMarks}

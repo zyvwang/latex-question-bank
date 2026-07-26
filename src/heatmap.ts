@@ -38,26 +38,27 @@ export function buildHeatmapGroups(bank: Bank): HeatmapGroup[] {
   return groups;
 }
 
-export function describeHeatmapItem(
-  bank: Bank,
-  group: HeatmapGroup,
-  item: QuestionItem
-): string {
-  const mastery =
-    bank.masteryOptions.find((option) => option.id === item.masteryOptionId)?.name ??
-    "未设置";
-  const errorReasons = item.errorReasonOptionIds
-    .map(
-      (id) =>
-        bank.errorReasonOptions.find((option) => option.id === id)?.name
-    )
-    .filter((name): name is string => Boolean(name));
+export interface HeatmapItemDescription {
+  chapterName: string;
+  chapterOrder: number;
+  sourceNumber?: string;
+  masteryName?: string;
+  errorReasonNames: string[];
+}
+
+/**
+ * 只接收已解析好的字段,不再吃整个 bank:格子渲染是 1000 题量级的热路径,
+ * 调用方(HeatmapGrid)已经建好 id → option 的 Map,这里不能再线性 find 一遍。
+ */
+export function describeHeatmapItem(input: HeatmapItemDescription): string {
   return [
-    `章节 ${group.name}`,
-    `章内第 ${item.chapterOrder} 题`,
-    `原编号 ${item.sourceNumber?.trim() || "未设置"}`,
-    `掌握程度 ${mastery}`,
-    `错误原因 ${errorReasons.length ? errorReasons.join("、") : "未设置"}`
+    `章节 ${input.chapterName}`,
+    `章内第 ${input.chapterOrder} 题`,
+    `原编号 ${input.sourceNumber?.trim() || "未设置"}`,
+    `掌握程度 ${input.masteryName || "未设置"}`,
+    `错误原因 ${
+      input.errorReasonNames.length ? input.errorReasonNames.join("、") : "未设置"
+    }`
   ].join("，");
 }
 

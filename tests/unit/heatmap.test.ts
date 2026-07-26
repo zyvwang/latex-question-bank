@@ -53,15 +53,34 @@ describe("heatmap domain", () => {
   });
 
   it("describes every review field in the accessible name", () => {
-    const bank = heatmapBank();
-    const group = buildHeatmapGroups(bank)[0];
-    const description = describeHeatmapItem(bank, group, group.items[0]);
+    // 解析 id → 名称的那一步已经上移到 HeatmapGrid(用它已有的 Map),
+    // 端到端的解析结果由 tests/ui/heatmap.test.tsx 的 aria-label 断言覆盖。
+    const description = describeHeatmapItem({
+      chapterName: "极限",
+      chapterOrder: 1,
+      sourceNumber: "2026-A",
+      masteryName: "待巩固",
+      errorReasonNames: ["计算", "方法"]
+    });
 
     expect(description).toContain("章节 极限");
     expect(description).toContain("章内第 1 题");
     expect(description).toContain("原编号 2026-A");
     expect(description).toContain("掌握程度 待巩固");
     expect(description).toContain("错误原因 计算、方法");
+  });
+
+  it("falls back to 未设置 for missing source number, mastery, and error reasons", () => {
+    const description = describeHeatmapItem({
+      chapterName: "未分类",
+      chapterOrder: 3,
+      sourceNumber: "   ",
+      errorReasonNames: []
+    });
+
+    expect(description).toBe(
+      "章节 未分类，章内第 3 题，原编号 未设置，掌握程度 未设置，错误原因 未设置"
+    );
   });
 });
 
