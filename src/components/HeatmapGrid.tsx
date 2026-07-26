@@ -15,6 +15,7 @@ import {
   type HeatmapNavigationKey
 } from "../heatmap.js";
 import styles from "./Heatmap.module.css";
+import patternStyles from "./ReviewPattern.module.css";
 
 type PreviewSource = "focus" | "hover";
 
@@ -164,7 +165,7 @@ const HeatmapCell = memo(function HeatmapCell({
       data-error-count={errors.length}
       className={[
         styles.cell,
-        mode !== "errorReason" ? styles[`pattern-${masteryPattern}`] : "",
+        mode !== "errorReason" ? patternStyles[masteryPattern] : "",
         previewed ? styles.previewedCell : ""
       ].filter(Boolean).join(" ")}
       style={style}
@@ -190,7 +191,7 @@ const HeatmapCell = memo(function HeatmapCell({
           {visibleErrors.map((option) => (
             <i
               key={option.id}
-              className={styles[`pattern-${option.pattern}`]}
+              className={patternStyles[option.pattern]}
               style={{ "--stripe-color": option.color } as CSSProperties}
             />
           ))}
@@ -206,7 +207,7 @@ const HeatmapCell = memo(function HeatmapCell({
           {errors.slice(0, 3).map((option) => (
             <i
               key={option.id}
-              className={styles[`pattern-${option.pattern}`]}
+              className={patternStyles[option.pattern]}
               style={{ "--stripe-color": option.color } as CSSProperties}
             />
           ))}

@@ -1,7 +1,13 @@
-import { useQuestions, useWorkspace } from "../context/questionBankContexts.js";
+import { AlertTriangle, FileCheck2 } from "lucide-react";
+import {
+  useLifecycle,
+  useQuestions,
+  useWorkspace
+} from "../context/questionBankContexts.js";
 import { ChapterSettings } from "./ChapterSettings.js";
 import { MasteryHistorySettings } from "./MasteryHistorySettings.js";
 import { ReviewOptionSettings } from "./ReviewOptionSettings.js";
+import { WorkspaceSettings } from "./WorkspaceSettings.js";
 import styles from "./SettingsScreen.module.css";
 
 export function SettingsScreen() {
@@ -14,6 +20,7 @@ export function SettingsScreen() {
         </div>
         <p>有效变更会自动保存。名称和颜色在按 Enter 或离开输入框后提交。</p>
       </header>
+      <WorkspaceSettings />
       <ChapterSettings />
       <ReviewOptionSettings kind="mastery" />
       <ReviewOptionSettings kind="errorReason" />
@@ -24,10 +31,12 @@ export function SettingsScreen() {
 }
 
 function LatexSettings() {
+  const lifecycle = useLifecycle();
   const questions = useQuestions();
   const workspace = useWorkspace();
   const bank = questions.bank;
-  if (!bank) return null;
+  const appInfo = workspace.appInfo;
+  if (!bank || !appInfo) return null;
   return (
     <section className={styles.section} aria-labelledby="latex-settings-title">
       <header>
@@ -37,6 +46,24 @@ function LatexSettings() {
         </div>
       </header>
       <div className={styles.latexGrid}>
+        <button
+          type="button"
+          className={`${styles.texStatus} ${
+            appInfo.texStatus.available ? styles.texAvailable : styles.texMissing
+          }`}
+          title={appInfo.texStatus.message}
+          onClick={() =>
+            lifecycle.setNotice({
+              type: appInfo.texStatus.available ? "ok" : "error",
+              text: appInfo.texStatus.message
+            })
+          }
+        >
+          {appInfo.texStatus.available
+            ? <FileCheck2 size={15} />
+            : <AlertTriangle size={15} />}
+          {appInfo.texStatus.available ? "TeX 可用" : "未检测到 TeX"}
+        </button>
         <label>
           <span>题间距</span>
           <input

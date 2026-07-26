@@ -6,7 +6,6 @@ import {
 } from "../context/questionBankContexts.js";
 import controls from "../styles/controls.module.css";
 import { SidebarQuestionNavigation } from "./SidebarQuestionNavigation.js";
-import { SidebarWorkspacePanel } from "./SidebarWorkspacePanel.js";
 import styles from "./Sidebar.module.css";
 
 export function Sidebar() {
@@ -33,7 +32,6 @@ export function Sidebar() {
           <Plus size={18} />
         </button>
       </header>
-      <SidebarWorkspacePanel />
       <SidebarQuestionNavigation />
     </aside>
   );

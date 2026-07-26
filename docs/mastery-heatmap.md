@@ -21,7 +21,7 @@ Cell text automatically chooses dark ink or white from the rendered background. 
 
 ## Chapter and item order
 
-Formal chapters follow their saved order and use Chinese numerals in the chapter index and grid. A chapter name is shown once beside its wrapping cell collection. Cells show chapter-local numbers only.
+Formal chapters follow their saved order and use Chinese numerals in the grid. A chapter name is shown once beside its wrapping cell collection, without a separate chapter index. Cells show chapter-local numbers only.
 
 Uncategorized questions use `chapterId: null`. They always form the final row, use no chapter numeral, and still use their normalized chapter-local order.
 
@@ -32,6 +32,8 @@ The heatmap derives this order from `bank.json`; it does not persist a second or
 There is exactly one MathJax preview on the page. A hover or keyboard-focus target must remain stable for 200ms before it replaces the preview. This keeps rapid pointer and keyboard movement from repeatedly typesetting intermediate questions.
 
 The preview has Question, Solution, and Note tabs. Selecting another question resets the preview to Question. Clicking a cell or pressing Enter opens that question in the full editor. Returning to Heatmap restores the selected mode, grid scroll position, and roving-focus cell for the current workspace session.
+
+The preview owns both scroll axes. Horizontal trackpad or mouse-wheel deltas scroll wide MathJax content directly, Shift plus a vertical wheel maps to horizontal scrolling, and an overflowing preview shows a horizontal scrollbar.
 
 ## Keyboard and assistive technology
 

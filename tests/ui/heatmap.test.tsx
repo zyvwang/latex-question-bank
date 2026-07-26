@@ -61,18 +61,13 @@ describe("heatmap UI", () => {
     expect(screen.getByRole("button", { name: "编辑" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "题库设置" })).toBeInTheDocument();
 
-    const chapterIndex = screen.getByRole("navigation", {
+    expect(screen.queryByRole("navigation", {
       name: "热力图章节索引"
-    });
-    expect(within(chapterIndex).getByRole("button", {
-      name: /一、高等数学与极限2/
-    })).toBeInTheDocument();
-    expect(within(chapterIndex).getByRole("button", {
-      name: /二、线性代数与矩阵1/
-    })).toBeInTheDocument();
-    expect(within(chapterIndex).getByRole("button", {
-      name: /未分类1/
-    })).toBeInTheDocument();
+    })).not.toBeInTheDocument();
+    const grid = screen.getByRole("region", { name: "题目掌握热力图" });
+    expect(within(grid).getByText("高等数学与极限")).toBeInTheDocument();
+    expect(within(grid).getByText("线性代数与矩阵")).toBeInTheDocument();
+    expect(within(grid).getByText("未分类")).toBeInTheDocument();
 
     const first = screen.getByRole("button", {
       name: /章节 高等数学与极限，章内第 1 题，原编号 2026-A，掌握程度 待巩固，错误原因 计算、方法、审题、格式/

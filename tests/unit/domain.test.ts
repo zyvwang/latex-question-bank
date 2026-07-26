@@ -48,7 +48,11 @@ import {
 import type { QuestionItem } from "../../shared/types.js";
 import { orderItemsByChapter } from "../../shared/chapter-order.js";
 import { moveItemToPositionInList, reorderItemByDrop } from "../../src/itemOrder.js";
-import { nextWheelScrollState, wheelDeltaToPixels } from "../../src/wheelScroll.js";
+import {
+  nextWheelScrollState,
+  normalizeWheelAxes,
+  wheelDeltaToPixels
+} from "../../src/wheelScroll.js";
 import { validateReorderTarget } from "../../src/questionReorder.js";
 import { compileContentVersion } from "../../src/utils/compileVersion.js";
 
@@ -95,6 +99,39 @@ describe("domain helpers", () => {
     equal(nearBottomWheel.scrollTop, 100);
     equal(nearBottomWheel.changed, true);
     deepStrictEqual(wheelDeltaToPixels(1, 1, 2, 320, 240), { deltaX: 320, deltaY: 240 });
+    deepStrictEqual(normalizeWheelAxes(0, 48, true), {
+      deltaX: 48,
+      deltaY: 0
+    });
+    deepStrictEqual(normalizeWheelAxes(32, 18, true), {
+      deltaX: 32,
+      deltaY: 18
+    });
+    const horizontalWheel = nextWheelScrollState({
+      scrollTop: 0,
+      scrollLeft: 70,
+      scrollHeight: 100,
+      scrollWidth: 260,
+      clientHeight: 100,
+      clientWidth: 100,
+      deltaX: 140,
+      deltaY: 0
+    });
+    deepStrictEqual(horizontalWheel, {
+      scrollTop: 0,
+      scrollLeft: 160,
+      changed: true
+    });
+    equal(nextWheelScrollState({
+      scrollTop: 0,
+      scrollLeft: 160,
+      scrollHeight: 100,
+      scrollWidth: 260,
+      clientHeight: 100,
+      clientWidth: 100,
+      deltaX: 20,
+      deltaY: 0
+    }).changed, false);
     equal(validateReorderTarget("2", 4), null);
     equal(validateReorderTarget("0", 4), "题序需在 1 到 4 之间。");
     equal(validateReorderTarget("1.5", 4), "请输入有效的整数题序。");

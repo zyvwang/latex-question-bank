@@ -9,8 +9,8 @@ export function useAppView() {
   const [heatmapFocusedId, setHeatmapFocusedId] = useState<string | null>(null);
   const [heatmapScrollTop, setHeatmapScrollTop] = useState(0);
 
-  const resetAppView = useCallback(() => {
-    setActiveView("editor");
+  const resetAppView = useCallback((nextActiveView: AppView = "editor") => {
+    setActiveView(nextActiveView);
     setHeatmapMode("mastery");
     setHeatmapFocusedId(null);
     setHeatmapScrollTop(0);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { normalizeUniqueName } from "../../shared/review-options.js";
 import { useQuestions, useReview } from "../context/questionBankContexts.js";
+import metadataStyles from "./MetadataTokens.module.css";
 import styles from "./ChapterCombobox.module.css";
 
 export function ChapterCombobox() {
@@ -15,6 +16,9 @@ export function ChapterCombobox() {
   }, [item?.id]);
 
   if (!item) return null;
+  const currentChapterName =
+    review.chapters.find((chapter) => chapter.id === item.chapterId)?.name ??
+    "未分类";
 
   function createOrSelect() {
     const normalized = normalizeUniqueName(draft);
@@ -30,7 +34,9 @@ export function ChapterCombobox() {
   return (
     <div className={styles.combobox}>
       <select
+        className={`${metadataStyles.token} ${metadataStyles.chapter} ${styles.chapterSelect}`}
         aria-label="选择章节"
+        title={currentChapterName}
         value={item.chapterId ?? ""}
         onChange={(event) =>
           questions.moveItemToChapter(item.id, event.target.value || null)

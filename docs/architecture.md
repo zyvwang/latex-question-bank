@@ -24,10 +24,11 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - Question item mutations, drag tracking, and menus/reorder dialogs live in separate hooks instead of one interaction controller.
 - `useBankSettingsActions.ts` owns validated chapter and review-option mutations, including normalized-name uniqueness, reference cleanup, and destructive confirmations.
 - `useReviewHistory.ts` routes review-state and review-option mutations through one daily history transaction, owns the five-record capacity decision, and exposes rename, delete, and restore actions. `src/review-history.ts` contains the pure daily capture and restore merge rules.
-- `useAppView.ts` owns top-level page selection plus the heatmap mode, scroll position, and roving-focus return target. These values are renderer session state and are reset when the workspace snapshot changes.
+- `useAppView.ts` owns top-level page selection plus the heatmap mode, scroll position, and roving-focus return target. Workspace changes reset the heatmap session state; a change started from Bank Settings keeps that top-level page active so consecutive workspace-management actions stay together.
 - `src/heatmap.ts` is the shared frontend domain layer for chapter rows, Chinese chapter numerals, accessible item descriptions, and keyboard target calculation.
-- `src/components/HeatmapScreen.tsx` composes the chapter index, memoized grid, and one MathJax preview. Cells never create their own preview instances. Hover and focus targets must remain stable for 200ms before the preview changes.
-- `src/components/` contains focused view components for setup, sidebar, workspace, heatmap, module editors, preview, and overlays.
+- `src/components/HeatmapScreen.tsx` composes the memoized chapter-row grid and one MathJax preview. Cells never create their own preview instances. Hover and focus targets must remain stable for 200ms before the preview changes.
+- `src/components/` contains focused view components for setup, question navigation, workspace management in Bank Settings, the editor workspace, heatmap, module editors, preview, and overlays.
+- `LatexPreview.tsx` owns both axes of preview scrolling in the editor and heatmap. Native horizontal wheel deltas pass through, while Shift plus a vertical wheel maps to horizontal movement when no horizontal delta is already present.
 - CodeMirror is isolated in `src/components/LatexEditor.tsx` and lazy-loaded by `ModuleEditor`, keeping the initial Vite bundle smaller.
 - `src/api/client.ts` is the only place that should call `fetch` for app API routes.
 - `src/styles/foundation.css` owns global tokens and reset rules. Shared controls and component styling use CSS Modules.
@@ -64,7 +65,7 @@ Restoring mastery history changes only mastery IDs, error-reason IDs, and any mi
 
 Question filters and export selection are renderer session state only. Opening or switching a workspace selects every question by default. Search and filter changes affect the current list but never modify `selectedIds`; the selected-items list ignores all filters and returns to the preserved current-list filters.
 
-The heatmap is also renderer-only derived state. It does not filter or persist a second copy of question data. Formal chapter rows follow chapter order, uncategorized items form the final unnumbered row, and every cell displays the stored chapter-local order. Opening a cell updates the normal editor selection; returning remounts the heatmap with its saved mode, scroll position, and roving focus target.
+The heatmap is also renderer-only derived state. It does not filter or persist a second copy of question data. Formal chapter rows follow chapter order, uncategorized items form the final unnumbered row, and every cell displays the stored chapter-local order. Chapter names live on the rows rather than in a separate index. Opening a cell updates the normal editor selection; returning remounts the heatmap with its saved mode, scroll position, and roving focus target.
 
 ## Desktop Boundary
 

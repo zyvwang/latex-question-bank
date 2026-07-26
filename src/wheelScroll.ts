@@ -37,6 +37,17 @@ export function wheelDeltaToPixels(
   return { deltaX, deltaY };
 }
 
+export function normalizeWheelAxes(
+  deltaX: number,
+  deltaY: number,
+  shiftKey: boolean
+) {
+  if (shiftKey && deltaX === 0) {
+    return { deltaX: deltaY, deltaY: 0 };
+  }
+  return { deltaX, deltaY };
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }

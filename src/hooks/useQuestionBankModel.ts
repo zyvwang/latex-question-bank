@@ -20,7 +20,7 @@ import {
 } from "../../shared/chapter-order.js";
 import type { QuestionBankContextValues } from "../context/questionBankContextTypes.js";
 import { useAutosave } from "./useAutosave.js";
-import { useAppView } from "./useAppView.js";
+import { useAppView, type AppView } from "./useAppView.js";
 import { useBankSettingsActions } from "./useBankSettingsActions.js";
 import { useCompileExportActions } from "./useCompileExportActions.js";
 import { useQuestionDerivedData } from "./useQuestionDerivedData.js";
@@ -178,7 +178,11 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const { resetCompileState } = compileExport;
 
   const applyBankSnapshot = useCallback(
-    (nextAppInfo: AppInfo, snapshot: BankSnapshot) => {
+    (
+      nextAppInfo: AppInfo,
+      snapshot: BankSnapshot,
+      nextActiveView: AppView = "editor"
+    ) => {
       resetAutosave(snapshot);
       setAppInfo(nextAppInfo);
       setBank(snapshot.bank);
@@ -189,7 +193,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       setLoadError(null);
       setRecoveryCandidates([]);
       setActiveModule("question");
-      resetAppView();
+      resetAppView(nextActiveView);
       resetHistoryUi();
       setNotice(null);
       const conflicts = sourceNumberConflictGroups(snapshot.bank.items);
@@ -211,9 +215,11 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   );
   const reloadWorkspace = useCallback(
     async (nextAppInfo: AppInfo) => {
-      applyBankSnapshot(nextAppInfo, await fetchBank());
+      const nextActiveView =
+        appView.activeView === "settings" ? "settings" : "editor";
+      applyBankSnapshot(nextAppInfo, await fetchBank(), nextActiveView);
     },
-    [applyBankSnapshot]
+    [appView.activeView, applyBankSnapshot]
   );
 
   const workspace = useWorkspaceActions({

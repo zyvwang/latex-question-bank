@@ -105,9 +105,23 @@
 
 .latexGrid {
   display: grid;
-  grid-template-columns: 150px 150px minmax(260px, 1fr);
+  grid-template-columns: 140px 150px 150px minmax(260px, 1fr);
   gap: 9px;
 }
+.texStatus {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--muted);
+}
+.texAvailable { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
+.texMissing { color: var(--coral); border-color: oklch(0.79 0.08 35); }
 .latexGrid label {
   min-height: 44px;
   display: flex;

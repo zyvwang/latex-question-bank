@@ -20,6 +20,8 @@ import {
   UNCATEGORIZED_FILTER,
   UNSET_REVIEW_FILTER
 } from "../questionFilters.js";
+import metadataStyles from "./MetadataTokens.module.css";
+import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import styles from "./Sidebar.module.css";
 
 interface FilterOption {
@@ -230,11 +232,18 @@ function QuestionList() {
     <div className={styles.questionList} aria-label="题目列表">
       {selection.listItems.map((item) => {
         const chapterName = item.chapterId
-          ? questions.bank?.chapters.find((chapter) => chapter.id === item.chapterId)?.name
+          ? (questions.bank?.chapters.find((chapter) => chapter.id === item.chapterId)?.name
+            ?? "未分类")
           : "未分类";
-        const masteryName = item.masteryOptionId
-          ? questions.bank?.masteryOptions.find((option) => option.id === item.masteryOptionId)?.name
-          : "掌握未设置";
+        const mastery = item.masteryOptionId
+          ? (questions.bank?.masteryOptions.find(
+            (option) => option.id === item.masteryOptionId
+          ) ?? null)
+          : null;
+        const selectedErrorIds = new Set(item.errorReasonOptionIds);
+        const errors = questions.bank?.errorReasonOptions.filter((option) =>
+          selectedErrorIds.has(option.id)
+        ) ?? [];
         return (
           <div
             key={item.id}
@@ -273,10 +282,22 @@ function QuestionList() {
               <span className={styles.questionIndex}>{questions.numberById.get(item.id)}</span>
               <span className={styles.questionMeta}>
                 <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
-                <small>
-                  {chapterName} · {masteryName}
-                  {item.tags.length ? ` · ${item.tags.join(" / ")}` : ""}
-                </small>
+                <ReviewStateMarks mastery={mastery} errors={errors} />
+                <span className={metadataStyles.flow}>
+                  <span
+                    className={`${metadataStyles.token} ${metadataStyles.chapter}`}
+                  >
+                    {chapterName}
+                  </span>
+                  {item.tags.map((tag) => (
+                    <span
+                      className={`${metadataStyles.token} ${metadataStyles.tag}`}
+                      key={tag}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </span>
               </span>
             </button>
           </div>

@@ -83,49 +83,8 @@
 .content {
   min-height: 0;
   display: grid;
-  grid-template-columns: 190px minmax(320px, 1fr) minmax(320px, 34vw);
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 34vw);
 }
-
-.chapterIndex {
-  min-width: 0;
-  overflow-y: auto;
-  padding: 16px 12px;
-  border-right: 1px solid var(--hairline);
-  background: var(--sidebar);
-}
-.chapterIndex > strong {
-  display: block;
-  margin: 0 8px 10px;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
-  font-size: 16px;
-}
-.chapterIndex button {
-  width: 100%;
-  min-height: 42px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 3px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  background: transparent;
-  text-align: left;
-  transition: transform 140ms var(--ease-out), background-color 140ms ease;
-}
-.chapterIndex button span:nth-child(2) {
-  overflow: hidden;
-  color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chapterIndex button small {
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.chapterIndex .activeChapter { color: var(--teal-strong); background: var(--teal-soft); }
-.chapterIndex button:active { transform: scale(0.96); }
 
 .gridPane {
   min-width: 0;
@@ -239,31 +198,6 @@
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.72);
 }
 
-.pattern-dots {
-  background-image: radial-gradient(circle, rgb(255 255 255 / 0.52) 1.2px, transparent 1.4px);
-  background-size: 7px 7px;
-}
-.pattern-diagonal {
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent 0 5px,
-    rgb(255 255 255 / 0.38) 5px 7px
-  );
-}
-.pattern-crosshatch {
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      transparent 0 6px,
-      rgb(255 255 255 / 0.34) 6px 7px
-    ),
-    repeating-linear-gradient(
-      135deg,
-      transparent 0 6px,
-      rgb(255 255 255 / 0.34) 6px 7px
-    );
-}
-
 .preview {
   min-width: 0;
   min-height: 0;
@@ -298,19 +232,17 @@
   background: var(--panel);
   box-shadow: inset 0 -3px 0 var(--teal);
 }
-.previewPanel { min-height: 0; overflow: auto; }
-.previewPanel > div { min-height: 100%; }
+.previewPanel { min-height: 0; overflow: hidden; }
+.previewPanel > div { min-height: 100%; height: 100%; }
 .emptyPreview { place-self: center; margin: 0; padding: 24px; color: var(--muted); text-align: center; }
 
 @media (hover: hover) {
-  .modeSwitch button:hover,
-  .chapterIndex button:hover { background: var(--teal-soft); color: var(--teal-strong); }
+  .modeSwitch button:hover { background: var(--teal-soft); color: var(--teal-strong); }
   .cell:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--panel), 0 3px 8px rgb(23 33 29 / 0.18); }
 }
 
 @media (max-width: 1100px) {
-  .content { grid-template-columns: 154px minmax(300px, 1fr) minmax(290px, 36vw); }
-  .chapterIndex { padding-inline: 8px; }
+  .content { grid-template-columns: minmax(300px, 1fr) minmax(290px, 36vw); }
   .grid { padding: 14px; }
   .chapterRow { grid-template-columns: 72px minmax(0, 1fr); }
 }
@@ -319,17 +251,6 @@
   .screen { overflow: visible; }
   .header { align-items: flex-start; flex-direction: column; gap: 12px; }
   .content { display: block; }
-  .chapterIndex {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    overflow-x: auto;
-    padding: 8px 12px;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-  }
-  .chapterIndex > strong { flex: 0 0 auto; margin: 0 6px 0 0; }
-  .chapterIndex button { width: auto; min-width: max-content; }
   .gridPane { min-height: 360px; max-height: 56vh; }
   .preview { min-height: 420px; border-top: 1px solid var(--hairline); border-left: 0; }
 }

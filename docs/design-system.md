@@ -29,8 +29,8 @@ No remote font dependency is required.
 ## Layout
 
 - A persistent top navigation owns page switching and the global save state. Editor, Heatmap, and Bank Settings are peer pages rather than drawers or modals.
-- Wide desktop: 312-336px navigation plus a flexible editor workspace.
-- The heatmap uses the full main width as chapter index, wrapping grid, and one preview pane. Rows show Chinese chapter numerals; uncategorized items stay last without a numeral. Cell numbers are chapter-local and the chapter label appears only once per wrapping row.
+- Wide desktop: 312-336px question navigation plus a flexible editor workspace. Workspace lifecycle controls live on the Bank Settings page rather than in the editor sidebar.
+- The heatmap uses the full main width as a wrapping grid and one preview pane. Rows show Chinese chapter numerals; uncategorized items stay last without a numeral. Cell numbers are chapter-local and the chapter label appears only once per wrapping row.
 - Medium desktop: editor and preview stack vertically; metadata uses two columns.
 - Below 760px: navigation and workspace become a single column with a horizontal question strip.
 - The workspace uses focused editing with one active module at a time. Question, solution, and note switch through tabs, and the preview follows the active module.
@@ -40,10 +40,13 @@ No remote font dependency is required.
 - Chapter and review-option names and review colors commit on Enter or blur after validation. Destructive chapter and option deletion requires confirmation.
 - Review metadata combines text with color swatches; “unset” remains a fixed system state and is never represented as a removable option.
 - Sidebar filters use compact multi-select menus. Counts expose active filters without expanding the control labels, and review filters pair color swatches with text.
+- Sidebar question summaries show review state as compact color-and-pattern marks, separated into mastery and error-reason groups. Chapter and tag names use separate rectangular tokens, wrap as whole tokens, and break inside a token only when one name exceeds the available width.
+- The editor uses the same chapter and tag token vocabulary while keeping the native chapter select and the existing tag add/remove behavior.
 - “Current list” and “Selected items” share one stable action slot. Selected-items mode replaces filter controls with a quiet note explaining that filters are preserved but paused.
 - Module tabs support Left, Right, Home, and End.
 - Heatmap cells are real buttons with roving `tabindex`. Left and Right traverse the ordered grid, Up and Down move between chapter rows, Home and End move within the current chapter, and Enter opens the full editor.
 - Heatmap preview changes require a stable 200ms hover or keyboard-focus target. Changing the item resets the preview to Question. Returning from the editor restores the previous mode, scroll position, and cell focus.
+- Editor and heatmap LaTeX previews own their horizontal and vertical scrolling. Trackpad and horizontal-wheel deltas scroll directly, Shift plus a vertical wheel scrolls horizontally, and overflowing content exposes a horizontal scrollbar.
 - Mastery mode pairs the option color with its pattern. Error mode shows at most three patterned stripes and a `+N` overflow label. Combined mode uses mastery as the background and error reasons as corner marks.
 - Mastery history uses a persistent record list beside a read-only detail view. Names edit inline; delete and restore require confirmation. Only the five-record capacity boundary uses a modal chooser, with the oldest record selected by default and a clear warning that canceling abandons the pending review edit.
 - Review state is never encoded by color alone. Patterns, corner marks, numeric overflow, accessible names, preview text, and the visible legend carry the same meaning. Cell text automatically chooses dark ink or white for contrast.

@@ -148,6 +148,54 @@ describe("App UI", () => {
     expect(screen.getByText("2024-2")).toBeInTheDocument();
   });
 
+  it("shows complete review marks and separate chapter and tag tokens", async () => {
+    const statusBank: Bank = {
+      ...bank,
+      items: bank.items.map((item, index) => index === 0
+        ? {
+            ...item,
+            tags: ["极限", "含参数的分段函数连续性分类讨论"],
+            errorReasonOptionIds: ["error-calculation", "error-method"]
+          }
+        : {
+            ...item,
+            chapterId: null,
+            masteryOptionId: null,
+            errorReasonOptionIds: []
+          })
+    };
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/bank" && !init) {
+        return json({
+          workspacePath: "/tmp/latex-bank",
+          revision: "revision-status",
+          bank: statusBank
+        });
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+    await screen.findByText("2024-1");
+    const first = document.getElementById("question-nav-limit");
+    expect(first).not.toBeNull();
+    expect(within(first!).getByLabelText(
+      "掌握程度：太难了；错误原因：计算问题、方法问题"
+    )).toBeInTheDocument();
+    expect(within(first!).getByText("高等数学/极限")).toBeInTheDocument();
+    expect(within(first!).getByText("极限")).toBeInTheDocument();
+    expect(within(first!).getByText(
+      "含参数的分段函数连续性分类讨论"
+    )).toBeInTheDocument();
+
+    const second = document.getElementById("question-nav-matrix");
+    expect(second).not.toBeNull();
+    expect(within(second!).getByLabelText(
+      "掌握程度：未设置；错误原因：未设置"
+    )).toBeInTheDocument();
+    expect(within(second!).getByText("未分类")).toBeInTheDocument();
+  });
+
   it("combines multi-value review filters with OR inside fields and AND across fields", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -217,7 +265,11 @@ describe("App UI", () => {
     await user.click(
       screen.getByRole("checkbox", { name: "选择导出 2024-2" })
     );
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
     await user.click(screen.getByRole("button", { name: /other-bank/ }));
+    expect(await screen.findByRole("heading", { name: "题库设置" }))
+      .toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "编辑" }));
     await waitFor(() =>
       expect(
         screen.getAllByRole("checkbox", { name: /选择导出/ })
@@ -335,9 +387,13 @@ describe("App UI", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
+    expect(screen.queryByRole("heading", { name: "工作区" }))
+      .not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "题库设置" }));
     expect(await screen.findByRole("heading", { name: "题库设置" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "工作区" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "TeX 可用" })).toBeInTheDocument();
     expect(screen.queryByText("星级")).not.toBeInTheDocument();
 
     const chapterName = screen.getByLabelText("章节名称 高等数学/极限");
@@ -494,6 +550,7 @@ describe("App UI", () => {
     const sourceInput = screen.getByDisplayValue("2024-1");
     await user.clear(sourceInput);
     await user.type(sourceInput, "切换前修改");
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
     await user.click(screen.getByRole("button", { name: /other-bank/ }));
 
     await waitFor(() => {
@@ -504,6 +561,7 @@ describe("App UI", () => {
         })
       );
     });
+    expect(screen.getByRole("heading", { name: "题库设置" })).toBeInTheDocument();
 
     const calls = vi.mocked(fetch).mock.calls;
     const saveIndex = calls.findIndex(([url, init]) => String(url) === "/api/bank" && init?.method === "PUT");
@@ -517,6 +575,7 @@ describe("App UI", () => {
     render(<App />);
     await screen.findByText("2024-1");
 
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
     await user.click(screen.getByRole("button", { name: /other-bank/ }));
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(

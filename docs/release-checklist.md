@@ -28,16 +28,19 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - review-option edit/reorder/delete, reference cleanup, and multi-tag comma input
    - multi-value chapter/tag/mastery/error-reason filtering with OR within fields and AND across fields
    - current/selected list switching, preserved filters, filter-independent export selection, and default select-all after workspace switch
+   - complete sidebar review marks, separate wrapping chapter/tag tokens, and matching editor metadata tokens
    - normal export order follows chapter order and chapter-local order
    - Heatmap mastery, error-reason, and combined modes, including patterns, three-stripe limit, `+N`, and the visible legend
    - 200ms heatmap preview switching across Question, Solution, and Note with only one MathJax preview instance
+   - two-pane heatmap layout without a chapter index, with chapter labels retained on each row
+   - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in both editor and heatmap previews
    - Heatmap Arrow keys, Home, End, Enter, screen-reader names, visible focus, and editor-return restoration
    - a production build with the 1000-item fixture, checking entry, mode switching, scrolling, and preview response without noticeable input blocking
    - same-day mastery-history merging, cross-day creation, unique rename validation, detail viewing, deletion, and restore
    - restoration keeps bodies, chapters, order, assets, and newer questions while recreating missing review options
    - the sixth-history chooser defaults to the oldest record; canceling keeps all records and abandons the triggering review edit
    - mastery history in `bank.json` is clearly distinguished from `.history/` disaster-recovery snapshots
-   - reveal/delete workspace actions
+   - workspace create/open/switch/reorder/relocate/reveal/delete actions on Bank Settings, including staying on that page after a switch
 
 ## CI Release Build
 

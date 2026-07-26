@@ -17,6 +17,15 @@
   background: transparent;
 }
 
+.combobox .chapterSelect {
+  min-height: 28px;
+  padding: 3px 22px 3px 7px;
+  border: 0;
+  color: var(--teal-strong);
+  background-color: var(--teal-soft);
+  font-size: 12px;
+}
+
 .combobox input {
   padding-left: 6px;
   border-left: 1px solid var(--hairline);

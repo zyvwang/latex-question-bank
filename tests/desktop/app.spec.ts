@@ -144,9 +144,12 @@ test("keeps MathJax previews working in the editor and heatmap", async () => {
   await rm(workspacePath, { recursive: true, force: true });
   await rm(appDataPath, { recursive: true, force: true });
   await mkdir(workspacePath, { recursive: true });
+  const previewBank = createSampleBank();
+  previewBank.items[0].modules.question.tex =
+    `\\[${Array.from({ length: 48 }, (_, index) => `x_{${index + 1}}`).join(" + ")}\\]`;
   await writeFile(
     path.join(workspacePath, "bank.json"),
-    `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+    `${JSON.stringify(previewBank, null, 2)}\n`,
     "utf8"
   );
 
@@ -165,6 +168,35 @@ test("keeps MathJax previews working in the editor and heatmap", async () => {
     await expect
       .poll(() => page.locator('[role="tabpanel"] mjx-container').count())
       .toBeGreaterThan(0);
+    const editorPreview = page.locator('[role="tabpanel"] [data-latex-preview]');
+    await expect
+      .poll(() => editorPreview.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      ))
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => editorPreview.evaluate((element) => {
+        element.scrollLeft = 0;
+        element.dispatchEvent(new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 120
+        }));
+        return element.scrollLeft;
+      }))
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => editorPreview.evaluate((element) => {
+        element.scrollLeft = 0;
+        element.dispatchEvent(new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: 120,
+          shiftKey: true
+        }));
+        return element.scrollLeft;
+      }))
+      .toBeGreaterThan(0);
 
     await page.getByText("示例 2", { exact: true }).click();
     await expect(page.getByLabel("原编号")).toHaveValue("示例 2");
@@ -181,6 +213,25 @@ test("keeps MathJax previews working in the editor and heatmap", async () => {
     await expect(page.locator("[data-heatmap-cell]")).toHaveCount(2);
     await expect
       .poll(() => page.locator('[aria-label="题目预览"] mjx-container').count())
+      .toBeGreaterThan(0);
+    const heatmapPreview = page.locator(
+      '[aria-label="题目预览"] [data-latex-preview]'
+    );
+    await expect
+      .poll(() => heatmapPreview.evaluate(
+        (element) => element.scrollWidth - element.clientWidth
+      ))
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => heatmapPreview.evaluate((element) => {
+        element.scrollLeft = 0;
+        element.dispatchEvent(new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 120
+        }));
+        return element.scrollLeft;
+      }))
       .toBeGreaterThan(0);
 
     await page.locator('[data-heatmap-cell="sample-linear-algebra"]').hover();

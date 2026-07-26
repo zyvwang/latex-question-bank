@@ -15,6 +15,7 @@ import type { ModuleKind } from "../../shared/types.js";
 import { HeatmapGrid } from "./HeatmapGrid.js";
 import { HeatmapPreview } from "./HeatmapPreview.js";
 import styles from "./Heatmap.module.css";
+import patternStyles from "./ReviewPattern.module.css";
 
 type PreviewSource = "focus" | "hover";
 
@@ -128,10 +129,6 @@ export function HeatmapScreen() {
   ) ?? null;
   const previewItem =
     previewGroup?.items.find((item) => item.id === previewItemId) ?? null;
-  const activeGroupId = groups.find((group) =>
-    group.items.some((item) => item.id === heatmapFocusedId)
-  )?.id;
-
   return (
     <main className={styles.screen} id="main-workspace">
       <header className={styles.header}>
@@ -159,16 +156,6 @@ export function HeatmapScreen() {
       </header>
       <HeatmapLegend bank={bank} mode={heatmapMode} />
       <div className={styles.content}>
-        <ChapterIndex
-          groups={groups}
-          activeGroupId={activeGroupId}
-          onLocate={(id) =>
-            document.getElementById(id)?.scrollIntoView({
-              block: "start",
-              behavior: "smooth"
-            })
-          }
-        />
         <div
           className={styles.gridPane}
           ref={scrollRef}
@@ -196,33 +183,6 @@ export function HeatmapScreen() {
         />
       </div>
     </main>
-  );
-}
-
-function ChapterIndex({
-  groups,
-  activeGroupId,
-  onLocate
-}: {
-  groups: ReturnType<typeof buildHeatmapGroups>;
-  activeGroupId?: string;
-  onLocate: (id: string) => void;
-}) {
-  return (
-    <nav className={styles.chapterIndex} aria-label="热力图章节索引">
-      <strong>章节索引</strong>
-      {groups.map((group) => (
-        <button
-          key={group.id}
-          className={activeGroupId === group.id ? styles.activeChapter : ""}
-          onClick={() => onLocate(group.id)}
-        >
-          <span>{group.numeral ? `${group.numeral}、` : ""}</span>
-          <span>{group.name}</span>
-          <small>{group.items.length}</small>
-        </button>
-      ))}
-    </nav>
   );
 }
 
@@ -269,7 +229,7 @@ function LegendGroup({
       {options.map((option) => (
         <span key={option.id}>
           <i
-            className={`${styles.legendSwatch} ${styles[`pattern-${option.pattern}`]}`}
+            className={`${styles.legendSwatch} ${patternStyles[option.pattern]}`}
             style={{ "--swatch-color": option.color } as React.CSSProperties}
             aria-hidden="true"
           />

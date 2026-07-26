@@ -38,7 +38,11 @@ export function LatexPreview({
   }, [tex]);
 
   return (
-    <div className={`${styles.previewPane} ${compact ? styles.compact : ""}`} ref={ref}>
+    <div
+      className={`${styles.previewPane} ${compact ? styles.compact : ""}`}
+      data-latex-preview
+      ref={ref}
+    >
       {parts.length === 0 ? (
         <span className={styles.emptyPreview}>空</span>
       ) : (

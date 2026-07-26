@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import metadataStyles from "./MetadataTokens.module.css";
 import styles from "./TagEditor.module.css";
 
 interface TagEditorProps {
@@ -29,7 +30,10 @@ export function TagEditor({ tags, suggestions, onChange }: TagEditorProps) {
     <div className={styles.editor}>
       <div className={styles.tags}>
         {tags.map((tag) => (
-          <span className={styles.tag} key={tag}>
+          <span
+            className={`${metadataStyles.token} ${metadataStyles.tag} ${styles.tag}`}
+            key={tag}
+          >
             {tag}
             <button
               type="button"
