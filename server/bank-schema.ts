@@ -2,11 +2,12 @@ import type {
   Bank,
   LatexSettings,
   ModuleKind,
-  QuestionItem,
-  StarRating
+  QuestionItem
 } from "../shared/types.js";
-
-export const defaultStarRating: StarRating = 5;
+import {
+  cloneDefaultErrorReasonOptions,
+  cloneDefaultMasteryOptions
+} from "../shared/review-options.js";
 
 export const defaultSettings: LatexSettings = {
   pageSize: "a4",
@@ -22,22 +23,31 @@ export const moduleKinds: ModuleKind[] = ["question", "solution", "note"];
 
 export function createEmptyBank(): Bank {
   return {
-    version: 1,
+    version: 2,
     settings: defaultSettings,
+    chapters: [],
+    masteryOptions: cloneDefaultMasteryOptions(),
+    errorReasonOptions: cloneDefaultErrorReasonOptions(),
+    masteryHistory: [],
     items: []
   };
 }
 
 export function createSampleBank(): Bank {
   const now = "2026-01-01T00:00:00.000Z";
+  const chapters = [
+    { id: "chapter-calculus", name: "微积分/极限", order: 1 },
+    { id: "chapter-linear-algebra", name: "线性代数/矩阵", order: 2 }
+  ];
   const items: QuestionItem[] = [
     {
       id: "sample-limit",
-      order: 1,
       sourceNumber: "示例 1",
-      chapter: "微积分/极限",
+      chapterId: chapters[0].id,
+      chapterOrder: 1,
       tags: ["极限", "等价无穷小"],
-      star: 3,
+      masteryOptionId: "mastery-challenging",
+      errorReasonOptionIds: ["error-method"],
       modules: {
         question: { tex: "求极限 $\\displaystyle \\lim_{x\\to 0}\\frac{\\sin x-x}{x^3}$。" },
         solution: {
@@ -52,11 +62,12 @@ export function createSampleBank(): Bank {
     },
     {
       id: "sample-linear-algebra",
-      order: 2,
       sourceNumber: "示例 2",
-      chapter: "线性代数/矩阵",
+      chapterId: chapters[1].id,
+      chapterOrder: 1,
       tags: ["矩阵", "行列式"],
-      star: 2,
+      masteryOptionId: "mastery-easy",
+      errorReasonOptionIds: ["error-calculation"],
       modules: {
         question: {
           tex: "设 $A=\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}$，求 $\\det A$ 与 $A$ 的特征值。"
@@ -74,8 +85,12 @@ export function createSampleBank(): Bank {
   ];
 
   return {
-    version: 1,
+    version: 2,
     settings: defaultSettings,
+    chapters,
+    masteryOptions: cloneDefaultMasteryOptions(),
+    errorReasonOptions: cloneDefaultErrorReasonOptions(),
+    masteryHistory: [],
     items
   };
 }

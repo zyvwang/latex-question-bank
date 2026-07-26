@@ -1,117 +1,145 @@
-import { Settings } from "lucide-react";
-import { STAR_RATINGS } from "../constants.js";
-import { useQuestions, useWorkspace } from "../context/questionBankContexts.js";
-import { asStarRating, parseTags, renderStars } from "../utils/form.js";
+import { useRef, useState } from "react";
+import {
+  useQuestions,
+  useReview,
+  useSelection
+} from "../context/questionBankContexts.js";
+import { ChapterCombobox } from "./ChapterCombobox.js";
+import { TagEditor } from "./TagEditor.js";
 import styles from "./WorkspaceView.module.css";
 
 export function WorkspaceDetails() {
+  const questions = useQuestions();
+  const item = questions.activeItem;
+  if (!item) return null;
   return (
-    <>
-      <MetadataStrip />
-      <GlobalSettings />
-    </>
-  );
-}
-
-function MetadataStrip() {
-  const { activeItem, updateItem } = useQuestions();
-  if (!activeItem) return null;
-  return (
-    <section className={styles.metaStrip} aria-label="题目元数据">
-      <label>
-        <span>原编号</span>
-        <input
-          value={activeItem.sourceNumber ?? ""}
-          onChange={(event) => updateItem(activeItem.id, { sourceNumber: event.target.value })}
-        />
-      </label>
-      <label>
-        <span>章节</span>
-        <input
-          value={activeItem.chapter}
-          onChange={(event) => updateItem(activeItem.id, { chapter: event.target.value })}
-          placeholder="高等数学/一元函数微分学"
-        />
-      </label>
-      <label>
-        <span>标签</span>
-        <input
-          value={activeItem.tags.join(", ")}
-          onChange={(event) => updateItem(activeItem.id, { tags: parseTags(event.target.value) })}
-          placeholder="极限, 洛必达"
-        />
-      </label>
-      <label>
-        <span>星级</span>
-        <select
-          value={activeItem.star}
-          onChange={(event) => updateItem(activeItem.id, { star: asStarRating(event.target.value) })}
-        >
-          {STAR_RATINGS.map((rating) => (
-            <option key={rating} value={rating}>{renderStars(rating)} {rating}星</option>
-          ))}
-        </select>
-      </label>
+    <section className={styles.metadataPanel} aria-label="题目元数据">
+      <div className={styles.metaStrip}>
+        <SourceNumberField key={item.id} />
+        <label className={styles.chapterField}>
+          <span>章节</span>
+          <ChapterCombobox />
+        </label>
+        <TagsField />
+      </div>
+      <ReviewFields />
     </section>
   );
 }
 
-function GlobalSettings() {
+function SourceNumberField() {
   const questions = useQuestions();
-  const workspace = useWorkspace();
-  if (!questions.bank) return null;
+  const item = questions.activeItem;
+  const [draft, setDraft] = useState(item?.sourceNumber ?? "");
+  const committedRef = useRef(item?.sourceNumber ?? "");
+
+  if (!item) return null;
   return (
-    <details className={styles.settingsBand}>
-      <summary><Settings size={16} />全局 LaTeX</summary>
-      <div className={styles.settingsGrid}>
+    <label>
+      <span>原编号</span>
+      <input
+        value={draft}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (questions.commitSourceNumber(item.id, value)) {
+            setDraft(value);
+          } else {
+            questions.updateItem(item.id, { sourceNumber: committedRef.current });
+            setDraft(committedRef.current);
+          }
+        }}
+        onBlur={() => {
+          if (!questions.commitSourceNumber(item.id, draft)) {
+            questions.updateItem(item.id, { sourceNumber: committedRef.current });
+            setDraft(item.sourceNumber ?? "");
+          } else {
+            committedRef.current = draft.trim();
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+    </label>
+  );
+}
+
+function TagsField() {
+  const questions = useQuestions();
+  const selection = useSelection();
+  const item = questions.activeItem;
+  if (!item) return null;
+  return (
+    <label className={styles.tagsField}>
+      <span>标签</span>
+      <TagEditor
+        tags={item.tags}
+        suggestions={selection.tags}
+        onChange={(tags) => questions.updateItem(item.id, { tags })}
+      />
+    </label>
+  );
+}
+
+function ReviewFields() {
+  const questions = useQuestions();
+  const review = useReview();
+  const item = questions.activeItem;
+  if (!item) return null;
+  return (
+    <div className={styles.reviewFields}>
+      <fieldset>
+        <legend>掌握程度</legend>
         <label>
-          <span>题间距</span>
           <input
-            value={questions.bank.settings.spacing.item}
-            onChange={(event) => questions.updateBank((current) => ({
-              ...current,
-              settings: {
-                ...current.settings,
-                spacing: { ...current.settings.spacing, item: event.target.value }
+            type="radio"
+            name={`mastery-${item.id}`}
+            checked={item.masteryOptionId === null}
+            onChange={() => questions.updateItem(item.id, { masteryOptionId: null })}
+          />
+          未设置
+        </label>
+        {review.masteryOptions.map((option) => (
+          <label key={option.id}>
+            <input
+              type="radio"
+              name={`mastery-${item.id}`}
+              checked={item.masteryOptionId === option.id}
+              onChange={() =>
+                questions.updateItem(item.id, { masteryOptionId: option.id })
               }
-            }))}
-          />
-        </label>
-        <label>
-          <span>模块间距</span>
-          <input
-            value={questions.bank.settings.spacing.module}
-            onChange={(event) => questions.updateBank((current) => ({
-              ...current,
-              settings: {
-                ...current.settings,
-                spacing: { ...current.settings.spacing, module: event.target.value }
-              }
-            }))}
-          />
-        </label>
-        <label className={styles.preambleField}>
-          <span>导言区</span>
-          <textarea
-            value={questions.bank.settings.preamble}
-            onChange={(event) => questions.updateBank((current) => ({
-              ...current,
-              settings: { ...current.settings, preamble: event.target.value }
-            }))}
-            spellCheck={false}
-          />
-        </label>
-        <label className={styles.texPathField}>
-          <span>latexmk 路径</span>
-          <input
-            value={workspace.texPathDraft}
-            onChange={(event) => workspace.setTexPathDraft(event.target.value)}
-            onBlur={() => void workspace.saveTexPathOverride()}
-            onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-            placeholder="留空自动检测"
-          />
-        </label>
-      </div>
-    </details>
+            />
+            <i style={{ backgroundColor: option.color }} />
+            {option.name}
+          </label>
+        ))}
+      </fieldset>
+      <fieldset>
+        <legend>错误原因</legend>
+        <span className={styles.unsetLabel}>
+          {item.errorReasonOptionIds.length ? "可多选" : "未设置"}
+        </span>
+        {review.errorReasonOptions.map((option) => {
+          const checked = item.errorReasonOptionIds.includes(option.id);
+          return (
+            <label key={option.id}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() =>
+                  questions.updateItem(item.id, {
+                    errorReasonOptionIds: checked
+                      ? item.errorReasonOptionIds.filter((id) => id !== option.id)
+                      : [...item.errorReasonOptionIds, option.id]
+                  })
+                }
+              />
+              <i style={{ backgroundColor: option.color }} />
+              {option.name}
+            </label>
+          );
+        })}
+      </fieldset>
+    </div>
   );
 }

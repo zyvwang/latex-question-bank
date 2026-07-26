@@ -5,7 +5,6 @@ import {
   Check,
   ListOrdered,
   Plus,
-  Save,
   Trash2
 } from "lucide-react";
 import {
@@ -58,12 +57,6 @@ function TopBar() {
   return (
     <header className={styles.topBar}>
       <div className={styles.statusCluster}>
-        <span className={`${styles.savePill} ${styles[lifecycle.saveState]}`}>
-          {lifecycle.saveState === "saving" ? <Save size={15} /> :
-            lifecycle.saveState === "error" ? <AlertTriangle size={15} /> : <Check size={15} />}
-          {lifecycle.saveState === "saving" ? "保存中" :
-            lifecycle.saveState === "error" ? "保存失败" : "已保存"}
-        </span>
         {compileExport.compileStatus && (
           <div
             className={`${styles.notice} ${

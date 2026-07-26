@@ -1,0 +1,33 @@
+.combobox {
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(100px, 0.9fr) minmax(112px, 1.1fr) 32px;
+  align-items: center;
+  gap: 4px;
+}
+
+.combobox select,
+.combobox input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+}
+
+.combobox input {
+  padding-left: 6px;
+  border-left: 1px solid var(--hairline);
+}
+
+.combobox button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--teal-strong);
+  background: var(--teal-soft);
+}

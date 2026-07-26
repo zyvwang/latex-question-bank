@@ -1,63 +1,75 @@
 import { useMemo } from "react";
-import type { Bank, QuestionItem } from "../../shared/types.js";
+import type { Bank } from "../../shared/types.js";
+import {
+  orderItemsByChapter,
+  orderedChapters,
+  sourceNumberConflictGroups
+} from "../../shared/chapter-order.js";
+import {
+  matchesQuestionFilters,
+  type QuestionFilters
+} from "../questionFilters.js";
+import type { QuestionListMode } from "./useSelectionFilters.js";
 
-export interface QuestionFilters {
-  chapterFilter: string;
-  tagFilter: string;
-  starFilter: string;
-  search: string;
-}
-
-export function useQuestionDerivedData(bank: Bank | null, activeId: string | null, filters: QuestionFilters) {
+export function useQuestionDerivedData(
+  bank: Bank | null,
+  activeId: string | null,
+  filters: QuestionFilters,
+  selectedIds: Set<string>,
+  listMode: QuestionListMode
+) {
   const orderedItems = useMemo(() => {
-    return [...(bank?.items ?? [])].sort((a, b) => a.order - b.order);
+    return bank ? orderItemsByChapter(bank.items, bank.chapters) : [];
   }, [bank]);
 
   const numberById = useMemo(() => {
-    return new Map(orderedItems.map((item, index) => [item.id, index + 1]));
+    return new Map(orderedItems.map((item) => [item.id, item.chapterOrder]));
   }, [orderedItems]);
 
   const chapters = useMemo(() => {
-    return [...new Set(orderedItems.map((item) => item.chapter.trim()).filter(Boolean))].sort();
-  }, [orderedItems]);
+    return orderedChapters(bank?.chapters ?? []);
+  }, [bank?.chapters]);
+
+  const chapterById = useMemo(() => {
+    return new Map(chapters.map((chapter) => [chapter.id, chapter]));
+  }, [chapters]);
 
   const tags = useMemo(() => {
     return [...new Set(orderedItems.flatMap((item) => item.tags).map((tag) => tag.trim()).filter(Boolean))].sort();
   }, [orderedItems]);
 
   const filteredItems = useMemo(() => {
-    const term = filters.search.trim().toLowerCase();
-    return orderedItems.filter((item) => matchesFilters(item, term, filters));
-  }, [filters, orderedItems]);
+    return orderedItems.filter((item) =>
+      matchesQuestionFilters(item, filters, chapterById)
+    );
+  }, [chapterById, filters, orderedItems]);
+
+  const listItems = useMemo(
+    () =>
+      listMode === "selected"
+        ? orderedItems.filter((item) => selectedIds.has(item.id))
+        : filteredItems,
+    [filteredItems, listMode, orderedItems, selectedIds]
+  );
 
   const activeItem = useMemo(() => {
     return orderedItems.find((item) => item.id === activeId) ?? orderedItems[0] ?? null;
   }, [activeId, orderedItems]);
 
+  const conflictGroups = useMemo(
+    () => sourceNumberConflictGroups(orderedItems),
+    [orderedItems]
+  );
+
   return {
     orderedItems,
     filteredItems,
+    listItems,
     numberById,
     chapters,
+    chapterById,
     tags,
-    activeItem
+    activeItem,
+    conflictGroups
   };
-}
-
-function matchesFilters(item: QuestionItem, term: string, filters: QuestionFilters): boolean {
-  const matchesChapter = !filters.chapterFilter || item.chapter === filters.chapterFilter;
-  const matchesTag = !filters.tagFilter || item.tags.includes(filters.tagFilter);
-  const matchesStar = !filters.starFilter || item.star === Number(filters.starFilter);
-  const haystack = [
-    item.sourceNumber,
-    item.chapter,
-    `${item.star}星`,
-    item.tags.join(" "),
-    item.modules.question.tex,
-    item.modules.solution.tex,
-    item.modules.note.tex
-  ]
-    .join(" ")
-    .toLowerCase();
-  return matchesChapter && matchesTag && matchesStar && (!term || haystack.includes(term));
 }

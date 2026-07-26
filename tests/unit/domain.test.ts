@@ -46,6 +46,7 @@ import {
   switchWorkspace
 } from "../../server/workspace-storage.js";
 import type { QuestionItem } from "../../shared/types.js";
+import { orderItemsByChapter } from "../../shared/chapter-order.js";
 import { moveItemToPositionInList, reorderItemByDrop } from "../../src/itemOrder.js";
 import { nextWheelScrollState, wheelDeltaToPixels } from "../../src/wheelScroll.js";
 import { validateReorderTarget } from "../../src/questionReorder.js";
@@ -67,12 +68,19 @@ describe("domain helpers", () => {
   it("reorders items and normalizes wheel scroll", () => {
     const items = createItems(["one", "two", "three", "four"]);
 
-    deepStrictEqual(itemIds(moveItemToPositionInList(items, "four", 2, fixedNow)), ["one", "four", "two", "three"]);
+    const moved = moveItemToPositionInList(items, "four", 2, fixedNow);
+    deepStrictEqual(itemIds(orderItemsByChapter(moved, [])), ["one", "four", "two", "three"]);
     deepStrictEqual(
-      moveItemToPositionInList(items, "four", 2, fixedNow).map((item) => item.order),
+      orderItemsByChapter(moved, []).map((item) => item.chapterOrder),
       [1, 2, 3, 4]
     );
-    deepStrictEqual(itemIds(reorderItemByDrop(items, "one", "three", "after", fixedNow)), ["two", "three", "one", "four"]);
+    deepStrictEqual(
+      itemIds(orderItemsByChapter(
+        reorderItemByDrop(items, "one", "three", "after", fixedNow),
+        []
+      )),
+      ["two", "three", "one", "four"]
+    );
 
     const nearBottomWheel = nextWheelScrollState({
       scrollTop: 95,
@@ -181,7 +189,14 @@ describe("domain helpers", () => {
     const initial = compileContentVersion(item, bank.settings);
 
     equal(
-      compileContentVersion({ ...item, chapter: "changed", tags: ["changed"], star: 5 }, bank.settings),
+      compileContentVersion({
+        ...item,
+        chapterId: null,
+        chapterOrder: 9,
+        tags: ["changed"],
+        masteryOptionId: null,
+        errorReasonOptionIds: []
+      }, bank.settings),
       initial
     );
     expect(compileContentVersion({ ...item, sourceNumber: "changed" }, bank.settings)).not.toBe(initial);
@@ -282,8 +297,8 @@ describe("storage", () => {
     const snapshot = await readBankSnapshot();
     const changed = {
       ...snapshot.bank,
-      items: snapshot.bank.items.map((item, index) =>
-        index === 0 ? { ...item, chapter: "已修改章节" } : item
+      chapters: snapshot.bank.chapters.map((chapter, index) =>
+        index === 0 ? { ...chapter, name: "已修改章节" } : chapter
       )
     };
     const saved = await saveBankSnapshot({
@@ -292,7 +307,7 @@ describe("storage", () => {
       bank: changed
     });
     ok(saved.revision !== snapshot.revision);
-    equal(saved.bank.items[0].chapter, "已修改章节");
+    equal(saved.bank.chapters[0].name, "已修改章节");
 
     await expectStorageError(
       () =>
@@ -311,11 +326,11 @@ describe("storage", () => {
     await writeFile(path.join(workspacePath, "bank.json"), "{ broken", "utf8");
     await expectStorageError(() => readBank(), "BANK_JSON_INVALID");
     const recovered = await recoverBank("bank.json.bak");
-    equal(recovered.bank.items[0].chapter, snapshot.bank.items[0].chapter);
+    equal(recovered.bank.chapters[0].name, snapshot.bank.chapters[0].name);
     const preservedBackup = JSON.parse(
       await readFile(path.join(workspacePath, "bank.json.bak"), "utf8")
-    ) as { items: QuestionItem[] };
-    equal(preservedBackup.items[0].chapter, snapshot.bank.items[0].chapter);
+    ) as { chapters: Array<{ name: string }> };
+    equal(preservedBackup.chapters[0].name, snapshot.bank.chapters[0].name);
     await expectStorageError(() => recoverBank("missing.json"), "RECOVERY_CANDIDATE_INVALID");
   });
 
@@ -416,11 +431,12 @@ function itemIds(items: QuestionItem[]) {
 function createItems(ids: string[]): QuestionItem[] {
   return ids.map((id, index) => ({
     id,
-    order: index + 1,
     sourceNumber: id,
-    chapter: "chapter",
+    chapterId: null,
+    chapterOrder: index + 1,
     tags: [],
-    star: 3,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: { tex: `question ${id}` },
       solution: { tex: `solution ${id}` },

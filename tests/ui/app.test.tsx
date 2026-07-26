@@ -33,20 +33,34 @@ const appInfo: AppInfo = {
 };
 
 const bank: Bank = {
-  version: 1,
+  version: 2,
   settings: {
     pageSize: "a4",
     spacing: { item: "1.0em", module: "0.45em" },
     preamble: "% test"
   },
+  chapters: [
+    { id: "chapter-calculus", name: "高等数学/极限", order: 1 },
+    { id: "chapter-linear-algebra", name: "线性代数/矩阵", order: 2 }
+  ],
+  masteryOptions: [
+    { id: "mastery-easy", name: "很简单", order: 1, color: "#2F766F", pattern: "solid" },
+    { id: "mastery-hard", name: "太难了", order: 2, color: "#B84A3A", pattern: "crosshatch" }
+  ],
+  errorReasonOptions: [
+    { id: "error-calculation", name: "计算问题", order: 1, color: "#A9571C", pattern: "diagonal" },
+    { id: "error-method", name: "方法问题", order: 2, color: "#74558F", pattern: "crosshatch" }
+  ],
+  masteryHistory: [],
   items: [
     {
       id: "limit",
-      order: 1,
       sourceNumber: "2024-1",
-      chapter: "高等数学/极限",
+      chapterId: "chapter-calculus",
+      chapterOrder: 1,
       tags: ["极限"],
-      star: 3,
+      masteryOptionId: "mastery-hard",
+      errorReasonOptionIds: ["error-method"],
       modules: {
         question: { tex: "求极限 $x$。" },
         solution: { tex: "答案。" },
@@ -58,11 +72,12 @@ const bank: Bank = {
     },
     {
       id: "matrix",
-      order: 2,
       sourceNumber: "2024-2",
-      chapter: "线性代数/矩阵",
+      chapterId: "chapter-linear-algebra",
+      chapterOrder: 1,
       tags: ["矩阵"],
-      star: 4,
+      masteryOptionId: "mastery-easy",
+      errorReasonOptionIds: ["error-calculation"],
       modules: {
         question: { tex: "求矩阵秩。" },
         solution: { tex: "答案。" },
@@ -131,6 +146,86 @@ describe("App UI", () => {
     await user.type(screen.getByPlaceholderText("搜索"), "矩阵");
     expect(screen.queryByText("2024-1")).not.toBeInTheDocument();
     expect(screen.getByText("2024-2")).toBeInTheDocument();
+  });
+
+  it("combines multi-value review filters with OR inside fields and AND across fields", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    const masterySummary = screen.getByLabelText("掌握程度筛选，已选 0 项");
+    await user.click(masterySummary);
+    const masteryMenu = masterySummary.closest("details");
+    expect(masteryMenu).not.toBeNull();
+    await user.click(within(masteryMenu!).getByRole("checkbox", { name: "太难了" }));
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
+
+    const errorSummary = screen.getByLabelText("错误原因筛选，已选 0 项");
+    await user.click(errorSummary);
+    const errorMenu = errorSummary.closest("details");
+    expect(errorMenu).not.toBeNull();
+    await user.click(within(errorMenu!).getByRole("checkbox", { name: "计算问题" }));
+    expect(screen.getByText("当前筛选没有匹配题目。")).toBeInTheDocument();
+
+    await user.click(within(errorMenu!).getByRole("checkbox", { name: "方法问题" }));
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
+
+    await user.click(within(masteryMenu!).getByRole("checkbox", { name: "很简单" }));
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    expect(screen.getByText("2024-2")).toBeInTheDocument();
+  });
+
+  it("switches selected list without applying or losing current filters", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "选择导出 2024-2" })
+    );
+    await user.type(screen.getByLabelText("搜索题目"), "矩阵");
+    expect(screen.queryByText("2024-1")).not.toBeInTheDocument();
+    expect(screen.getByText("2024-2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "切换到已选中列表" }));
+    expect(screen.getByText("筛选已保留，返回当前列表后继续生效。")).toBeInTheDocument();
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "返回当前列表" }));
+    expect(screen.queryByText("2024-1")).not.toBeInTheDocument();
+    expect(screen.getByText("2024-2")).toBeInTheDocument();
+  });
+
+  it("keeps export selection independent from filters and resets it on workspace switch", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.type(screen.getByLabelText("搜索题目"), "矩阵");
+    await user.click(screen.getByRole("button", { name: "导出 2 题" }));
+    const exportCall = vi.mocked(fetch).mock.calls.find(
+      ([url]) => String(url) === "/api/export"
+    );
+    const exportRequest = JSON.parse(String(exportCall?.[1]?.body)) as {
+      itemIds: string[];
+    };
+    expect(exportRequest.itemIds).toEqual(["limit", "matrix"]);
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "选择导出 2024-2" })
+    );
+    await user.click(screen.getByRole("button", { name: /other-bank/ }));
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("checkbox", { name: /选择导出/ })
+      ).toHaveLength(2)
+    );
+    for (const checkbox of screen.getAllByRole("checkbox", { name: /选择导出/ })) {
+      expect(checkbox).toBeChecked();
+    }
   });
 
   it("switches focused modules with the keyboard without an overview mode", async () => {
@@ -223,6 +318,98 @@ describe("App UI", () => {
     });
   });
 
+  it("commits multiple tags with English and Chinese commas", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    const metadata = screen.getByRole("region", { name: "题目元数据" });
+    const tagInput = within(metadata).getByLabelText("添加标签");
+    await user.type(tagInput, "导数,函数，");
+
+    expect(within(metadata).getByText("导数")).toBeInTheDocument();
+    expect(within(metadata).getByText("函数")).toBeInTheDocument();
+  });
+
+  it("opens the independent settings page and edits chapters and review options", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
+    expect(await screen.findByRole("heading", { name: "题库设置" })).toBeInTheDocument();
+    expect(screen.queryByText("星级")).not.toBeInTheDocument();
+
+    const chapterName = screen.getByLabelText("章节名称 高等数学/极限");
+    await user.clear(chapterName);
+    await user.type(chapterName, "微积分/极限");
+    await user.tab();
+    expect(await screen.findByText("章节名称已更新。")).toBeInTheDocument();
+
+    const hardColor = screen.getByLabelText("太难了颜色");
+    await user.clear(hardColor);
+    await user.type(hardColor, "#9B3C31");
+    await user.tab();
+    expect(await screen.findByText("选项已更新。")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "编辑" }));
+    expect(await screen.findByRole("radio", { name: /太难了/ })).toBeChecked();
+  });
+
+  it("offers all three insertion locations and focuses newly inserted items", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(screen.getByRole("button", { name: "打开新增题目菜单" }));
+    expect(screen.getByRole("menuitem", { name: "在当前题后插入" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "在当前章末插入" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "在末尾插入（未分类）" })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: "在当前章末插入" }));
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("checkbox", { name: /选择导出/ })
+      ).toHaveLength(3)
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.id).toMatch(/^question-nav-/)
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开新增题目菜单" }));
+    await user.click(
+      screen.getByRole("menuitem", { name: "在末尾插入（未分类）" })
+    );
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("checkbox", { name: /选择导出/ })
+      ).toHaveLength(4)
+    );
+    expect(screen.getByLabelText("选择章节")).toHaveValue("");
+  });
+
+  it("rejects a new source-number conflict inside the same chapter", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(screen.getByText("2024-2"));
+    await user.selectOptions(
+      screen.getByLabelText("选择章节"),
+      "chapter-calculus"
+    );
+    const sourceInput = screen.getByDisplayValue("2024-2");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "2024-1");
+
+    expect(
+      await screen.findByText(/原编号“2024-1”在当前章节中已被使用/)
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2024-1")).toBeInTheDocument();
+  });
+
   it("autosaves module edits in the launch schema", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -239,7 +426,7 @@ describe("App UI", () => {
       );
       expect(saveCall).toBeTruthy();
       const payload = JSON.parse(String(saveCall?.[1]?.body)) as { bank: Bank };
-      expect(payload.bank.version).toBe(1);
+      expect(payload.bank.version).toBe(2);
       expect(payload.bank.items[0].modules.question.tex).toBe("新版题面");
     });
   });

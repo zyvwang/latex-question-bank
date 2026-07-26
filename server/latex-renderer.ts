@@ -1,9 +1,11 @@
 import type {
   Bank,
+  Chapter,
   ExportOrderMode,
   LatexSettings,
   QuestionItem
 } from "../shared/types.js";
+import { orderItemsByChapter } from "../shared/chapter-order.js";
 import { defaultSettings } from "./bank-schema.js";
 
 export function sanitizeFileName(input: string): string {
@@ -23,18 +25,22 @@ export function selectedItems(
   options: { orderMode?: ExportOrderMode; randomSeed?: string } = {}
 ): QuestionItem[] {
   const idSet = new Set(ids);
-  const items = bank.items
-    .filter((item) => idSet.has(item.id))
-    .sort((a, b) => a.order - b.order);
-  return orderItemsForExport(items, options.orderMode ?? "normal", options.randomSeed ?? "");
+  const items = bank.items.filter((item) => idSet.has(item.id));
+  return orderItemsForExport(
+    items,
+    options.orderMode ?? "normal",
+    options.randomSeed ?? "",
+    bank.chapters
+  );
 }
 
 export function orderItemsForExport(
   items: QuestionItem[],
   orderMode: ExportOrderMode,
-  randomSeed: string
+  randomSeed: string,
+  chapters: Chapter[] = []
 ): QuestionItem[] {
-  const orderedItems = [...items].sort((a, b) => a.order - b.order);
+  const orderedItems = orderItemsByChapter(items, chapters);
   if (orderMode !== "random") return orderedItems;
   return shuffleWithSeed(orderedItems, randomSeed);
 }

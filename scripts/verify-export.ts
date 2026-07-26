@@ -28,14 +28,19 @@ await mkdir(workDir, { recursive: true });
 await writeFile(sourceAssetPath, tinyPng);
 
 const now = new Date().toISOString();
+const chapters = [
+  { id: "verify-calculus", name: "高等数学", order: 1 },
+  { id: "verify-linear-algebra", name: "线性代数", order: 2 }
+];
 const items: QuestionItem[] = [
   {
     id: "verify-1",
-    order: 1,
     sourceNumber: "2024-1",
-    chapter: "高等数学/极限",
+    chapterId: chapters[0].id,
+    chapterOrder: 1,
     tags: ["极限", "等价无穷小"],
-    star: 2,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: { tex: "求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$。" },
       solution: { tex: "由基本极限可得 $\\lim_{x\\to 0}\\frac{\\sin x}{x}=1$。" },
@@ -47,11 +52,12 @@ const items: QuestionItem[] = [
   },
   {
     id: "verify-2",
-    order: 2,
     sourceNumber: "图像题",
-    chapter: "线性代数/矩阵",
+    chapterId: chapters[1].id,
+    chapterOrder: 1,
     tags: ["矩阵"],
-    star: 4,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: {
         tex:
@@ -76,11 +82,12 @@ const items: QuestionItem[] = [
   },
   {
     id: "verify-3",
-    order: 3,
     sourceNumber: "TikZ",
-    chapter: "高等数学/函数图像",
+    chapterId: chapters[0].id,
+    chapterOrder: 2,
     tags: ["TikZ"],
-    star: 5,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: {
         tex:
@@ -95,17 +102,17 @@ const items: QuestionItem[] = [
   }
 ];
 
-const normalOrder = ["verify-1", "verify-2", "verify-3"];
-const firstRandomOrder = orderItemsForExport(items, "random", "manual-seed").map((item) => item.id);
-const secondRandomOrder = orderItemsForExport(items, "random", "manual-seed").map((item) => item.id);
-const otherRandomOrder = orderItemsForExport(items, "random", "another-seed").map((item) => item.id);
+const normalOrder = ["verify-1", "verify-3", "verify-2"];
+const firstRandomOrder = orderItemsForExport(items, "random", "manual-seed", chapters).map((item) => item.id);
+const secondRandomOrder = orderItemsForExport(items, "random", "manual-seed", chapters).map((item) => item.id);
+const otherRandomOrder = orderItemsForExport(items, "random", "another-seed", chapters).map((item) => item.id);
 
-deepStrictEqual(orderItemsForExport([...items].reverse(), "normal", "ignored").map((item) => item.id), normalOrder);
+deepStrictEqual(orderItemsForExport([...items].reverse(), "normal", "ignored", chapters).map((item) => item.id), normalOrder);
 deepStrictEqual(secondRandomOrder, firstRandomOrder);
 deepStrictEqual([...firstRandomOrder].sort(), [...normalOrder].sort());
 deepStrictEqual([...otherRandomOrder].sort(), [...normalOrder].sort());
 
-const exportItems = orderItemsForExport(items, "random", "compile-seed");
+const exportItems = orderItemsForExport(items, "random", "compile-seed", chapters);
 await copyAssetsForItems(exportItems, workDir);
 
 const questionsPath = path.join(workDir, "questions.tex");

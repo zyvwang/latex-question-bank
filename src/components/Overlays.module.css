@@ -69,6 +69,53 @@
   font-variant-numeric: tabular-nums;
 }
 .reorderError { margin: -4px 0 0; color: var(--coral); font-size: 13px; }
+.historyCapacityDialog { width: min(540px, 100%); }
+.historyCapacityDialog header { align-items: start; }
+.historyCapacityDialog header span {
+  display: block;
+  margin-top: 5px;
+  white-space: normal;
+  line-height: 1.6;
+}
+.capacityChoices {
+  max-height: min(360px, 48vh);
+  display: grid;
+  gap: 6px;
+  overflow: auto;
+}
+.capacityChoices label {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+}
+.capacityChoices input { width: 18px; height: 18px; accent-color: var(--teal); }
+.capacityChoices span { min-width: 0; display: grid; gap: 3px; }
+.capacityChoices strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.capacityChoices small {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.capacityWarning {
+  margin: 0;
+  color: var(--coral);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.capacityConfirm {
+  background: var(--coral);
+  border-color: var(--coral);
+}
 
 @media (hover: hover) {
   .contextMenu button:hover { color: var(--teal-strong); background: var(--teal-soft); }

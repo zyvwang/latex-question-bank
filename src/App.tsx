@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
 import { LoadingScreen } from "./components/LoadingScreen.js";
+import { AppNavigation } from "./components/AppNavigation.js";
 import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
 import { SetupScreen } from "./components/SetupScreen.js";
 import { Sidebar } from "./components/Sidebar.js";
+import { SettingsScreen } from "./components/SettingsScreen.js";
+import { HeatmapScreen } from "./components/HeatmapScreen.js";
 import { WorkspaceView } from "./components/WorkspaceView.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
 import {
   useLifecycle,
+  useAppView,
   useQuestions,
   useWorkspace
 } from "./context/questionBankContexts.js";
@@ -15,6 +19,7 @@ import styles from "./styles/AppShell.module.css";
 
 function AppContent() {
   const lifecycle = useLifecycle();
+  const appView = useAppView();
   const workspace = useWorkspace();
   const questions = useQuestions();
   const flushRef = useRef(lifecycle.flushPendingChanges);
@@ -31,11 +36,20 @@ function AppContent() {
   return (
     <>
       <a className={styles.skipLink} href="#main-workspace">
-        跳到编辑区
+        跳到主要内容
       </a>
       <main className={styles.appShell}>
-        <Sidebar />
-        <WorkspaceView />
+        <AppNavigation />
+        {appView.activeView === "editor" ? (
+          <div className={styles.editorLayout}>
+            <Sidebar />
+            <WorkspaceView />
+          </div>
+        ) : appView.activeView === "heatmap" ? (
+          <HeatmapScreen />
+        ) : (
+          <SettingsScreen />
+        )}
         <Overlays />
       </main>
     </>

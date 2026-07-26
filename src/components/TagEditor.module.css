@@ -1,0 +1,34 @@
+.editor {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.tags { display: contents; }
+
+.tag {
+  flex: 0 0 auto;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 5px 0 8px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal-strong) !important;
+  font-size: 12px !important;
+}
+
+.tag button {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+}
+
+.editor input { min-width: 104px; flex: 1 1 104px; }

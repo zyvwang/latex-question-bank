@@ -55,6 +55,21 @@ describe("shared validation", () => {
   it("rejects structurally unsafe banks and unsupported layouts", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
+    const historyEntry = {
+      id: "history-one",
+      localDate: "2026-01-01",
+      name: "History one",
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      masteryOptions: bank.masteryOptions,
+      errorReasonOptions: bank.errorReasonOptions,
+      itemStates: {
+        [item.id]: {
+          masteryOptionId: bank.masteryOptions[0].id,
+          errorReasonOptionIds: [bank.errorReasonOptions[0].id]
+        }
+      }
+    };
     const validSave = validateSaveBankRequest({
       workspacePath: "/tmp/bank",
       baseRevision: "a".repeat(64),
@@ -76,12 +91,101 @@ describe("shared validation", () => {
       { ...bank, items: [{ ...item, sourceNumber: 5 }] },
       { ...bank, items: [{ ...item, id: 5 }] },
       { ...bank, items: [{ ...item, id: "" }] },
-      { ...bank, items: [{ ...item, order: Number.NaN }] },
-      { ...bank, items: [{ ...item, chapter: 5 }] },
+      { ...bank, items: [{ ...item, chapterOrder: Number.NaN }] },
+      { ...bank, items: [{ ...item, chapterOrder: 0 }] },
+      { ...bank, items: [{ ...item, chapterId: 5 }] },
       { ...bank, items: [{ ...item, tags: [5] }] },
-      { ...bank, items: [{ ...item, star: 0 }] },
-      { ...bank, items: [{ ...item, star: 6 }] },
-      { ...bank, items: [{ ...item, star: 2.5 }] },
+      { ...bank, items: [{ ...item, masteryOptionId: "missing" }] },
+      { ...bank, items: [{ ...item, errorReasonOptionIds: ["missing"] }] },
+      { ...bank, items: [{ ...item, errorReasonOptionIds: ["error-method", "error-method"] }] },
+      { ...bank, chapters: [{ ...bank.chapters[0], name: " " }] },
+      {
+        ...bank,
+        chapters: [
+          bank.chapters[0],
+          { ...bank.chapters[1], name: bank.chapters[0].name.toUpperCase() }
+        ]
+      },
+      {
+        ...bank,
+        masteryOptions: [{ ...bank.masteryOptions[0], color: "teal" }]
+      },
+      {
+        ...bank,
+        masteryHistory: [
+          historyEntry,
+          {
+            ...historyEntry,
+            id: "history-two",
+            localDate: "2026-01-02",
+            name: "  HISTORY ONE  "
+          }
+        ]
+      },
+      {
+        ...bank,
+        masteryHistory: [
+          historyEntry,
+          {
+            ...historyEntry,
+            id: "history-two",
+            name: "History two"
+          }
+        ]
+      },
+      {
+        ...bank,
+        masteryHistory: [{ ...historyEntry, localDate: "2026-02-30" }]
+      },
+      {
+        ...bank,
+        masteryHistory: [{
+          ...historyEntry,
+          itemStates: {
+            [item.id]: {
+              masteryOptionId: "missing",
+              errorReasonOptionIds: []
+            }
+          }
+        }]
+      },
+      {
+        ...bank,
+        masteryHistory: [{
+          ...historyEntry,
+          itemStates: {
+            [item.id]: {
+              masteryOptionId: null,
+              errorReasonOptionIds: ["missing"]
+            }
+          }
+        }]
+      },
+      {
+        ...bank,
+        masteryHistory: [{
+          ...historyEntry,
+          itemStates: {
+            [item.id]: {
+              masteryOptionId: null,
+              errorReasonOptionIds: [
+                bank.errorReasonOptions[0].id,
+                bank.errorReasonOptions[0].id
+              ]
+            }
+          }
+        }]
+      },
+      { ...bank, masteryHistory: Array.from({ length: 6 }, (_, index) => ({
+        id: `history-${index}`,
+        localDate: `2026-01-0${index + 1}`,
+        name: `History ${index}`,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        masteryOptions: bank.masteryOptions,
+        errorReasonOptions: bank.errorReasonOptions,
+        itemStates: {}
+      })) },
       { ...bank, items: [{ ...item, modules: undefined }] },
       { ...bank, items: [{ ...item, modules: { ...item.modules, note: null } }] },
       {
@@ -155,7 +259,18 @@ describe("shared validation", () => {
       validateBankPayload({
         version: 1,
         settings: bank.settings,
-        items: [{ ...item, modules: undefined }]
+        items: [{
+          id: item.id,
+          order: 1,
+          sourceNumber: item.sourceNumber,
+          chapter: "旧章节",
+          tags: item.tags,
+          star: 3,
+          modules: undefined,
+          assets: item.assets,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        }]
       }).ok
     ).toBe(false);
   });

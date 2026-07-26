@@ -16,13 +16,51 @@ export type ModuleKind = "question" | "solution" | "note";
 
 export type QuestionModules = Record<ModuleKind, QuestionModule>;
 
-export interface QuestionItem {
+export type StarRating = 1 | 2 | 3 | 4 | 5;
+
+export interface LegacyQuestionItem {
   id: string;
   order: number;
   sourceNumber?: string;
   chapter: string;
   tags: string[];
   star: StarRating;
+  modules: QuestionModules;
+  assets: QuestionAsset[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LegacyBank {
+  version: 1;
+  settings: LatexSettings;
+  items: LegacyQuestionItem[];
+}
+
+export interface Chapter {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export type ReviewPattern = "solid" | "dots" | "diagonal" | "crosshatch";
+
+export interface ReviewOption {
+  id: string;
+  name: string;
+  order: number;
+  color: string;
+  pattern: ReviewPattern;
+}
+
+export interface QuestionItem {
+  id: string;
+  sourceNumber?: string;
+  chapterId: string | null;
+  chapterOrder: number;
+  tags: string[];
+  masteryOptionId: string | null;
+  errorReasonOptionIds: string[];
   modules: QuestionModules;
   assets: QuestionAsset[];
   createdAt: string;
@@ -39,9 +77,29 @@ export interface LatexSettings {
 }
 
 export interface Bank {
-  version: 1;
+  version: 2;
   settings: LatexSettings;
+  chapters: Chapter[];
+  masteryOptions: ReviewOption[];
+  errorReasonOptions: ReviewOption[];
+  masteryHistory: MasteryHistoryEntry[];
   items: QuestionItem[];
+}
+
+export interface MasteryHistoryItemState {
+  masteryOptionId: string | null;
+  errorReasonOptionIds: string[];
+}
+
+export interface MasteryHistoryEntry {
+  id: string;
+  localDate: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  masteryOptions: ReviewOption[];
+  errorReasonOptions: ReviewOption[];
+  itemStates: Record<string, MasteryHistoryItemState>;
 }
 
 export interface BankSnapshot {
@@ -166,4 +224,3 @@ export interface ApiErrorResponse {
 
 export type TexField = ModuleKind;
 export type ExportOrderMode = "normal" | "random";
-export type StarRating = 1 | 2 | 3 | 4 | 5;

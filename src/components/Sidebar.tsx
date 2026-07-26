@@ -17,9 +17,8 @@ export function Sidebar() {
     <aside className={styles.sidebar} aria-label="题库导航">
       <header className={styles.brandBar}>
         <div className={styles.brandIdentity}>
-          <img src="/brand/icon-64.png" width="36" height="36" alt="" />
           <div>
-            <h1>LaTeX 题库</h1>
+            <h2>题目</h2>
             <p>
               {questions.orderedItems.length} 题 · 已选 {selection.selectedIds.size}
             </p>

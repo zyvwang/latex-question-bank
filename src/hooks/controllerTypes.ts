@@ -12,7 +12,10 @@ export type Notice = {
 };
 export type ReorderMenu = { id: string; x: number; y: number };
 export type AddMenu = { x: number; y: number };
-export type AddMode = { type: "append" } | { type: "insertAfter"; afterId: string };
+export type AddMode =
+  | { type: "append" }
+  | { type: "insertAfter"; afterId: string }
+  | { type: "chapterEnd"; afterId: string };
 export type ExportSettings = {
   exportName: string;
   exportOrderMode: ExportOrderMode;

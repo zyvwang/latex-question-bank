@@ -69,6 +69,8 @@ export function useQuestionBankContextValues(
     setActiveId: input.setActiveId,
     updateBank: stable.updateBank,
     updateItem: stable.updateItem,
+    commitSourceNumber: stable.commitSourceNumber,
+    moveItemToChapter: stable.moveItemToChapter,
     addItem: stable.addItem,
     deleteItem: stable.deleteItem,
     deleteActiveItem: stable.deleteActiveItem,
@@ -87,6 +89,8 @@ export function useQuestionBankContextValues(
     stable.deleteActiveItem,
     stable.deleteItem,
     stable.moveActive,
+    stable.commitSourceNumber,
+    stable.moveItemToChapter,
     stable.undoDelete,
     stable.updateBank,
     stable.updateItem
@@ -94,33 +98,43 @@ export function useQuestionBankContextValues(
 
   const selection = useMemo<QuestionBankContextValues["selection"]>(() => ({
     filteredItems: input.derived.filteredItems,
+    listItems: input.derived.listItems,
     chapters: input.derived.chapters,
     tags: input.derived.tags,
     selectedIds: input.selection.selectedIds,
-    chapterFilter: input.selection.chapterFilter,
-    tagFilter: input.selection.tagFilter,
-    starFilter: input.selection.starFilter,
+    chapterFilters: input.selection.chapterFilters,
+    tagFilters: input.selection.tagFilters,
+    masteryFilters: input.selection.masteryFilters,
+    errorReasonFilters: input.selection.errorReasonFilters,
     search: input.selection.search,
-    setChapterFilter: input.selection.setChapterFilter,
-    setTagFilter: input.selection.setTagFilter,
-    setStarFilter: input.selection.setStarFilter,
+    listMode: input.selection.listMode,
+    setChapterFilters: input.selection.setChapterFilters,
+    setTagFilters: input.selection.setTagFilters,
+    setMasteryFilters: input.selection.setMasteryFilters,
+    setErrorReasonFilters: input.selection.setErrorReasonFilters,
     setSearch: input.selection.setSearch,
+    setListMode: input.selection.setListMode,
     toggleSelected: stable.toggleSelected,
-    toggleAllFiltered: stable.toggleAllFiltered
+    toggleAllVisible: stable.toggleAllVisible
   }), [
     input.derived.chapters,
     input.derived.filteredItems,
+    input.derived.listItems,
     input.derived.tags,
-    input.selection.chapterFilter,
+    input.selection.chapterFilters,
+    input.selection.errorReasonFilters,
+    input.selection.listMode,
+    input.selection.masteryFilters,
     input.selection.search,
-    input.selection.setChapterFilter,
+    input.selection.setChapterFilters,
+    input.selection.setErrorReasonFilters,
+    input.selection.setListMode,
+    input.selection.setMasteryFilters,
     input.selection.setSearch,
-    input.selection.setStarFilter,
-    input.selection.setTagFilter,
+    input.selection.setTagFilters,
     input.selection.selectedIds,
-    input.selection.starFilter,
-    input.selection.tagFilter,
-    stable.toggleAllFiltered,
+    input.selection.tagFilters,
+    stable.toggleAllVisible,
     stable.toggleSelected
   ]);
 
@@ -198,5 +212,82 @@ export function useQuestionBankContextValues(
     stable.submitReorder
   ]);
 
-  return { lifecycle, workspace, questions, selection, compileExport, workspaceUi };
+  const appView = useMemo<QuestionBankContextValues["appView"]>(() => ({
+    activeView: input.appView.activeView,
+    setActiveView: input.appView.setActiveView,
+    heatmapMode: input.appView.heatmapMode,
+    setHeatmapMode: input.appView.setHeatmapMode,
+    heatmapFocusedId: input.appView.heatmapFocusedId,
+    setHeatmapFocusedId: input.appView.setHeatmapFocusedId,
+    heatmapScrollTop: input.appView.heatmapScrollTop,
+    setHeatmapScrollTop: input.appView.setHeatmapScrollTop,
+    openQuestionFromHeatmap: stable.openQuestionFromHeatmap
+  }), [
+    input.appView.activeView,
+    input.appView.heatmapFocusedId,
+    input.appView.heatmapMode,
+    input.appView.heatmapScrollTop,
+    input.appView.setActiveView,
+    input.appView.setHeatmapFocusedId,
+    input.appView.setHeatmapMode,
+    input.appView.setHeatmapScrollTop,
+    stable.openQuestionFromHeatmap
+  ]);
+
+  const review = useMemo<QuestionBankContextValues["review"]>(() => ({
+    chapters: input.derived.chapters,
+    masteryOptions: input.bank?.masteryOptions ?? [],
+    errorReasonOptions: input.bank?.errorReasonOptions ?? [],
+    masteryHistory: input.reviewHistory.masteryHistory,
+    capacityRequest: input.reviewHistory.capacityRequest,
+    createChapter: stable.createChapter,
+    renameChapter: stable.renameChapter,
+    moveChapter: stable.moveChapter,
+    moveChapterToIndex: stable.moveChapterToIndex,
+    deleteChapter: stable.deleteChapter,
+    createReviewOption: stable.createReviewOption,
+    updateReviewOption: stable.updateReviewOption,
+    moveReviewOption: stable.moveReviewOption,
+    moveReviewOptionToIndex: stable.moveReviewOptionToIndex,
+    deleteReviewOption: stable.deleteReviewOption,
+    selectCapacityDeletion: stable.selectCapacityDeletion,
+    confirmCapacityDeletion: stable.confirmCapacityDeletion,
+    cancelCapacityDeletion: stable.cancelCapacityDeletion,
+    renameHistory: stable.renameHistory,
+    deleteHistory: stable.deleteHistory,
+    restoreHistory: stable.restoreHistory
+  }), [
+    input.bank?.errorReasonOptions,
+    input.bank?.masteryOptions,
+    input.derived.chapters,
+    input.reviewHistory.capacityRequest,
+    input.reviewHistory.masteryHistory,
+    stable.createChapter,
+    stable.createReviewOption,
+    stable.deleteChapter,
+    stable.deleteReviewOption,
+    stable.deleteHistory,
+    stable.moveChapter,
+    stable.moveChapterToIndex,
+    stable.moveReviewOption,
+    stable.moveReviewOptionToIndex,
+    stable.renameHistory,
+    stable.renameChapter,
+    stable.restoreHistory,
+    stable.cancelCapacityDeletion,
+    stable.confirmCapacityDeletion,
+    stable.selectCapacityDeletion,
+    stable.updateReviewOption
+  ]);
+
+  return {
+    lifecycle,
+    workspace,
+    questions,
+    selection,
+    compileExport,
+    workspaceUi,
+    appView,
+    review
+  };
 }

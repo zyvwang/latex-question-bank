@@ -8,7 +8,10 @@ globalThis.window.MathJax = {
 Object.defineProperty(globalThis, "crypto", {
   value: {
     ...globalThis.crypto,
-    randomUUID: () => "test-random-id"
+    randomUUID: (() => {
+      let sequence = 0;
+      return () => `test-random-id-${sequence += 1}`;
+    })()
   },
   configurable: true
 });

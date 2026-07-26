@@ -9,14 +9,17 @@ export function useQuestionBankStableActions(input: ContextValueInput) {
     flushPendingChanges: useLatestCallback(input.flushPendingChanges),
     updateBank: useLatestCallback(input.updateBank),
     updateItem: useLatestCallback(input.updateItem),
+    commitSourceNumber: useLatestCallback(input.commitSourceNumber),
+    moveItemToChapter: useLatestCallback(input.moveItemToChapter),
+    openQuestionFromHeatmap: useLatestCallback(input.openQuestionFromHeatmap),
     addItem: useLatestCallback(input.reorder.addItem),
     deleteItem: useLatestCallback(input.reorder.deleteItem),
     deleteActiveItem: useLatestCallback(input.reorder.deleteActiveItem),
     undoDelete: useLatestCallback(input.reorder.undoDelete),
     moveActive: useLatestCallback(input.reorder.moveActive),
     toggleSelected: useLatestCallback(input.selection.toggleSelected),
-    toggleAllFiltered: useLatestCallback(() =>
-      input.selection.toggleAllFiltered(input.derived.filteredItems)
+    toggleAllVisible: useLatestCallback(() =>
+      input.selection.toggleAllVisible(input.derived.listItems)
     ),
     createSampleWorkspace: useLatestCallback(input.workspace.createSampleWorkspace),
     createNewWorkspace: useLatestCallback(input.workspace.createNewWorkspace),
@@ -36,6 +39,30 @@ export function useQuestionBankStableActions(input: ContextValueInput) {
     openReorderMenu: useLatestCallback(input.reorder.openReorderMenu),
     openAddMenu: useLatestCallback(input.reorder.openAddMenu),
     startPointerDrag: useLatestCallback(input.reorder.startPointerDrag),
-    startMouseDrag: useLatestCallback(input.reorder.startMouseDrag)
+    startMouseDrag: useLatestCallback(input.reorder.startMouseDrag),
+    createChapter: useLatestCallback(input.bankSettings.createChapter),
+    renameChapter: useLatestCallback(input.bankSettings.renameChapter),
+    moveChapter: useLatestCallback(input.bankSettings.moveChapter),
+    moveChapterToIndex: useLatestCallback(input.bankSettings.moveChapterToIndex),
+    deleteChapter: useLatestCallback(input.bankSettings.deleteChapter),
+    createReviewOption: useLatestCallback(input.bankSettings.createReviewOption),
+    updateReviewOption: useLatestCallback(input.bankSettings.updateReviewOption),
+    moveReviewOption: useLatestCallback(input.bankSettings.moveReviewOption),
+    moveReviewOptionToIndex: useLatestCallback(
+      input.bankSettings.moveReviewOptionToIndex
+    ),
+    deleteReviewOption: useLatestCallback(input.bankSettings.deleteReviewOption),
+    selectCapacityDeletion: useLatestCallback(
+      input.reviewHistory.selectCapacityDeletion
+    ),
+    confirmCapacityDeletion: useLatestCallback(
+      input.reviewHistory.confirmCapacityDeletion
+    ),
+    cancelCapacityDeletion: useLatestCallback(
+      input.reviewHistory.cancelCapacityDeletion
+    ),
+    renameHistory: useLatestCallback(input.reviewHistory.renameHistory),
+    deleteHistory: useLatestCallback(input.reviewHistory.deleteHistory),
+    restoreHistory: useLatestCallback(input.reviewHistory.restoreHistory)
   };
 }

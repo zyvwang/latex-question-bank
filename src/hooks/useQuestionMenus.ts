@@ -6,6 +6,7 @@ import type {
   SetStateAction
 } from "react";
 import { moveItemToPositionInList } from "../itemOrder.js";
+import { itemsInChapter } from "../../shared/chapter-order.js";
 import { validateReorderTarget } from "../questionReorder.js";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMenu, Notice, ReorderMenu } from "./controllerTypes.js";
@@ -87,7 +88,11 @@ export function useQuestionMenus({
   function submitReorder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!reorderDialogItem) return;
-    const error = validateReorderTarget(reorderTarget, orderedItems.length);
+    const chapterItemCount = itemsInChapter(
+      orderedItems,
+      reorderDialogItem.chapterId
+    ).length;
+    const error = validateReorderTarget(reorderTarget, chapterItemCount);
     if (error) {
       setReorderError(error);
       return;
@@ -124,7 +129,7 @@ export function useQuestionMenus({
     event.preventDefault();
     event.stopPropagation();
     const bounds = event.currentTarget.getBoundingClientRect();
-    const menuHeight = activeItem ? 92 : 50;
+    const menuHeight = activeItem ? 134 : 50;
     const x = Math.min(bounds.right - 184, window.innerWidth - 192);
     const y = Math.min(bounds.bottom + 6, window.innerHeight - menuHeight - 8);
     setReorderMenu(null);
