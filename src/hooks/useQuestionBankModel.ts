@@ -172,7 +172,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     selectedIds: selection.selectedIds,
     persistBank,
     setNotice,
-    updateItem
+    updateBank
   });
   const { clearFilters, selectAllItems } = selection;
   const { resetCompileState } = compileExport;

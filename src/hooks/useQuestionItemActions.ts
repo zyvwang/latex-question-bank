@@ -4,6 +4,7 @@ import {
   itemsInChapter,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
+import { restoreDeletedItem } from "../itemOrder.js";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMode, Notice } from "./controllerTypes.js";
 
@@ -132,20 +133,7 @@ export function useQuestionItemActions({
 
   function undoDelete() {
     if (!deletedItem) return;
-    updateBank((current) => {
-      if (current.items.some((item) => item.id === deletedItem.id)) return current;
-      const now = new Date().toISOString();
-      const shifted = current.items.map((item) =>
-        item.chapterId === deletedItem.chapterId &&
-        item.chapterOrder >= deletedItem.chapterOrder
-          ? { ...item, chapterOrder: item.chapterOrder + 1, updatedAt: now }
-          : item
-      );
-      return {
-        ...current,
-        items: [...shifted, { ...deletedItem, updatedAt: now }]
-      };
-    });
+    updateBank((current) => restoreDeletedItem(current, deletedItem));
     setSelectedIds((current) => new Set([...current, deletedItem.id]));
     setActiveId(deletedItem.id);
     clearDeletedUndo();

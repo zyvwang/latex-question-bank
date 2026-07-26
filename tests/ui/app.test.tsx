@@ -356,6 +356,7 @@ describe("App UI", () => {
     const sourceInput = screen.getByDisplayValue("2024-1");
     await user.clear(sourceInput);
     await user.type(sourceInput, "2026-1");
+    await user.tab();
     await new Promise((resolve) => window.setTimeout(resolve, 650));
 
     await waitFor(() => {
@@ -647,11 +648,36 @@ describe("App UI", () => {
     const sourceInput = screen.getByDisplayValue("2024-2");
     await user.clear(sourceInput);
     await user.type(sourceInput, "2024-1");
+    // draft-only:仅在 blur/Enter 时提交并校验冲突
+    await user.tab();
 
     expect(
       await screen.findByText(/原编号“2024-1”在当前章节中已被使用/)
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("2024-1")).toBeInTheDocument();
+  });
+
+  it("allows typing a source number whose prefix collides with a sibling in the same chapter", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    // 把 2024-2 移入 2024-1 所在章节,构造同章节前缀冲突场景
+    await user.click(screen.getByText("2024-2"));
+    await user.selectOptions(
+      screen.getByLabelText("选择章节"),
+      "chapter-calculus"
+    );
+    const sourceInput = screen.getByDisplayValue("2024-2");
+    await user.clear(sourceInput);
+    // 输入过程中会经过与 2024-1 冲突的前缀;draft-only 不应中途拒绝或跳转
+    await user.type(sourceInput, "2024-11");
+    expect(sourceInput).toHaveValue("2024-11");
+    expect(screen.queryByText(/已被使用/)).not.toBeInTheDocument();
+
+    // blur 提交合法的完整编号
+    await user.tab();
+    expect(screen.getByDisplayValue("2024-11")).toBeInTheDocument();
   });
 
   it("autosaves module edits in the launch schema", async () => {
@@ -685,6 +711,73 @@ describe("App UI", () => {
     await user.upload(input!, new File(["image"], "figure.png", { type: "image/png" }));
 
     expect(await screen.findByText("图片已插入当前模块。")).toBeInTheDocument();
+  });
+
+  it("surfaces an error notice and no success when an image upload is rejected", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/assets") {
+        return json(
+          { error: "图片内容不是有效的 PNG 或 JPEG。", code: "IMAGE_SIGNATURE_INVALID" },
+          400
+        );
+      }
+      return handleFetch(input, init);
+    });
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await screen.findByText("2024-1");
+
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(input!, new File(["x"], "figure.png", { type: "image/png" }));
+
+    expect(
+      await screen.findByText("图片内容不是有效的 PNG 或 JPEG。")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("图片已插入当前模块。")).not.toBeInTheDocument();
+  });
+
+  it("appends an uploaded image to the latest module content without overwriting concurrent edits", async () => {
+    let resolveUpload: (() => void) | null = null;
+    const pendingUpload = new Promise<Response>((resolve) => {
+      resolveUpload = () =>
+        resolve(
+          json({
+            asset: {
+              id: "asset-9",
+              fileName: "asset.png",
+              originalName: "figure.png",
+              relativePath: "assets/asset.png",
+              mimeType: "image/png",
+              size: 5,
+              uploadedAt: "2026-01-01T00:00:00.000Z"
+            },
+            url: "/assets/asset.png",
+            insertText: "\\CONCURRENTIMG"
+          })
+        );
+    });
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/assets") return pendingUpload;
+      return handleFetch(input, init);
+    });
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await screen.findByText("2024-1");
+
+    const editor = screen.getAllByLabelText("latex-editor")[0] as HTMLTextAreaElement;
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+    // 上传请求挂起期间继续编辑题面
+    await user.upload(input!, new File(["x"], "figure.png", { type: "image/png" }));
+    await user.clear(editor);
+    await user.type(editor, "并发编辑内容");
+    // 完成上传:应基于最新题面追加图片,而非用上传发起时的旧内容覆盖
+    resolveUpload!();
+
+    expect(await screen.findByText("图片已插入当前模块。")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(editor.value).toContain("并发编辑内容");
+      expect(editor.value).toContain("\\CONCURRENTIMG");
+    });
   });
 
   it("increments an automatic export name and opens its file location", async () => {
@@ -801,11 +894,13 @@ describe("App UI", () => {
     const sourceInput = screen.getByDisplayValue("2024-1");
     await user.clear(sourceInput);
     await user.type(sourceInput, "第一次修改");
+    await user.tab();
     await new Promise((resolve) => window.setTimeout(resolve, 650));
     expect(saveBodies).toHaveLength(1);
 
     await user.clear(sourceInput);
     await user.type(sourceInput, "最终修改");
+    await user.tab();
     await new Promise((resolve) => window.setTimeout(resolve, 650));
     expect(saveBodies).toHaveLength(1);
 
@@ -840,6 +935,7 @@ describe("App UI", () => {
     const sourceInput = screen.getByDisplayValue("2024-1");
     await user.clear(sourceInput);
     await user.type(sourceInput, "等待重试");
+    await user.tab();
     await new Promise((resolve) => window.setTimeout(resolve, 650));
 
     await user.click(await screen.findByRole("button", { name: "重试保存" }));

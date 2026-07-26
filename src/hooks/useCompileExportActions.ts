@@ -14,6 +14,7 @@ import type {
   QuestionItem
 } from "../../shared/types.js";
 import { compileContentVersion } from "../utils/compileVersion.js";
+import { appendTex } from "../utils/form.js";
 import type { Notice } from "./controllerTypes.js";
 
 interface CompileExportOptions {
@@ -23,7 +24,7 @@ interface CompileExportOptions {
   selectedIds: Set<string>;
   persistBank: (bank: Bank) => Promise<void>;
   setNotice: (notice: Notice | null) => void;
-  updateItem: (id: string, patch: Partial<QuestionItem>) => void;
+  updateBank: (updater: (current: Bank) => Bank) => void;
 }
 
 interface CompileTarget {
@@ -42,7 +43,7 @@ export function useCompileExportActions({
   selectedIds,
   persistBank,
   setNotice,
-  updateItem
+  updateBank
 }: CompileExportOptions) {
   const initialExportName = defaultExportName();
   const [exportName, setExportNameState] = useState(initialExportName);
@@ -55,6 +56,7 @@ export function useCompileExportActions({
   const exportNameManualRef = useRef(false);
   const exportNameRef = useRef(initialExportName);
   const compileGenerationRef = useRef(0);
+  const workspacePathRef = useRef(workspacePath);
 
   const currentContentVersion = useMemo(
     () => activeItem && bank ? compileContentVersion(activeItem, bank.settings) : null,
@@ -80,6 +82,10 @@ export function useCompileExportActions({
   }, [activeItem, compileRecord, compileTarget, currentContentVersion]);
   const compileResult =
     compileStatus?.state === "failure" && compileRecord ? compileRecord.result : null;
+
+  useEffect(() => {
+    workspacePathRef.current = workspacePath;
+  }, [workspacePath]);
 
   useEffect(() => {
     exportNameManualRef.current = false;
@@ -116,9 +122,48 @@ export function useCompileExportActions({
 
   async function uploadAsset(kind: ModuleKind, file: File) {
     if (!activeItem) return;
-    const { patch } = await uploadQuestionAsset(kind, activeItem, file);
-    updateItem(activeItem.id, patch);
-    setNotice({ type: "ok", text: "图片已插入当前模块。" });
+    const itemId = activeItem.id;
+    const requestWorkspace = workspacePath;
+    try {
+      const { asset, insertText } = await uploadQuestionAsset(file);
+      if (workspacePathRef.current !== requestWorkspace) {
+        // 上传期间已切换工作区:丢弃过期响应,避免把资源写入另一工作区中同 ID 的题目。
+        return;
+      }
+      let applied = false;
+      updateBank((current) => {
+        if (!current.items.some((item) => item.id === itemId)) return current;
+        applied = true;
+        const now = new Date().toISOString();
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  assets: [...item.assets, asset],
+                  modules: {
+                    ...item.modules,
+                    [kind]: {
+                      ...item.modules[kind],
+                      tex: appendTex(item.modules[kind].tex, insertText)
+                    }
+                  },
+                  updatedAt: now
+                }
+              : item
+          )
+        };
+      });
+      if (applied) {
+        setNotice({ type: "ok", text: "图片已插入当前模块。" });
+      }
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "图片上传失败。"
+      });
+    }
   }
 
   async function compileCurrentItem() {

@@ -34,28 +34,25 @@ function SourceNumberField() {
   const committedRef = useRef(item?.sourceNumber ?? "");
 
   if (!item) return null;
+  const currentItem = item;
+
+  // 输入过程中只维护草稿,不做即时冲突校验:否则合法编号(如同章节已有 1 时输入 12)会
+  // 在中途前缀命中冲突而被拒。仅在 blur 或 Enter 时提交,冲突由 commitSourceNumber 处理。
+  function commit() {
+    if (questions.commitSourceNumber(currentItem.id, draft)) {
+      committedRef.current = draft.trim();
+    } else {
+      setDraft(committedRef.current);
+    }
+  }
+
   return (
     <label>
       <span>原编号</span>
       <input
         value={draft}
-        onChange={(event) => {
-          const value = event.target.value;
-          if (questions.commitSourceNumber(item.id, value)) {
-            setDraft(value);
-          } else {
-            questions.updateItem(item.id, { sourceNumber: committedRef.current });
-            setDraft(committedRef.current);
-          }
-        }}
-        onBlur={() => {
-          if (!questions.commitSourceNumber(item.id, draft)) {
-            questions.updateItem(item.id, { sourceNumber: committedRef.current });
-            setDraft(item.sourceNumber ?? "");
-          } else {
-            committedRef.current = draft.trim();
-          }
-        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === "Enter") event.currentTarget.blur();
         }}

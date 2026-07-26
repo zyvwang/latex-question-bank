@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Bank, BankSnapshot, SaveBankRequest } from "../shared/types.js";
 import { createEmptyBank } from "./bank-schema.js";
 import { writeJsonFileAtomic } from "./json-file.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { withWorkspaceWriteLock } from "./storage-lock.js";
 import {
   hasSessionHistory,
@@ -82,6 +83,7 @@ export async function saveBankSnapshot(request: SaveBankRequest): Promise<BankSn
 }
 
 async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision: string) {
+  await assertRealWorkspaceSubdir(dirs.historyDir);
   await mkdir(dirs.historyDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `${timestamp}-${revision.slice(0, 12)}.json`;

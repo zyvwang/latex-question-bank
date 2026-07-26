@@ -106,6 +106,7 @@ React UI
 - 渲染端自动保存保持最多一个请求在途，并合并后续编辑。
 - 每次应用会话中的首次 bank 修改会在 `.history/` 记录快照，最多保留 10 个。
 - 恢复接口只接受服务端枚举出的候选 ID，不接受任意路径。
+- workspace 顶层子目录（`.tmp`、`.history`、`assets`、`exports`）在读、写、删、rename 前必须经 `server/workspace-paths.ts` 的 `assertRealWorkspaceSubdir` 做符号链接与 realpath 校验（fail-closed）：子目录是符号链接或其真实路径逃逸出 workspace 时拒绝该次操作，避免跟随软链删除或覆盖外部文件。新增任何涉及 workspace 子目录的读写路径都要走该守卫。
 
 涉及保存、恢复、导入导出、路径处理、图片上传、Electron IPC 或 TeX 命令执行的改动，要优先补充安全和错误路径测试。
 

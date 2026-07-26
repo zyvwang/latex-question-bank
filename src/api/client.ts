@@ -7,8 +7,6 @@ import type {
   ExportDefaultNameResponse,
   ExportOrderMode,
   ExportResponse,
-  ModuleKind,
-  QuestionAsset,
   QuestionItem,
   RecoveryCandidate,
   SaveBankRequest
@@ -18,7 +16,6 @@ import {
   BANK_PAYLOAD_TOO_LARGE_MESSAGE,
   BANK_SAVE_BODY_LIMIT_BYTES
 } from "../../shared/api-limits.js";
-import { appendTex } from "../utils/form.js";
 
 export async function fetchAppInfo(): Promise<AppInfo> {
   return fetchJson<AppInfo>("/api/app");
@@ -82,27 +79,11 @@ export async function saveTexPath(texPath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/tex-path", { texPath });
 }
 
-export async function uploadQuestionAsset(kind: ModuleKind, item: QuestionItem, file: File): Promise<{
-  asset: QuestionAsset;
-  patch: Pick<QuestionItem, "assets" | "modules">;
-}> {
+export async function uploadQuestionAsset(file: File): Promise<AssetUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
   const response = await fetch("/api/assets", { method: "POST", body: formData });
-  const data = await readJsonResponse<AssetUploadResponse>(response);
-  return {
-    asset: data.asset,
-    patch: {
-      assets: [...item.assets, data.asset],
-      modules: {
-        ...item.modules,
-        [kind]: {
-          ...item.modules[kind],
-          tex: appendTex(item.modules[kind].tex, data.insertText)
-        }
-      }
-    }
-  };
+  return readJsonResponse<AssetUploadResponse>(response);
 }
 
 export async function compileItem(item: QuestionItem, settings: Bank["settings"]): Promise<CompileResponse> {

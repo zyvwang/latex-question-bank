@@ -3,6 +3,7 @@ import { access, copyFile, mkdir, readdir, rm, writeFile } from "node:fs/promise
 import path from "node:path";
 import type { LatexSettings, QuestionItem } from "../shared/types.js";
 import { buildFullLatex } from "./latex-renderer.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import {
   getCurrentWorkspaceDirs,
   getWorkspaceDirs
@@ -13,6 +14,7 @@ export async function writeCurrentItemCheck(
   settings: LatexSettings
 ): Promise<string> {
   const { tempDir } = await getCurrentWorkspaceDirs();
+  await assertRealWorkspaceSubdir(tempDir);
   const workDir = path.join(tempDir, `compile-${crypto.randomUUID()}`);
   await rm(workDir, { recursive: true, force: true });
   await mkdir(workDir, { recursive: true });
@@ -30,6 +32,7 @@ export async function copyAssetsForItems(
   const { assetDir } = workspacePath
     ? getWorkspaceDirs(workspacePath)
     : await getCurrentWorkspaceDirs();
+  await assertRealWorkspaceSubdir(assetDir);
   const targetAssetDir = path.join(targetDir, "assets");
   await mkdir(targetAssetDir, { recursive: true });
   const fileNames = new Set(

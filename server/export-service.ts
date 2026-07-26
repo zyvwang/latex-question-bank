@@ -11,6 +11,7 @@ import {
   selectedItems
 } from "./latex.js";
 import { StorageError } from "./storage-types.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { getWorkspaceDirs } from "./workspace-storage.js";
 
 export async function exportBank(
@@ -28,6 +29,10 @@ export async function exportBank(
   }
 
   const { exportDir, tempDir } = getWorkspaceDirs(workspacePath);
+  await Promise.all([
+    assertRealWorkspaceSubdir(exportDir),
+    assertRealWorkspaceSubdir(tempDir)
+  ]);
   const targetDir = path.join(exportDir, fileName);
   const stagingDir = path.join(tempDir, `export-${crypto.randomUUID()}`);
   await mkdir(stagingDir, { recursive: true });

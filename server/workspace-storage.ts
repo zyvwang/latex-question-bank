@@ -15,6 +15,7 @@ import { writeJsonFileAtomic } from "./json-file.js";
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import { resetSessionHistory } from "./storage-session.js";
 import { cleanupTempDirectory } from "./temp-directory-cleanup.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { fileExists, safeOptionalString } from "./storage-utils.js";
 
 const forcedWorkspacePath = process.env.LQB_WORKSPACE_DIR
@@ -159,8 +160,15 @@ export async function ensureWorkspace(
   options: { sample: boolean }
 ): Promise<WorkspaceDirs> {
   const dirs = getWorkspaceDirs(workspacePath);
+  await mkdir(dirs.workspaceDir, { recursive: true });
+  // 打开已有工作区时,拒绝把子目录做成符号链接(fail-closed),避免后续读写删逃逸到外部。
   await Promise.all([
-    mkdir(dirs.workspaceDir, { recursive: true }),
+    assertRealWorkspaceSubdir(dirs.assetDir),
+    assertRealWorkspaceSubdir(dirs.exportDir),
+    assertRealWorkspaceSubdir(dirs.tempDir),
+    assertRealWorkspaceSubdir(dirs.historyDir)
+  ]);
+  await Promise.all([
     mkdir(dirs.assetDir, { recursive: true }),
     mkdir(dirs.exportDir, { recursive: true }),
     mkdir(dirs.tempDir, { recursive: true })
