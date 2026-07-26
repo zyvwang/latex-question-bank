@@ -171,7 +171,17 @@ export function useReviewHistory({
       setNotice({ type: "error", text: restored.error });
       return;
     }
-    applyReviewMutationAt(() => restored.bank, now, { protectedHistoryId: id });
+    // updater 必须基于 current 重算,不能闭包住这里的 restored.bank:历史满五份时
+    // applyReviewMutationAt 会把它存进 capacityRequest 延后到用户确认才执行,
+    // 交回一份快照期的 bank 会连带丢掉这期间的所有编辑。
+    applyReviewMutationAt(
+      (current) => {
+        const result = restoreMasteryHistoryState(current, id, now);
+        return result.ok ? result.bank : current;
+      },
+      now,
+      { protectedHistoryId: id }
+    );
   }, [applyReviewMutationAt, bank, setNotice]);
 
   return {

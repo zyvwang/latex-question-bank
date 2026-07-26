@@ -237,6 +237,61 @@ describe("mastery history UI", () => {
     expect(screen.getByText("5 / 5")).toBeInTheDocument();
   });
 
+  it("keeps edits made while the capacity dialog is open", async () => {
+    currentBank = withPastHistory(5);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+
+    const historyNav = screen.getByRole("navigation", {
+      name: "掌握历史记录"
+    });
+    const historyButtons = within(historyNav).getAllByRole("button");
+    await user.click(historyButtons[historyButtons.length - 1]);
+    await user.click(screen.getByRole("button", { name: "恢复" }));
+    const dialog = screen.getByRole("dialog", { name: "选择一份历史删除" });
+
+    // 选项定义的改动走 updateBank,不受容量对话框拦截。恢复的 updater 被延后到
+    // 确认时才执行,必须基于那时的 bank 重算,否则这次改动会被静默丢掉。
+    await user.selectOptions(screen.getByLabelText("很简单图案"), "crosshatch");
+    await user.click(within(dialog).getByRole("button", {
+      name: "删除所选并继续"
+    }));
+
+    expect(screen.getByLabelText("很简单图案")).toHaveValue("crosshatch");
+  });
+
+  it("traps keyboard focus inside the capacity dialog and returns it on cancel", async () => {
+    currentBank = withPastHistory(5);
+    // withPastHistory 最后一轮把首题留在「太难了」,先挪开,点击才是一次真实变更。
+    currentBank = {
+      ...currentBank,
+      items: currentBank.items.map((item, index) =>
+        index === 0 ? { ...item, masteryOptionId: "mastery-easy" } : item
+      )
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByLabelText("原编号");
+
+    const trigger = screen.getByRole("radio", { name: "太难了" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "选择一份历史删除" });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    // aria-modal="true" 承诺焦点收敛。遮罩只挡指针,没有 trap 时 Tab 能穿到背后的
+    // 编辑器继续打字 —— 那正是上面那条编辑丢失的触发路径。
+    for (let step = 0; step < 12; step += 1) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+    await user.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    await user.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("never offers the history being restored as the deletion candidate", async () => {
     currentBank = withPastHistory(5);
     const oldestName = currentBank.masteryHistory[0].name;

@@ -4,12 +4,14 @@ import {
   useReview,
   useWorkspaceUi
 } from "../context/questionBankContexts.js";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { oldestMasteryHistoryId } from "../review-history.js";
 import controls from "../styles/controls.module.css";
 import styles from "./Overlays.module.css";
 
 export function Overlays() {
   const questions = useQuestions();
+  const review = useReview();
   const ui = useWorkspaceUi();
   return (
     <>
@@ -59,13 +61,15 @@ export function Overlays() {
         </div>
       )}
       {ui.reorderDialogItem && <ReorderDialog />}
-      <HistoryCapacityDialog />
+      {/* 条件渲染而非组件内早返回:focus trap 要在对话框内容挂载时才生效。 */}
+      {review.capacityRequest && <HistoryCapacityDialog />}
     </>
   );
 }
 
 function HistoryCapacityDialog() {
   const review = useReview();
+  const dialogRef = useFocusTrap<HTMLElement>();
   const request = review.capacityRequest;
   if (!request) return null;
   const oldestId = oldestMasteryHistoryId(request.entries);
@@ -82,6 +86,7 @@ function HistoryCapacityDialog() {
       }}
     >
       <section
+        ref={dialogRef}
         className={`${styles.reorderDialog} ${styles.historyCapacityDialog}`}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -104,7 +109,7 @@ function HistoryCapacityDialog() {
                 name="history-capacity-deletion"
                 checked={request.selectedId === entry.id}
                 onChange={() => review.selectCapacityDeletion(entry.id)}
-                autoFocus={request.selectedId === entry.id}
+                data-autofocus={request.selectedId === entry.id ? "" : undefined}
               />
               <span>
                 <strong>{entry.name}</strong>
@@ -143,6 +148,7 @@ function HistoryCapacityDialog() {
 function ReorderDialog() {
   const questions = useQuestions();
   const ui = useWorkspaceUi();
+  const dialogRef = useFocusTrap<HTMLFormElement>();
   const item = ui.reorderDialogItem;
   if (!item) return null;
   const chapterItemCount = questions.orderedItems.filter(
@@ -157,6 +163,7 @@ function ReorderDialog() {
       onMouseDown={(event) => { if (event.target === event.currentTarget) ui.closeReorderDialog(); }}
     >
       <form
+        ref={dialogRef}
         className={styles.reorderDialog}
         noValidate
         onSubmit={ui.submitReorder}
