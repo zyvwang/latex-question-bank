@@ -20,7 +20,6 @@ contextBridge.exposeInMainWorld("lqb", {
   openPath: (targetPath: string) => ipcRenderer.invoke("shell:open-path", targetPath) as Promise<string>,
   revealExportFolder: (exportName: string) =>
     ipcRenderer.invoke("shell:reveal-export", exportName) as Promise<boolean>,
-  trashPath: (targetPath: string) => ipcRenderer.invoke("shell:trash-path", targetPath) as Promise<boolean>,
   openExternal: (targetUrl: string) =>
     ipcRenderer.invoke("shell:open-external", targetUrl) as Promise<boolean>,
   onBeforeClose: (listener: () => Promise<void>) => {

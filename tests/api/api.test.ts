@@ -52,6 +52,70 @@ describe("API validation", () => {
     }
   });
 
+  it("checks mutating origins before parsing an oversized JSON body", async () => {
+    await request(createApiApp({ jsonBodyLimitBytes: 32 }))
+      .post("/api/tex-path")
+      .set("Origin", "https://example.invalid")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify({ texPath: "x".repeat(256) }))
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("ORIGIN_FORBIDDEN"));
+  });
+
+  it("accepts the bank limit boundary and rejects larger saves without changing disk", async () => {
+    const bootstrapApp = createApiApp();
+    await request(bootstrapApp)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const initial = await request(bootstrapApp).get("/api/bank").expect(200);
+    const boundaryRequest = {
+      workspacePath,
+      baseRevision: initial.body.revision as string,
+      bank: createSampleBank()
+    };
+    const boundaryBytes = Buffer.byteLength(JSON.stringify(boundaryRequest));
+    const boundaryResponse = await request(
+      createApiApp({ bankBodyLimitBytes: boundaryBytes })
+    )
+      .put("/api/bank")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify(boundaryRequest))
+      .expect(200);
+
+    const bankPath = path.join(workspacePath, "bank.json");
+    const beforeRejectedSave = await readFile(bankPath, "utf8");
+    const oversizedRequest = {
+      workspacePath,
+      baseRevision: boundaryResponse.body.revision as string,
+      bank: {
+        ...createSampleBank(),
+        settings: {
+          ...createSampleBank().settings,
+          preamble: "x".repeat(512)
+        }
+      }
+    };
+    const oversizedBytes = Buffer.byteLength(JSON.stringify(oversizedRequest));
+    const limitedApp = createApiApp({
+      bankBodyLimitBytes: oversizedBytes - 1
+    });
+    await request(limitedApp)
+      .put("/api/bank")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify(oversizedRequest))
+      .expect(413)
+      .expect(({ body }) => {
+        expect(body.code).toBe("BANK_PAYLOAD_TOO_LARGE");
+        expect(body.error).toContain("64 MiB");
+      });
+
+    const afterRejectedSave = await readFile(bankPath, "utf8");
+    expect(afterRejectedSave).toBe(beforeRejectedSave);
+    const unchanged = await request(limitedApp).get("/api/bank").expect(200);
+    expect(unchanged.body.revision).toBe(boundaryResponse.body.revision);
+  });
+
   it("validates workspace and bank request bodies", async () => {
     const app = createApiApp();
     await request(app).post("/api/workspaces/create-empty").send({}).expect(400);

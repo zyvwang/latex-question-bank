@@ -6,6 +6,10 @@ import { rootDir } from "../app-state.js";
 import { StorageError } from "../storage-types.js";
 import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
 import { sendApiError } from "./api-response.js";
+import {
+  BANK_PAYLOAD_TOO_LARGE_CODE,
+  BANK_PAYLOAD_TOO_LARGE_MESSAGE
+} from "../../shared/api-limits.js";
 
 export function contentSecurityPolicy(
   _request: express.Request,
@@ -84,10 +88,26 @@ export function installFrontend(app: express.Express) {
 
 export function apiErrorHandler(
   error: unknown,
-  _request: express.Request,
+  request: express.Request,
   response: express.Response,
   _next: express.NextFunction
 ) {
+  if (isEntityTooLarge(error)) {
+    const isBankSave =
+      request.method === "PUT" &&
+      new URL(request.originalUrl, "http://localhost").pathname === "/api/bank";
+    sendApiError(
+      response,
+      413,
+      isBankSave
+        ? BANK_PAYLOAD_TOO_LARGE_MESSAGE
+        : "请求体超过允许的大小。",
+      isBankSave
+        ? BANK_PAYLOAD_TOO_LARGE_CODE
+        : "REQUEST_PAYLOAD_TOO_LARGE"
+    );
+    return;
+  }
   if (error instanceof multer.MulterError) {
     sendApiError(response, 400, error.message, "UPLOAD_INVALID");
     return;
@@ -128,4 +148,14 @@ function isClientInputError(error: unknown): error is Error {
     "这个文件夹不是题库工作区：缺少 bank.json。",
     "尚未选择题库工作区。"
   ].some((message) => error.message.startsWith(message));
+}
+
+function isEntityTooLarge(
+  error: unknown
+): error is Error & { type: "entity.too.large" } {
+  return (
+    error instanceof Error &&
+    "type" in error &&
+    error.type === "entity.too.large"
+  );
 }

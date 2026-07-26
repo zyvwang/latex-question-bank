@@ -27,7 +27,7 @@ export function useQuestionBankStableActions(input: ContextValueInput) {
     switchToWorkspace: useLatestCallback(input.workspace.switchToWorkspace),
     relocateWorkspace: useLatestCallback(input.workspace.relocateWorkspace),
     moveWorkspaceInList: useLatestCallback(input.workspace.moveWorkspaceInList),
-    deleteWorkspace: useLatestCallback(input.workspace.deleteWorkspace),
+    removeWorkspaceFromList: useLatestCallback(input.workspace.removeWorkspaceFromList),
     saveTexPathOverride: useLatestCallback(input.workspace.saveTexPathOverride),
     openCurrentWorkspaceFolder: useLatestCallback(input.workspace.openCurrentWorkspaceFolder),
     uploadAsset: useLatestCallback(input.compileExport.uploadAsset),

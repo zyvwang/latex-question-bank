@@ -40,7 +40,9 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - restoration keeps bodies, chapters, order, assets, and newer questions while recreating missing review options
    - the sixth-history chooser defaults to the oldest record; canceling keeps all records and abandons the triggering review edit
    - mastery history in `bank.json` is clearly distinguished from `.history/` disaster-recovery snapshots
-   - workspace create/open/switch/reorder/relocate/reveal/delete actions on Bank Settings, including staying on that page after a switch
+   - workspace create/open/switch/reorder/relocate/reveal/remove-from-list actions on Bank Settings, including staying on that page after a switch
+   - removing the final workspace returns to Setup while its directory and `bank.json` remain on disk
+   - a bank save beyond 64 MiB shows the persistent size error and leaves disk/revision unchanged; reducing content retries successfully
 
 ## CI Release Build
 

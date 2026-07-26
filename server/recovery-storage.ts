@@ -1,4 +1,4 @@
-import { readFile, readdir, rm, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import type { BankSnapshot, RecoveryCandidate } from "../shared/types.js";
 import { writeJsonFileAtomic } from "./json-file.js";
@@ -10,10 +10,7 @@ import {
   revisionForContent,
   serializeJson
 } from "./storage-utils.js";
-import {
-  getCurrentWorkspaceDirs,
-  getWorkspaceDirs
-} from "./workspace-storage.js";
+import { getCurrentWorkspaceDirs } from "./workspace-storage.js";
 
 export async function listRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   return listRecoveryCandidatesForDirs(await getCurrentWorkspaceDirs());
@@ -93,32 +90,4 @@ async function recoveryCandidateFromFile(
     if (isNotFound(error) || error instanceof StorageError) return null;
     throw error;
   }
-}
-
-export async function cleanupOldTempDirs(
-  workspacePath: string,
-  maxAgeMs = 7 * 24 * 60 * 60 * 1000
-) {
-  const { tempDir } = getWorkspaceDirs(workspacePath);
-  let entries: string[];
-  try {
-    entries = await readdir(tempDir);
-  } catch (error) {
-    if (isNotFound(error)) return;
-    throw error;
-  }
-  const cutoff = Date.now() - maxAgeMs;
-  await Promise.all(
-    entries.map(async (entry) => {
-      const target = path.join(tempDir, entry);
-      try {
-        const metadata = await stat(target);
-        if (metadata.mtimeMs < cutoff) {
-          await rm(target, { recursive: true, force: true });
-        }
-      } catch (error) {
-        if (!isNotFound(error)) throw error;
-      }
-    })
-  );
 }

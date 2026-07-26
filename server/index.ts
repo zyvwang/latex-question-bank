@@ -13,10 +13,19 @@ import { createBankRouter } from "./routes/bank-routes.js";
 import { createDocumentRouter } from "./routes/document-routes.js";
 import { createWorkspaceRouter } from "./routes/workspace-routes.js";
 import { ensureProjectDirs } from "./workspace-storage.js";
+import {
+  BANK_SAVE_BODY_LIMIT_BYTES,
+  DEFAULT_JSON_BODY_LIMIT_BYTES
+} from "../shared/api-limits.js";
 
 export interface ApiServerOptions {
   host?: string;
   port?: number;
+}
+
+export interface ApiAppOptions {
+  bankBodyLimitBytes?: number;
+  jsonBodyLimitBytes?: number;
 }
 
 export interface StartedApiServer {
@@ -26,16 +35,22 @@ export interface StartedApiServer {
   port: number;
 }
 
-export function createApiApp(): express.Express {
+export function createApiApp(options: ApiAppOptions = {}): express.Express {
   const app = express();
+  const bankBodyLimitBytes =
+    options.bankBodyLimitBytes ?? BANK_SAVE_BODY_LIMIT_BYTES;
+  const jsonBodyLimitBytes =
+    options.jsonBodyLimitBytes ?? DEFAULT_JSON_BODY_LIMIT_BYTES;
   app.use(contentSecurityPolicy);
-  app.use(express.json({ limit: "8mb" }));
   app.use(rejectForeignMutatingOrigins);
   app.use("/assets", dynamicWorkspaceStatic("assetDir"));
   app.use("/tmp", dynamicWorkspaceStatic("tempDir"));
-  app.use("/api", createWorkspaceRouter());
-  app.use("/api", createBankRouter());
-  app.use("/api", createDocumentRouter());
+  app.use("/api", createWorkspaceRouter({ jsonBodyLimitBytes }));
+  app.use(
+    "/api",
+    createBankRouter({ bankBodyLimitBytes, jsonBodyLimitBytes })
+  );
+  app.use("/api", createDocumentRouter({ jsonBodyLimitBytes }));
   installFrontend(app);
   app.use(apiErrorHandler);
   return app;

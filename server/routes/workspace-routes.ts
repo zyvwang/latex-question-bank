@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, json, type RequestHandler } from "express";
 import {
   validateTexPathRequest,
   validateWorkspaceMoveRequest,
@@ -16,8 +16,11 @@ import {
   switchWorkspace
 } from "../workspace-storage.js";
 
-export function createWorkspaceRouter(): Router {
+export function createWorkspaceRouter(options: {
+  jsonBodyLimitBytes: number;
+}): Router {
   const router = Router();
+  const parseJson = json({ limit: options.jsonBodyLimitBytes });
 
   router.get("/app", async (_request, response, next) => {
     try {
@@ -27,23 +30,53 @@ export function createWorkspaceRouter(): Router {
     }
   });
 
-  registerWorkspacePathRoute(router, "/workspaces/create-sample", "缺少示例工作区路径。", async (path) => {
-    await createSampleWorkspace(path);
-  });
-  registerWorkspacePathRoute(router, "/workspaces/create-empty", "缺少新工作区路径。", async (path) => {
-    await createEmptyWorkspace(path);
-  });
-  registerWorkspacePathRoute(router, "/workspaces/open", undefined, async (path) => {
-    await openExistingWorkspace(path);
-  });
-  registerWorkspacePathRoute(router, "/workspaces/remove", undefined, async (path) => {
-    await removeWorkspace(path);
-  });
-  registerWorkspacePathRoute(router, "/workspaces/switch", undefined, async (path) => {
-    await switchWorkspace(path);
-  });
+  registerWorkspacePathRoute(
+    router,
+    parseJson,
+    "/workspaces/create-sample",
+    "缺少示例工作区路径。",
+    async (path) => {
+      await createSampleWorkspace(path);
+    }
+  );
+  registerWorkspacePathRoute(
+    router,
+    parseJson,
+    "/workspaces/create-empty",
+    "缺少新工作区路径。",
+    async (path) => {
+      await createEmptyWorkspace(path);
+    }
+  );
+  registerWorkspacePathRoute(
+    router,
+    parseJson,
+    "/workspaces/open",
+    undefined,
+    async (path) => {
+      await openExistingWorkspace(path);
+    }
+  );
+  registerWorkspacePathRoute(
+    router,
+    parseJson,
+    "/workspaces/remove",
+    undefined,
+    async (path) => {
+      await removeWorkspace(path);
+    }
+  );
+  registerWorkspacePathRoute(
+    router,
+    parseJson,
+    "/workspaces/switch",
+    undefined,
+    async (path) => {
+      await switchWorkspace(path);
+    }
+  );
 
-  router.post("/workspaces/move", async (request, response, next) => {
+  router.post("/workspaces/move", parseJson, async (request, response, next) => {
     try {
       const validation = validateWorkspaceMoveRequest(request.body);
       if (!validation.ok || !validation.value) {
@@ -60,7 +93,7 @@ export function createWorkspaceRouter(): Router {
     }
   });
 
-  router.post("/tex-path", async (request, response, next) => {
+  router.post("/tex-path", parseJson, async (request, response, next) => {
     try {
       const validation = validateTexPathRequest(request.body);
       if (!validation.ok || !validation.value) {
@@ -79,11 +112,12 @@ export function createWorkspaceRouter(): Router {
 
 function registerWorkspacePathRoute(
   router: Router,
+  parseJson: RequestHandler,
   route: string,
   missingMessage: string | undefined,
   operation: (workspacePath: string) => Promise<void>
 ) {
-  router.post(route, async (request, response, next) => {
+  router.post(route, parseJson, async (request, response, next) => {
     try {
       const validation = validateWorkspacePathRequest(request.body, missingMessage);
       if (!validation.ok || !validation.value) {

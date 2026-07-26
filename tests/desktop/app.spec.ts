@@ -4,6 +4,46 @@ import path from "node:path";
 import { createSampleBank } from "../../server/bank-schema.js";
 import type { Bank, LegacyBank } from "../../shared/types.js";
 
+test("starts in Setup, creates a workspace, and removes only its recent-list entry", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-setup-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-setup-app-data");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+
+  const electronApp = await electron.launch({
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_APP_DATA_DIR: appDataPath,
+      LQB_WORKSPACE_DIR: ""
+    }
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await expect(page.getByText("建立你的第一个题库")).toBeVisible();
+    await electronApp.evaluate(({ dialog }, selectedPath) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [selectedPath]
+      });
+    }, workspacePath);
+    await page.getByRole("button", { name: "新建空白题库" }).click();
+    await expect(page.getByText("当前工作区还没有题目")).toBeVisible();
+    await expect.poll(async () => readFile(path.join(workspacePath, "bank.json"), "utf8"))
+      .toContain('"version": 2');
+
+    await page.getByRole("button", { name: "题库设置" }).click();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "从列表移除工作区" }).click();
+    await expect(page.getByText("建立你的第一个题库")).toBeVisible();
+    await expect(readFile(path.join(workspacePath, "bank.json"), "utf8"))
+      .resolves.toContain('"version": 2');
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+});
+
 test("opens v1, saves the first edit as v2 on close, and restarts from v2", async () => {
   const workspacePath = path.resolve(".tmp/playwright-v1-workspace");
   const appDataPath = path.resolve(".tmp/playwright-v1-app-data");

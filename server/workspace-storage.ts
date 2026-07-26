@@ -14,7 +14,7 @@ import { createEmptyBank, createSampleBank } from "./bank-schema.js";
 import { writeJsonFileAtomic } from "./json-file.js";
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import { resetSessionHistory } from "./storage-session.js";
-import { cleanupOldTempDirs } from "./recovery-storage.js";
+import { cleanupTempDirectory } from "./temp-directory-cleanup.js";
 import { fileExists, safeOptionalString } from "./storage-utils.js";
 
 const forcedWorkspacePath = process.env.LQB_WORKSPACE_DIR
@@ -28,7 +28,7 @@ export async function ensureProjectDirs() {
   }
   const state = await readAppState();
   if (state.currentWorkspacePath && (await workspaceExists(state.currentWorkspacePath))) {
-    await cleanupOldTempDirs(state.currentWorkspacePath);
+    await cleanupTempDirectory(getWorkspaceDirs(state.currentWorkspacePath).tempDir);
   }
 }
 

@@ -29,9 +29,10 @@ function AppContent() {
     return window.lqb?.onBeforeClose?.(() => flushRef.current());
   }, []);
 
-  if (lifecycle.loadError) return <RecoveryScreen />;
-  if (!questions.bank || !workspace.appInfo) return <LoadingScreen />;
+  if (!workspace.appInfo) return <LoadingScreen />;
   if (workspace.appInfo.setupRequired) return <SetupScreen />;
+  if (lifecycle.loadError) return <RecoveryScreen />;
+  if (!questions.bank) return <LoadingScreen />;
 
   return (
     <>

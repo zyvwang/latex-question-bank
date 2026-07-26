@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App.js";
@@ -98,6 +98,8 @@ beforeEach(() => {
   nextExportName = "questions-2026-06-13-1";
   compileResponder = null;
   vi.stubGlobal("fetch", vi.fn(handleFetch));
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  delete window.lqb;
 });
 
 describe("App UI", () => {
@@ -118,13 +120,6 @@ describe("App UI", () => {
           setupRequired: true
         });
       }
-      if (url === "/api/bank" && !init) {
-        return json({
-          workspacePath: "",
-          revision: "revision-empty",
-          bank: { ...bank, items: [] }
-        });
-      }
       return handleFetch(input, init);
     });
 
@@ -134,6 +129,9 @@ describe("App UI", () => {
     expect(screen.getByRole("button", { name: "新建空白题库" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开已有题库" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "体验示例题库" })).toBeInTheDocument();
+    expect(
+      vi.mocked(fetch).mock.calls.some(([input]) => String(input) === "/api/bank")
+    ).toBe(false);
   });
 
   it("loads the workspace and filters items", async () => {
@@ -412,6 +410,146 @@ describe("App UI", () => {
     expect(await screen.findByRole("radio", { name: /太难了/ })).toBeChecked();
   });
 
+  it("creates, reorders, validates, and deletes settings definitions", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
+
+    const chapterSection = screen.getByRole("heading", { name: "章节" })
+      .closest("section")!;
+    await user.type(
+      within(chapterSection).getByLabelText("新章节名称"),
+      "概率论{Enter}"
+    );
+    expect(within(chapterSection).getByLabelText("章节名称 概率论"))
+      .toBeInTheDocument();
+    await user.click(
+      within(chapterSection).getByRole("button", {
+        name: "上移章节 概率论"
+      })
+    );
+    await user.click(
+      within(chapterSection).getByRole("button", {
+        name: "下移章节 概率论"
+      })
+    );
+    const probabilityRow = within(chapterSection)
+      .getByLabelText("章节名称 概率论").closest("[draggable=true]")!;
+    const calculusRow = within(chapterSection)
+      .getByLabelText("章节名称 高等数学/极限").closest("[draggable=true]")!;
+    fireEvent.dragStart(probabilityRow);
+    fireEvent.dragOver(calculusRow);
+    fireEvent.drop(calculusRow);
+    fireEvent.dragEnd(probabilityRow);
+    await user.click(
+      within(chapterSection).getByRole("button", {
+        name: "删除章节 概率论"
+      })
+    );
+    expect(within(chapterSection).queryByLabelText("章节名称 概率论"))
+      .not.toBeInTheDocument();
+
+    const masterySection = screen.getByRole("heading", {
+      name: "掌握程度"
+    }).closest("section")!;
+    await user.type(
+      within(masterySection).getByLabelText("新建掌握程度名称"),
+      "待复习"
+    );
+    await user.selectOptions(
+      within(masterySection).getByLabelText("新建掌握程度图案"),
+      "dots"
+    );
+    await user.click(within(masterySection).getByRole("button", {
+      name: "新建"
+    }));
+    expect(within(masterySection).getByLabelText("选项名称 待复习"))
+      .toBeInTheDocument();
+    await user.selectOptions(
+      within(masterySection).getByLabelText("待复习图案"),
+      "diagonal"
+    );
+    await user.click(within(masterySection).getByRole("button", {
+      name: "上移选项 待复习"
+    }));
+    const optionRow = within(masterySection)
+      .getByLabelText("选项名称 待复习").closest("[draggable=true]")!;
+    const hardRow = within(masterySection)
+      .getByLabelText("选项名称 太难了").closest("[draggable=true]")!;
+    fireEvent.dragStart(optionRow);
+    fireEvent.drop(hardRow);
+    fireEvent.dragEnd(optionRow);
+    await user.click(within(masterySection).getByRole("button", {
+      name: "删除选项 待复习"
+    }));
+    expect(within(masterySection).queryByLabelText("选项名称 待复习"))
+      .not.toBeInTheDocument();
+
+    const latexSection = screen.getByRole("heading", { name: "LaTeX" })
+      .closest("section")!;
+    await user.clear(within(latexSection).getByLabelText("题间距"));
+    await user.type(within(latexSection).getByLabelText("题间距"), "2em");
+    await user.clear(within(latexSection).getByLabelText("模块间距"));
+    await user.type(within(latexSection).getByLabelText("模块间距"), "1em");
+    await user.clear(within(latexSection).getByLabelText("导言区"));
+    await user.type(within(latexSection).getByLabelText("导言区"), "% custom");
+    await user.click(within(latexSection).getByRole("button", {
+      name: "TeX 可用"
+    }));
+    expect(await screen.findByText("已检测到 LaTeX：latexmk"))
+      .toBeInTheDocument();
+  });
+
+  it("uses narrow desktop capabilities for workspace and TeX actions", async () => {
+    const selectWorkspaceDirectory = vi.fn()
+      .mockResolvedValueOnce("/tmp/new-bank")
+      .mockResolvedValueOnce("/tmp/open-bank");
+    const openPath = vi.fn().mockResolvedValue("");
+    window.lqb = {
+      platform: "darwin",
+      selectWorkspaceDirectory,
+      openPath,
+      revealExportFolder: vi.fn().mockResolvedValue(true),
+      openExternal: vi.fn().mockResolvedValue(true),
+      onBeforeClose: vi.fn(() => () => undefined)
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
+
+    await user.click(screen.getByTitle("在文件管理器中显示当前工作区"));
+    expect(openPath).toHaveBeenCalledWith("/tmp/latex-bank");
+
+    await user.click(screen.getByTitle("新建空工作区"));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/workspaces/create-empty",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+    await user.click(screen.getByTitle("打开已有工作区"));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/workspaces/open",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+
+    const latexSection = screen.getByRole("heading", { name: "LaTeX" })
+      .closest("section")!;
+    const texPath = within(latexSection).getByLabelText("latexmk 路径");
+    await user.type(texPath, "/usr/local/bin/latexmk");
+    texPath.blur();
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/tex-path",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+  });
+
   it("offers all three insertion locations and focuses newly inserted items", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -444,6 +582,56 @@ describe("App UI", () => {
       ).toHaveLength(4)
     );
     expect(screen.getByLabelText("选择章节")).toHaveValue("");
+  });
+
+  it("moves, validates, deletes, and restores questions", async () => {
+    const sameChapterBank: Bank = {
+      ...bank,
+      items: bank.items.map((item, index) => ({
+        ...item,
+        chapterId: "chapter-calculus",
+        chapterOrder: index + 1
+      }))
+    };
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/bank" && !init) {
+        return json({
+          workspacePath: "/tmp/latex-bank",
+          revision: "question-actions",
+          bank: sameChapterBank
+        });
+      }
+      return handleFetch(input, init);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(screen.getByRole("button", { name: "下移" }));
+    await user.click(screen.getByRole("button", { name: "上移" }));
+    await user.click(screen.getByRole("button", { name: "更改题序" }));
+    const dialog = screen.getByRole("dialog", { name: "更改题序" });
+    const target = within(dialog).getByLabelText("目标题序");
+    await user.clear(target);
+    await user.type(target, "x");
+    await user.click(within(dialog).getByRole("button", { name: "确认" }));
+    expect(within(dialog).getByText("请输入有效的整数题序。"))
+      .toBeInTheDocument();
+    await user.clear(target);
+    await user.type(target, "2");
+    await user.click(within(dialog).getByRole("button", { name: "确认" }));
+    expect(await screen.findByText("已移动至第 2 题。")).toBeInTheDocument();
+
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    await user.click(screen.getByRole("button", { name: "删除题目" }));
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    vi.mocked(window.confirm).mockReturnValueOnce(true);
+    await user.click(screen.getByRole("button", { name: "删除题目" }));
+    expect(await screen.findByText("题目已删除，可在 10 秒内撤销。"))
+      .toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "撤销" }));
+    expect(await screen.findByText("已撤销删除。")).toBeInTheDocument();
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
   });
 
   it("rejects a new source-number conflict inside the same chapter", async () => {
@@ -709,6 +897,48 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
       appState: {
         ...appInfo.appState,
         currentWorkspacePath: "/tmp/other-bank"
+      }
+    });
+  }
+  if (
+    url === "/api/workspaces/create-empty" ||
+    url === "/api/workspaces/create-sample" ||
+    url === "/api/workspaces/open"
+  ) {
+    const request = JSON.parse(String(init?.body)) as {
+      workspacePath: string;
+    };
+    const currentWorkspaceName =
+      request.workspacePath.split("/").filter(Boolean).at(-1) ?? "bank";
+    return json({
+      ...appInfo,
+      currentWorkspaceName,
+      currentWorkspacePath: request.workspacePath,
+      appState: {
+        ...appInfo.appState,
+        currentWorkspacePath: request.workspacePath,
+        recentWorkspacePaths: [
+          request.workspacePath,
+          ...appInfo.appState.recentWorkspacePaths
+        ]
+      },
+      recentWorkspaces: [
+        {
+          name: currentWorkspaceName,
+          path: request.workspacePath,
+          exists: true
+        },
+        ...appInfo.recentWorkspaces
+      ]
+    });
+  }
+  if (url === "/api/tex-path") {
+    const request = JSON.parse(String(init?.body)) as { texPath?: string };
+    return json({
+      ...appInfo,
+      appState: {
+        ...appInfo.appState,
+        texPathOverride: request.texPath
       }
     });
   }

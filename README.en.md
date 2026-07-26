@@ -168,9 +168,11 @@ workspace/
 
 Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
 
+A complete bank save request is supported up to 64 MiB. Oversized banks remain pending and prompt you to split the workspace or reduce its content. File content is flushed to storage, and parent directory entries are synced on a best-effort basis on POSIX platforms.
+
 Existing `version: 1` banks open directly. Legacy chapter text is converted to formal chapters in memory, while ratings are intentionally not mapped to mastery. Read-only use does not rewrite the file. Before the first real edit is saved as v2, the original v1 content is retained in `bank.json.bak` and the session recovery snapshot.
 
-The app keeps only recent workspace paths and a custom TeX path in local application data. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
+The app keeps only recent workspace paths and a custom TeX path in local application data. Workspaces remain ordinary folders under your control: “Remove from list” only clears the recent entry, and the app never deletes the folder or its `bank.json`. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
 
 ## Local development
 

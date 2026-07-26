@@ -110,9 +110,9 @@ export function WorkspaceSettings() {
                   <ArrowDown size={14} />
                 </MiniButton>
                 <MiniButton
-                  label="删除工作区"
+                  label="从列表移除工作区"
                   danger
-                  onClick={() => void workspace.deleteWorkspace(item.path)}
+                  onClick={() => void workspace.removeWorkspaceFromList(item.path)}
                   disabled={workspace.isChangingWorkspace}
                 >
                   <Trash2 size={14} />

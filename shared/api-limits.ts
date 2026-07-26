@@ -1,0 +1,6 @@
+export const DEFAULT_JSON_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
+export const BANK_SAVE_BODY_LIMIT_BYTES = 64 * 1024 * 1024;
+
+export const BANK_PAYLOAD_TOO_LARGE_CODE = "BANK_PAYLOAD_TOO_LARGE";
+export const BANK_PAYLOAD_TOO_LARGE_MESSAGE =
+  "题库超过 64 MiB，请拆分工作区或缩减内容。";

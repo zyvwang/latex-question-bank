@@ -213,13 +213,42 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       selectAllItems
     ]
   );
+  const applySetupState = useCallback(
+    (nextAppInfo: AppInfo) => {
+      resetAutosave(null);
+      setAppInfo(nextAppInfo);
+      setBank(null);
+      setActiveId(null);
+      selectAllItems([]);
+      clearFilters();
+      resetCompileState();
+      setLoadError(null);
+      setRecoveryCandidates([]);
+      setActiveModule("question");
+      resetAppView("editor");
+      resetHistoryUi();
+      setNotice(null);
+    },
+    [
+      clearFilters,
+      resetAppView,
+      resetAutosave,
+      resetCompileState,
+      resetHistoryUi,
+      selectAllItems
+    ]
+  );
   const reloadWorkspace = useCallback(
     async (nextAppInfo: AppInfo) => {
+      if (nextAppInfo.setupRequired) {
+        applySetupState(nextAppInfo);
+        return;
+      }
       const nextActiveView =
         appView.activeView === "settings" ? "settings" : "editor";
       applyBankSnapshot(nextAppInfo, await fetchBank(), nextActiveView);
     },
-    [appView.activeView, applyBankSnapshot]
+    [appView.activeView, applyBankSnapshot, applySetupState]
   );
 
   const workspace = useWorkspaceActions({
@@ -251,9 +280,13 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const loadAppAndBank = useCallback(async () => {
     setLoadError(null);
     const nextAppInfo = await fetchAppInfo();
+    if (nextAppInfo.setupRequired) {
+      applySetupState(nextAppInfo);
+      return;
+    }
     setAppInfo(nextAppInfo);
     applyBankSnapshot(nextAppInfo, await fetchBank());
-  }, [applyBankSnapshot]);
+  }, [applyBankSnapshot, applySetupState]);
 
   useEffect(() => {
     loadAppAndBank().catch((error) => {

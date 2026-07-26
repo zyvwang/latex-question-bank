@@ -53,6 +53,7 @@ React UI
 - `src/api/client.ts`：前端唯一的应用 API 请求入口。新增应用 API 调用时放在这里。
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
+- `src/hooks/useAppView.ts`：顶层 editor、heatmap、settings 视图及热力图会话状态。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
@@ -66,7 +67,8 @@ React UI
 - `server/asset-service.ts`：图片扩展名、MIME 和文件签名校验。
 - `server/export-service.ts`：导出 staging、PDF 编译和最终目录原子替换。
 - `server/latex*.ts`：LaTeX 渲染、临时文件准备和 TeX 进程管理。
-- `shared/types.ts`、`shared/validation.ts`：前后端共享数据契约和运行时校验。不要在前后端各自复制类型。
+- `shared/types.ts`：前后端共享数据契约。
+- `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验；`shared/validation.ts` 仅为兼容 barrel。
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
 - `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉和发布约定。改相关领域时同步更新。
@@ -75,7 +77,7 @@ React UI
 
 ## 数据模型与安全
 
-当前 workspace schema 是 `version: 1`。每道题的 LaTeX 内容存在：
+当前写入的 workspace schema 是 `version: 2`；`version: 1` 仅作为只读迁移输入。每道题的 LaTeX 内容存在：
 
 - `modules.question.tex`
 - `modules.solution.tex`
@@ -84,6 +86,8 @@ React UI
 若改 schema，需要同时检查：
 
 - `shared/types.ts`
+- `shared/bank-validation.ts`
+- `shared/bank-migration.ts`
 - `shared/validation.ts`
 - `server/bank-schema.ts`
 - `examples/sample-bank/bank.json`
@@ -108,7 +112,7 @@ React UI
 ## 前端约定
 
 - React 组件和 hooks 使用 TypeScript strict 模式。
-- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI。
+- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、review。
 - 新增应用 API 请求只通过 `src/api/client.ts`。
 - CodeMirror 封装在 `src/components/LatexEditor.tsx`，不要在其他组件散落编辑器配置。
 - 样式优先使用 CSS Modules；全局 token 只放 `src/styles/foundation.css`。

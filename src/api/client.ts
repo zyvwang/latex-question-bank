@@ -13,6 +13,11 @@ import type {
   RecoveryCandidate,
   SaveBankRequest
 } from "../../shared/types.js";
+import {
+  BANK_PAYLOAD_TOO_LARGE_CODE,
+  BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+  BANK_SAVE_BODY_LIMIT_BYTES
+} from "../../shared/api-limits.js";
 import { appendTex } from "../utils/form.js";
 
 export async function fetchAppInfo(): Promise<AppInfo> {
@@ -24,10 +29,18 @@ export async function fetchBank(): Promise<BankSnapshot> {
 }
 
 export async function saveBank(request: SaveBankRequest): Promise<BankSnapshot> {
+  const body = JSON.stringify(request);
+  if (new TextEncoder().encode(body).byteLength > BANK_SAVE_BODY_LIMIT_BYTES) {
+    throw new ApiRequestError(
+      BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+      413,
+      BANK_PAYLOAD_TOO_LARGE_CODE
+    );
+  }
   const response = await fetch("/api/bank", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request)
+    body
   });
   return readJsonResponse<BankSnapshot>(response);
 }

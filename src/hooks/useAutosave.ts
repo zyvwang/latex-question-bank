@@ -77,15 +77,15 @@ export function useAutosave(bank: Bank | null, setNotice: (notice: Notice | null
   );
 
   const resetAutosave = useCallback(
-    (snapshot: BankSnapshot) => {
+    (snapshot: BankSnapshot | null) => {
       clearTimer();
       pendingBankRef.current = null;
       inFlightBankRef.current = null;
-      lastSavedBankRef.current = snapshot.bank;
-      workspacePathRef.current = snapshot.workspacePath;
-      revisionRef.current = snapshot.revision;
+      lastSavedBankRef.current = snapshot?.bank ?? null;
+      workspacePathRef.current = snapshot?.workspacePath ?? "";
+      revisionRef.current = snapshot?.revision ?? "";
       skipNextSave.current = true;
-      setSaveState("saved");
+      setSaveState(snapshot ? "saved" : "idle");
     },
     [clearTimer]
   );

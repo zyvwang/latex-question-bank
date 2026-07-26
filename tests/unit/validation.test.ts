@@ -11,8 +11,15 @@ import {
   validateWorkspaceMoveRequest,
   validateWorkspacePathRequest
 } from "../../shared/validation.js";
+import { validateBankPayload as validateBankPayloadDirect } from "../../shared/bank-validation.js";
+import { isRecord as isRecordDirect } from "../../shared/validation-primitives.js";
 
 describe("shared validation", () => {
+  it("keeps the compatibility barrel wired to the split validators", () => {
+    expect(validateBankPayload).toBe(validateBankPayloadDirect);
+    expect(isRecord).toBe(isRecordDirect);
+  });
+
   it("validates request envelope variants", () => {
     expect(isRecord({})).toBe(true);
     expect(isRecord(null)).toBe(false);

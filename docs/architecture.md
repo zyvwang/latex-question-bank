@@ -21,6 +21,7 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `src/hooks/useQuestionBankModel.ts` composes workspace state, derived lists, persistence, selection, reordering, compile, and export actions. `useQuestionBankContextValues.ts` turns that model into memoized context values with stable action references.
 - `useSelectionFilters.ts` owns session-only export selection, multi-value filters, and current/selected list mode. `questionFilters.ts` applies OR within each filter field and AND across fields. The selected list derives only from `selectedIds`, so filters never mutate or constrain export selection.
 - `src/hooks/useAutosave.ts` owns the single-flight, coalescing save queue and its `flush()` boundary.
+- Initial lifecycle is ordered as AppInfo loading, Setup, Recovery, then Workspace. A `setupRequired` AppInfo never triggers a bank request; removing the last recent workspace clears bank/autosave references and returns to Setup.
 - Question item mutations, drag tracking, and menus/reorder dialogs live in separate hooks instead of one interaction controller.
 - `useBankSettingsActions.ts` owns validated chapter and review-option mutations, including normalized-name uniqueness, reference cleanup, and destructive confirmations.
 - `useReviewHistory.ts` routes review-state and review-option mutations through one daily history transaction, owns the five-record capacity decision, and exposes rename, delete, and restore actions. `src/review-history.ts` contains the pure daily capture and restore merge rules.
@@ -37,9 +38,11 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 
 - `server/index.ts` only assembles middleware, routers, frontend serving, and server startup.
 - `server/routes/` groups workspace, bank/recovery, and document/export HTTP adapters. `server/http/` owns shared middleware and API error responses.
+- Mutating-origin checks run before body parsing. JSON parsers live on routers: bank PUT accepts 64 MiB, other JSON APIs accept 8 MiB, and image upload keeps its independent Multer limit.
 - `server/app-state.ts` owns pure app-state reads and serialized app-state updates.
 - `server/bank-schema.ts` owns default and sample bank creation.
 - `server/json-file.ts` owns atomic JSON writes and immediate `.bak` files.
+- `shared/bank-validation.ts` owns persisted v1/v2 parsing and domain invariants, `shared/request-validation.ts` owns HTTP DTOs, and `shared/validation-primitives.ts` owns scalar/date/file-name parsing. `shared/validation.ts` is a compatibility barrel.
 - `server/storage.ts` is a compatibility facade. Workspace lifecycle, revision-checked bank saves, and recovery/history are implemented by separate storage modules.
 - `server/asset-service.ts` validates image extension, MIME, and signature before generating a safe server-side filename.
 - `server/export-service.ts` stages and compiles exports before atomically replacing the final directory.
@@ -47,7 +50,9 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 
 ## Data Safety
 
-`bank.json` and `app-state.json` are written through temp-file rename. When replacing an existing file, the previous version is kept as `<file>.bak`. Each bank response includes a content-hash revision; saves carry that revision and are rejected with `BANK_CONFLICT` when the disk file changed. Save requests are serialized per workspace, and the renderer keeps at most one request in flight while coalescing newer edits.
+`bank.json` and `app-state.json` are written through temp-file rename. Temporary content uses flushed writes; backup copies are explicitly synced before rename, and POSIX parent-directory entries are synced on a best-effort basis after commit. Directory-sync failure is warned rather than reported as a failed save after the rename has already committed. When replacing an existing file, the previous version is kept as `<file>.bak`. Each bank response includes a content-hash revision; saves carry that revision and are rejected with `BANK_CONFLICT` when the disk file changed. Save requests are serialized per workspace, and the renderer keeps at most one request in flight while coalescing newer edits.
+
+The complete save request is limited to 64 MiB on both client and server. Oversized requests return `413 BANK_PAYLOAD_TOO_LARGE`, never reach storage, retain the renderer's pending bank, and can be retried after the content is reduced. Other JSON endpoints remain limited to 8 MiB.
 
 The first bank modification in an application session also records a validated snapshot under `.history/`, retaining the newest ten snapshots. Recovery accepts only candidate IDs enumerated by the server and never accepts an arbitrary path.
 
@@ -69,7 +74,9 @@ The heatmap is also renderer-only derived state. It does not filter or persist a
 
 ## Desktop Boundary
 
-Electron exposes only narrow preload capabilities for selecting a directory, opening/trashing a known workspace path, opening trusted URLs, and registering the close-time flush callback. It does not expose `ipcRenderer`.
+Electron exposes only narrow preload capabilities for selecting a directory, revealing a known workspace path, opening trusted URLs, and registering the close-time flush callback. It does not expose `ipcRenderer` and has no workspace deletion IPC.
+
+Workspaces are user-managed ordinary directories. Removing one from the recent list never deletes or trashes its directory; if it was current, the server selects the next existing recent workspace or returns Setup.
 
 Every IPC entry validates its sender. Main-window navigation is locked to the application origin, new Electron windows are denied, and trusted HTTPS or local PDF links are delegated to the system browser. App quit and window close both wait for the renderer save queue; failures offer either returning to edit or explicitly discarding unsaved changes.
 

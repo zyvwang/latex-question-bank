@@ -47,7 +47,7 @@ export interface WorkspaceContextValue {
   switchToWorkspace: (workspacePath: string) => Promise<void>;
   relocateWorkspace: (workspacePath: string) => Promise<void>;
   moveWorkspaceInList: (workspacePath: string, direction: "up" | "down") => Promise<void>;
-  deleteWorkspace: (workspacePath: string) => Promise<void>;
+  removeWorkspaceFromList: (workspacePath: string) => Promise<void>;
   saveTexPathOverride: () => Promise<void>;
   openCurrentWorkspaceFolder: () => void;
 }

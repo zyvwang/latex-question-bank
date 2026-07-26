@@ -1,5 +1,14 @@
 import { deepStrictEqual, equal, ok } from "node:assert";
-import { mkdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, beforeEach } from "vitest";
 import {
@@ -33,10 +42,10 @@ import {
   resolveCurrentExportDirectory
 } from "../../server/export-directory-service.js";
 import {
-  cleanupOldTempDirs,
   listRecoveryCandidates,
   recoverBank
 } from "../../server/recovery-storage.js";
+import { cleanupOldTempDirs } from "../../server/storage.js";
 import {
   createEmptyWorkspace,
   createSampleWorkspace,
@@ -327,6 +336,18 @@ describe("storage", () => {
     const backup = JSON.parse(await readFile(`${filePath}.bak`, "utf8")) as { value: string };
     equal(current.value, "second");
     equal(backup.value, "first");
+  });
+
+  it("cleans its temporary JSON file when the final rename fails", async () => {
+    const parentPath = path.resolve(".tmp/vitest-atomic-failure");
+    const filePath = path.join(parentPath, "atomic.json");
+    await rm(parentPath, { recursive: true, force: true });
+    await mkdir(filePath, { recursive: true });
+
+    await expect(
+      writeJsonFileAtomic(filePath, { version: 1 }, { backup: false })
+    ).rejects.toBeDefined();
+    deepStrictEqual(await readdir(parentPath), ["atomic.json"]);
   });
 
   it("rejects stale saves and restores a valid backup after corruption", async () => {

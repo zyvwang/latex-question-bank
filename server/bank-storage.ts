@@ -85,7 +85,10 @@ async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision:
   await mkdir(dirs.historyDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `${timestamp}-${revision.slice(0, 12)}.json`;
-  await writeFile(path.join(dirs.historyDir, fileName), raw, "utf8");
+  await writeFile(path.join(dirs.historyDir, fileName), raw, {
+    encoding: "utf8",
+    flush: true
+  });
   const files = (await readdir(dirs.historyDir))
     .filter((file) => file.endsWith(".json"))
     .sort()

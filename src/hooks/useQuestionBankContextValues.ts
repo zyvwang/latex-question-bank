@@ -41,7 +41,7 @@ export function useQuestionBankContextValues(
     switchToWorkspace: stable.switchToWorkspace,
     relocateWorkspace: stable.relocateWorkspace,
     moveWorkspaceInList: stable.moveWorkspaceInList,
-    deleteWorkspace: stable.deleteWorkspace,
+    removeWorkspaceFromList: stable.removeWorkspaceFromList,
     saveTexPathOverride: stable.saveTexPathOverride,
     openCurrentWorkspaceFolder: stable.openCurrentWorkspaceFolder
   }), [
@@ -51,7 +51,7 @@ export function useQuestionBankContextValues(
     input.workspace.texPathDraft,
     stable.createNewWorkspace,
     stable.createSampleWorkspace,
-    stable.deleteWorkspace,
+    stable.removeWorkspaceFromList,
     stable.moveWorkspaceInList,
     stable.openCurrentWorkspaceFolder,
     stable.openWorkspace,
