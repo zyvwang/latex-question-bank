@@ -45,8 +45,9 @@ export function useCompileExportActions({
   setNotice,
   updateBank
 }: CompileExportOptions) {
-  const initialExportName = defaultExportName();
-  const [exportName, setExportNameState] = useState(initialExportName);
+  // 导出名的唯一来源是服务端(它才知道 exports/ 下已有几份同日导出)。渲染期不猜,
+  // 空串由 fetch 结果填上;只有服务端不可达时才退回本地日期名,见下面的 catch。
+  const [exportName, setExportNameState] = useState("");
   const [exportOrderMode, setExportOrderMode] = useState<ExportOrderMode>("normal");
   const [randomSeed, setRandomSeed] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -54,7 +55,7 @@ export function useCompileExportActions({
   const [compileRecord, setCompileRecord] = useState<CompileRecord | null>(null);
   const [exportFailureResult, setExportFailureResult] = useState<CompileResponse | null>(null);
   const exportNameManualRef = useRef(false);
-  const exportNameRef = useRef(initialExportName);
+  const exportNameRef = useRef("");
   const compileGenerationRef = useRef(0);
   const workspacePathRef = useRef(workspacePath);
 
@@ -89,14 +90,20 @@ export function useCompileExportActions({
 
   useEffect(() => {
     exportNameManualRef.current = false;
-    setAutomaticExportName(defaultExportName());
+    setAutomaticExportName("");
     if (!workspacePath) return;
     let cancelled = false;
     void fetchDefaultExportName()
       .then((name) => {
         if (!cancelled && !exportNameManualRef.current) setAutomaticExportName(name);
       })
-      .catch(() => undefined);
+      // 服务端不可达时才用本地日期名兜底:字段留空会让 exportSelected 带 fileName: ""
+      // 打过去,被 sanitizeFileName 兜成 export-<date>,比 questions-<date>-1 更难认。
+      .catch(() => {
+        if (!cancelled && !exportNameManualRef.current) {
+          setAutomaticExportName(defaultExportName());
+        }
+      });
     return () => {
       cancelled = true;
     };
