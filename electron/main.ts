@@ -229,6 +229,10 @@ function requestRendererCloseCheck() {
   mainWindow.webContents.send("app:before-close");
   closeCheckTimer = setTimeout(async () => {
     if (!mainWindow || !closeCheckPending) return;
+    // 必须在 await 之前就交出这一轮:对话框展示期间渲染端的 app:close-response
+    // 仍会到达,它的 closeCheckPending 守卫要能挡住,否则叠出第二个对话框。
+    closeCheckPending = false;
+    closeCheckTimer = null;
     const choice = await dialog.showMessageBox(mainWindow, {
       type: "warning",
       title: "保存检查超时",
@@ -238,8 +242,6 @@ function requestRendererCloseCheck() {
       cancelId: 0,
       noLink: true
     });
-    closeCheckPending = false;
-    closeCheckTimer = null;
     if (choice.response === 1 && mainWindow) {
       allowWindowClose = true;
       mainWindow.close();
@@ -256,6 +258,9 @@ function finishCloseCheckTimer() {
 
 async function handleRendererCloseResponse(result: RendererCloseResponse) {
   if (!closeCheckPending || !mainWindow) return;
+  // 同上:先交出这一轮再 await。preload 每收到一次 app:before-close 就回一次,
+  // 重复的关闭请求不能在对话框上再叠一个。
+  closeCheckPending = false;
   finishCloseCheckTimer();
   if (result.ok) {
     allowWindowClose = true;
@@ -273,7 +278,6 @@ async function handleRendererCloseResponse(result: RendererCloseResponse) {
     cancelId: 0,
     noLink: true
   });
-  closeCheckPending = false;
   if (choice.response === 1 && mainWindow) {
     allowWindowClose = true;
     mainWindow.close();

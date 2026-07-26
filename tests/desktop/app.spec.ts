@@ -402,6 +402,67 @@ test("blocks the quit and explains why when a focused draft fails validation", a
   expect(finalBank.items[0].sourceNumber).toBe("");
 });
 
+test("shows only one unsaved dialog when a second close response arrives", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-double-dialog-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-double-dialog-app-data");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  await writeFile(
+    path.join(workspacePath, "bank.json"),
+    `${JSON.stringify(createConflictingDesktopBank(), null, 2)}\n`,
+    "utf8"
+  );
+
+  const electronApp = await electron.launch({
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
+    }
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    const browserWindow = await electronApp.firstWindow().then(() =>
+      electronApp.browserWindow(page)
+    );
+    await expect(page.getByLabel("原编号")).toHaveValue("");
+
+    // 对话框挂住不返回,模拟用户还没点按钮的那段时间 —— 缺陷正是在这段窗口里。
+    await installHangingMessageBoxRecorder(electronApp);
+
+    await page.getByLabel("原编号").fill("冲突编号");
+    await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
+    await expect.poll(() => readMessageBoxCalls(electronApp)).toHaveLength(1);
+
+    // 第一个对话框还挂着,再来一次关闭检查。重新填草稿是为了让这次回复同样是
+    // {ok:false},走到弹框那一支。
+    await page.getByLabel("原编号").fill("冲突编号");
+    await page.evaluate(() => {
+      document.body.dataset.secondCloseProbe = "";
+      const testWindow = window as Window & { closeProbeCleanup?: () => void };
+      testWindow.closeProbeCleanup = window.lqb?.onBeforeClose(async () => {
+        document.body.dataset.secondCloseProbe = "received";
+      });
+    });
+    await browserWindow.evaluate((targetWindow) => {
+      targetWindow.webContents.send("app:before-close");
+    });
+    await expect
+      .poll(() => page.evaluate(() => document.body.dataset.secondCloseProbe))
+      .toBe("received");
+    // 探针跑完 preload 才发回复,再留一点余量给主进程处理。
+    await page.waitForTimeout(500);
+
+    // closeCheckPending 若等到 await 之后才置 false,这里会是 2 个叠起来的对话框。
+    expect(await readMessageBoxCalls(electronApp)).toHaveLength(1);
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+});
+
 interface MessageBoxCall {
   message: string;
   detail: string;
@@ -437,6 +498,34 @@ async function installMessageBoxRecorder(
       return { response: chosen, checkboxChecked: false };
     }) as typeof dialog.showMessageBox;
   }, response);
+}
+
+async function installHangingMessageBoxRecorder(
+  electronApp: Awaited<ReturnType<typeof electron.launch>>
+) {
+  await electronApp.evaluate(({ dialog }) => {
+    const store = globalThis as typeof globalThis & {
+      __closeMessageBoxCalls?: Array<{
+        message: string;
+        detail: string;
+        buttons: string[];
+      }>;
+    };
+    store.__closeMessageBoxCalls = [];
+    dialog.showMessageBox = (async (
+      _window: unknown,
+      options: { message?: string; detail?: string; buttons?: string[] }
+    ) => {
+      store.__closeMessageBoxCalls?.push({
+        message: options?.message ?? "",
+        detail: options?.detail ?? "",
+        buttons: options?.buttons ?? []
+      });
+      // 永不 resolve:对话框一直开着,测试才能在这段窗口里发第二次关闭检查。
+      await new Promise<void>(() => undefined);
+      return { response: 0, checkboxChecked: false };
+    }) as typeof dialog.showMessageBox;
+  });
 }
 
 async function readMessageBoxCalls(
