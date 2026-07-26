@@ -46,6 +46,7 @@ import {
   recoverBank
 } from "../../server/recovery-storage.js";
 import { cleanupOldTempDirs } from "../../server/storage.js";
+import { pruneWorkspaceTempArtifacts } from "../../server/temp-directory-cleanup.js";
 import {
   createEmptyWorkspace,
   createSampleWorkspace,
@@ -447,6 +448,54 @@ describe("storage", () => {
     await cleanupOldTempDirs(workspacePath);
     await expect(stat(oldDir)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(stat(recentDir)).resolves.toBeDefined();
+  });
+
+  it("keeps only the newest compile artifacts and never touches sibling prefixes", async () => {
+    await createEmptyWorkspace(workspacePath);
+    const tempDir = path.join(workspacePath, ".tmp");
+    const compileDirs = ["compile-a", "compile-b", "compile-c", "compile-d", "compile-e"];
+    // 与 export- 前缀相邻但必须留下的目录:导出回滚用的上一份,以及 verify 脚本的工作目录。
+    const untouched = ["previous-export-1", "verify-export", "export-live"];
+    for (const name of [...compileDirs, ...untouched]) {
+      await mkdir(path.join(tempDir, name), { recursive: true });
+    }
+    // mtime 越小越旧;compile-a 最旧,compile-e 最新。
+    for (const [index, name] of compileDirs.entries()) {
+      const stamp = new Date(Date.now() - (compileDirs.length - index) * 60_000);
+      await utimes(path.join(tempDir, name), stamp, stamp);
+    }
+
+    await pruneWorkspaceTempArtifacts(tempDir, [
+      { prefix: "compile-", keepNewest: 2 }
+    ]);
+
+    for (const name of ["compile-a", "compile-b", "compile-c"]) {
+      await expect(stat(path.join(tempDir, name))).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    }
+    for (const name of ["compile-d", "compile-e", ...untouched]) {
+      await expect(stat(path.join(tempDir, name))).resolves.toBeDefined();
+    }
+  });
+
+  it("skips pruning instead of following a symlinked temp directory", async () => {
+    await mkdir(workspacePathB, { recursive: true });
+    const externalDir = path.join(workspacePathB, "prune-external");
+    const preciousDir = path.join(externalDir, "compile-precious");
+    await mkdir(preciousDir, { recursive: true });
+    await mkdir(workspacePathC, { recursive: true });
+    const linkedTempDir = path.join(workspacePathC, ".tmp");
+    await symlink(
+      externalDir,
+      linkedTempDir,
+      process.platform === "win32" ? "junction" : "dir"
+    );
+
+    await pruneWorkspaceTempArtifacts(linkedTempDir, [
+      { prefix: "compile-", keepNewest: 0 }
+    ]);
+    await expect(stat(preciousDir)).resolves.toBeDefined();
   });
 
   it("resolves only real direct-child export directories", async () => {
