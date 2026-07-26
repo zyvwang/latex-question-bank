@@ -342,6 +342,144 @@ test("keeps a 1000-item production heatmap responsive without virtualization", a
   }
 });
 
+test("blocks the quit and explains why when a focused draft fails validation", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-conflict-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-conflict-app-data");
+  const bankPath = path.join(workspacePath, "bank.json");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  await writeFile(
+    bankPath,
+    `${JSON.stringify(createConflictingDesktopBank(), null, 2)}\n`,
+    "utf8"
+  );
+
+  const electronApp = await electron.launch({
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
+    }
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await expect(page.getByLabel("原编号")).toHaveValue("");
+
+    // 对话框是模态的,真弹出来会把测试挂到超时;换成记录调用参数的桩。
+    await installMessageBoxRecorder(electronApp, 0);
+
+    // 同章节(都在未分类)已存在「冲突编号」,这里输入后不失焦、直接退出。
+    await page.getByLabel("原编号").fill("冲突编号");
+    await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
+
+    await expect.poll(() => readMessageBoxCalls(electronApp)).toHaveLength(1);
+    const [dialog] = await readMessageBoxCalls(electronApp);
+    expect(dialog.message).toBe("最后的修改未能保存。");
+    expect(dialog.detail).toContain("原编号“冲突编号”在当前章节中已被使用");
+    expect(dialog.buttons).toEqual(["返回继续编辑", "放弃未保存修改"]);
+
+    // 选了「返回继续编辑」:窗口留着,应用内也说明了原因,磁盘没有被改写。
+    await expect(page.getByText(/在当前章节中已被使用/)).toBeVisible();
+    const kept = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
+    expect(kept.items[0].sourceNumber).toBe("");
+
+    // 换成「放弃未保存修改」,退出必须真的发生,否则用户会被自己的编辑困住。
+    await installMessageBoxRecorder(electronApp, 1);
+    const exitPromise = new Promise<void>((resolve) => {
+      electronApp.process().once("exit", () => resolve());
+    });
+    await page.getByLabel("原编号").fill("冲突编号");
+    await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
+    await exitPromise;
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+
+  const finalBank = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
+  expect(finalBank.items[0].sourceNumber).toBe("");
+});
+
+interface MessageBoxCall {
+  message: string;
+  detail: string;
+  buttons: string[];
+}
+
+type MessageBoxRecorder = typeof globalThis & {
+  __closeMessageBoxCalls?: MessageBoxCall[];
+};
+
+async function installMessageBoxRecorder(
+  electronApp: Awaited<ReturnType<typeof electron.launch>>,
+  response: number
+) {
+  await electronApp.evaluate(({ dialog }, chosen) => {
+    const store = globalThis as typeof globalThis & {
+      __closeMessageBoxCalls?: Array<{
+        message: string;
+        detail: string;
+        buttons: string[];
+      }>;
+    };
+    store.__closeMessageBoxCalls = [];
+    dialog.showMessageBox = (async (
+      _window: unknown,
+      options: { message?: string; detail?: string; buttons?: string[] }
+    ) => {
+      store.__closeMessageBoxCalls?.push({
+        message: options?.message ?? "",
+        detail: options?.detail ?? "",
+        buttons: options?.buttons ?? []
+      });
+      return { response: chosen, checkboxChecked: false };
+    }) as typeof dialog.showMessageBox;
+  }, response);
+}
+
+async function readMessageBoxCalls(
+  electronApp: Awaited<ReturnType<typeof electron.launch>>
+): Promise<MessageBoxCall[]> {
+  // 应用若已经退出,evaluate 会抛连接错误。这里吞掉并返回空数组,好让断言报出
+  // 「没有弹出对话框」这个真正的症状,而不是一句 target has been closed。
+  return electronApp
+    .evaluate(() => (globalThis as MessageBoxRecorder).__closeMessageBoxCalls ?? [])
+    .catch(() => []);
+}
+
+function createConflictingDesktopBank(): Bank {
+  const base = createSampleBank();
+  const template = base.items[0];
+  const timestamp = "2026-07-26T08:00:00.000Z";
+  // 两道题都落在未分类;原编号唯一性按章节判定,chapterId 同为 null 即同章节。
+  return {
+    ...base,
+    chapters: [],
+    items: [
+      {
+        ...template,
+        id: "conflict-target",
+        sourceNumber: "",
+        chapterId: null,
+        chapterOrder: 1,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      },
+      {
+        ...template,
+        id: "conflict-owner",
+        sourceNumber: "冲突编号",
+        chapterId: null,
+        chapterOrder: 2,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }
+    ]
+  };
+}
+
 function createLegacyDesktopBank(): LegacyBank {
   const timestamp = "2026-07-26T08:00:00.000Z";
   return {
