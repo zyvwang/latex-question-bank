@@ -17,13 +17,17 @@ export function useQuestionBankContextValues(
     retrySave: stable.retrySave,
     retryInitialLoad: stable.loadAppAndBank,
     recoverFromCandidate: stable.recoverFromCandidate,
-    flushPendingChanges: stable.flushPendingChanges
+    flushPendingChanges: stable.flushPendingChanges,
+    beginDraftCommit: input.beginDraftCommit,
+    takeDraftCommitRejection: input.takeDraftCommitRejection
   }), [
+    input.beginDraftCommit,
     input.loadError,
     input.notice,
     input.recoveryCandidates,
     input.saveState,
     input.setNotice,
+    input.takeDraftCommitRejection,
     stable.flushPendingChanges,
     stable.loadAppAndBank,
     stable.recoverFromCandidate,

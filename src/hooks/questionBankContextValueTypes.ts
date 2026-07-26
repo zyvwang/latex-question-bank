@@ -35,6 +35,8 @@ export interface ContextValueInput {
   reviewHistory: ReturnType<typeof useReviewHistory>;
   setActiveId: Dispatch<SetStateAction<string | null>>;
   setNotice: (notice: Notice | null) => void;
+  beginDraftCommit: () => void;
+  takeDraftCommitRejection: () => string | null;
   setActiveModule: (kind: ModuleKind) => void;
   openQuestionFromHeatmap: (id: string) => void;
   updateBank: (updater: (current: Bank) => Bank) => void;

@@ -34,6 +34,9 @@ export interface LifecycleContextValue {
   retryInitialLoad: () => Promise<void>;
   recoverFromCandidate: (candidateId: string) => Promise<void>;
   flushPendingChanges: () => Promise<void>;
+  /** 关闭边界专用,见 src/hooks/useBeforeCloseFlush.ts。 */
+  beginDraftCommit: () => void;
+  takeDraftCommitRejection: () => string | null;
 }
 
 export interface WorkspaceContextValue {

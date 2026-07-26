@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { LoadingScreen } from "./components/LoadingScreen.js";
+import { AppErrorBoundary } from "./components/AppErrorBoundary.js";
 import { AppNavigation } from "./components/AppNavigation.js";
 import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
@@ -9,6 +9,7 @@ import { SettingsScreen } from "./components/SettingsScreen.js";
 import { HeatmapScreen } from "./components/HeatmapScreen.js";
 import { WorkspaceView } from "./components/WorkspaceView.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
+import { useBeforeCloseFlush } from "./hooks/useBeforeCloseFlush.js";
 import {
   useLifecycle,
   useAppView,
@@ -22,12 +23,7 @@ function AppContent() {
   const appView = useAppView();
   const workspace = useWorkspace();
   const questions = useQuestions();
-  const flushRef = useRef(lifecycle.flushPendingChanges);
-  flushRef.current = lifecycle.flushPendingChanges;
-
-  useEffect(() => {
-    return window.lqb?.onBeforeClose?.(() => flushRef.current());
-  }, []);
+  useBeforeCloseFlush();
 
   if (!workspace.appInfo) return <LoadingScreen />;
   if (workspace.appInfo.setupRequired) return <SetupScreen />;
@@ -58,9 +54,12 @@ function AppContent() {
 }
 
 export default function App() {
+  // 边界包在 Provider 外面:updateBank 的 updater 在 Provider 的 render 阶段执行。
   return (
-    <QuestionBankProvider>
-      <AppContent />
-    </QuestionBankProvider>
+    <AppErrorBoundary>
+      <QuestionBankProvider>
+        <AppContent />
+      </QuestionBankProvider>
+    </AppErrorBoundary>
   );
 }

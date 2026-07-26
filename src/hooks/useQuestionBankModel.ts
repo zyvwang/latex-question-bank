@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAppInfo,
   fetchBank,
@@ -34,8 +34,28 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [bank, setBank] = useState<Bank | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<QuestionBankContextValues["lifecycle"]["notice"]>(null);
+  const [notice, setNoticeState] = useState<QuestionBankContextValues["lifecycle"]["notice"]>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 关闭前提交聚焦草稿时,用这个槽把「校验拒绝」带出 blur 的同步批次。
+  // 依赖一条全项目约定:草稿提交失败一律 setNotice({ type: "error" })。
+  // 只有夹在 beginDraftCommit() 与 takeDraftCommitRejection() 之间那一次同步
+  // blur 里写进去的值会被读到,所以不需要判断时序;详见 useBeforeCloseFlush.ts。
+  const draftRejectionRef = useRef<string | null>(null);
+  const setNotice = useCallback(
+    (next: QuestionBankContextValues["lifecycle"]["notice"]) => {
+      if (next?.type === "error") draftRejectionRef.current = next.text;
+      setNoticeState(next);
+    },
+    []
+  );
+  const beginDraftCommit = useCallback(() => {
+    draftRejectionRef.current = null;
+  }, []);
+  const takeDraftCommitRejection = useCallback(() => {
+    const text = draftRejectionRef.current;
+    draftRejectionRef.current = null;
+    return text;
+  }, []);
   const [recoveryCandidates, setRecoveryCandidates] = useState<
     QuestionBankContextValues["lifecycle"]["recoveryCandidates"]
   >([]);
@@ -123,7 +143,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     }
     updateItem(id, { sourceNumber: sourceNumber.trim() });
     return true;
-  }, [bank, updateItem]);
+  }, [bank, setNotice, updateItem]);
 
   const moveItemToChapter = useCallback((id: string, chapterId: string | null) => {
     if (!bank) return false;
@@ -163,7 +183,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     }));
     setNotice({ type: "ok", text: "题目已移动到目标章节末尾。" });
     return true;
-  }, [bank, updateBank]);
+  }, [bank, setNotice, updateBank]);
 
   const compileExport = useCompileExportActions({
     activeItem: derived.activeItem,
@@ -210,7 +230,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       resetAutosave,
       resetCompileState,
       resetHistoryUi,
-      selectAllItems
+      selectAllItems,
+      setNotice
     ]
   );
   const applySetupState = useCallback(
@@ -235,7 +256,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       resetAutosave,
       resetCompileState,
       resetHistoryUi,
-      selectAllItems
+      selectAllItems,
+      setNotice
     ]
   );
   const reloadWorkspace = useCallback(
@@ -297,7 +319,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
         .then(setRecoveryCandidates)
         .catch(() => setRecoveryCandidates([]));
     });
-  }, [loadAppAndBank]);
+  }, [loadAppAndBank, setNotice]);
 
   const recoverFromCandidate = useCallback(
     async (candidateId: string) => {
@@ -310,7 +332,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       setRecoveryCandidates([]);
       setNotice({ type: "ok", text: "题库已从备份恢复。" });
     },
-    [resetAutosave, selectAllItems]
+    [resetAutosave, selectAllItems, setNotice]
   );
   const flushPendingChanges = useCallback(async () => {
     if (bank && appInfo?.currentWorkspacePath) await persistBank(bank);
@@ -338,6 +360,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     reorder,
     setActiveId,
     setNotice,
+    beginDraftCommit,
+    takeDraftCommitRejection,
     setActiveModule,
     appView,
     openQuestionFromHeatmap,
