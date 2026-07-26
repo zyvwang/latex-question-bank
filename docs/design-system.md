@@ -54,6 +54,7 @@ No remote font dependency is required.
 - Press feedback uses `scale(0.96)` for 120-160ms.
 - Motion is limited to opacity and transform, and is disabled for reduced-motion preferences.
 - Focus rings remain visible for keyboard users.
+- Modal dialogs contain keyboard focus. The backdrop only blocks the pointer, so `src/hooks/useFocusTrap.ts` wraps Tab and Shift+Tab at both ends and returns focus to the opening element on close. The hook owns initial focus; a dialog that needs a specific landing spot marks it with `data-autofocus` rather than `autoFocus`, which fires too early to record the outside element.
 
 ## CSS Ownership
 
