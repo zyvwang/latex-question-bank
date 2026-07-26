@@ -136,6 +136,15 @@ async function readJsonResponse<T>(
   response: Response,
   options: { allowErrorPayload?: boolean } = {}
 ): Promise<T> {
+  // 非 JSON 响应(代理错误页、SPA 兜底 HTML)先转成带状态码的 ApiRequestError,
+  // 否则用户看到的是 "Unexpected token '<'"。
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new ApiRequestError(
+      `服务器返回了非 JSON 响应（HTTP ${response.status}）。`,
+      response.status,
+      "RESPONSE_NOT_JSON"
+    );
+  }
   const data = (await response.json()) as T & { error?: string; code?: string };
   if (!response.ok && !options.allowErrorPayload) {
     throw new ApiRequestError(data.error ?? "请求失败。", response.status, data.code);

@@ -66,7 +66,11 @@ export function dynamicWorkspaceStatic(
       const dirs = await getCurrentWorkspaceDirs();
       express.static(dirs[dirKey])(request, response, next);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("尚未选择题库工作区")) {
+      // 按 code 判断,不按文案:改一个字就会让静态资源路由开始抛 500。
+      if (
+        error instanceof StorageError &&
+        error.code === "WORKSPACE_NOT_SELECTED"
+      ) {
         next();
         return;
       }
@@ -78,6 +82,12 @@ export function dynamicWorkspaceStatic(
 export function installFrontend(app: express.Express) {
   app.use(express.static(path.join(rootDir, "dist")));
   app.use((request, response, next) => {
+    // 未匹配的 /api 路径不能落到 SPA 兜底:客户端会拿到 200 text/html,
+    // response.json() 抛 SyntaxError,而只看 response.ok 的调用方会当成成功。
+    if (request.path.startsWith("/api/")) {
+      sendApiError(response, 404, "接口不存在。", "API_NOT_FOUND");
+      return;
+    }
     if (request.method !== "GET") {
       next();
       return;
@@ -120,17 +130,9 @@ export function apiErrorHandler(
     sendApiError(response, error.status, error.message, error.code);
     return;
   }
-  if (isClientInputError(error)) {
-    sendApiError(response, 400, error.message, "REQUEST_INVALID");
-    return;
-  }
+  // 未分类错误的 message 常带绝对路径等主机细节,只写日志,不回给客户端。
   console.error(error);
-  sendApiError(
-    response,
-    500,
-    error instanceof Error ? error.message : "服务器内部错误。",
-    "INTERNAL_ERROR"
-  );
+  sendApiError(response, 500, "服务器内部错误。", "INTERNAL_ERROR");
 }
 
 function isMutatingMethod(method: string): boolean {
@@ -139,15 +141,6 @@ function isMutatingMethod(method: string): boolean {
 
 function isLoopbackHostname(hostname: string): boolean {
   return ["127.0.0.1", "localhost", "::1"].includes(hostname);
-}
-
-function isClientInputError(error: unknown): error is Error {
-  if (!(error instanceof Error)) return false;
-  return [
-    "该文件夹已经是题库工作区。",
-    "这个文件夹不是题库工作区：缺少 bank.json。",
-    "尚未选择题库工作区。"
-  ].some((message) => error.message.startsWith(message));
 }
 
 function isEntityTooLarge(

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSampleBank } from "../../server/bank-schema.js";
 import { BANK_SAVE_BODY_LIMIT_BYTES } from "../../shared/api-limits.js";
-import { saveBank } from "../../src/api/client.js";
+import {
+  ApiRequestError,
+  fetchAppInfo,
+  saveBank
+} from "../../src/api/client.js";
 
 vi.mock("../../shared/api-limits.js", async (importOriginal) => {
   const actual = await importOriginal<
@@ -59,5 +63,25 @@ describe("bank save client limit", () => {
       revision: "b".repeat(64)
     });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("non-JSON responses", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it("turns an HTML response into an ApiRequestError, not a JSON SyntaxError", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("<!doctype html><title>app</title>", {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      })
+    );
+
+    const error = await fetchAppInfo().catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect(error).not.toBeInstanceOf(SyntaxError);
+    expect(error).toMatchObject({ status: 200, code: "RESPONSE_NOT_JSON" });
   });
 });

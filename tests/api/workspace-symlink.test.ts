@@ -131,6 +131,21 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
     expect(await readdir(externalDir)).toHaveLength(0);
   });
 
+  it("rejects opening a workspace whose subdirectory is a symlink", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    await linkSubdirToExternal("exports");
+
+    // 打开阶段就 fail-closed,而不是等到导出/上传时逐个操作各自报错。
+    await request(app)
+      .post("/api/workspaces/open")
+      .send({ workspacePath })
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_SUBDIR_SYMLINK"));
+
+    expect(await readdir(externalDir)).toHaveLength(0);
+  });
+
   it("does not falsely reject a workspace with normal real subdirectories", async () => {
     const app = createApiApp();
     await createEmptyWorkspaceViaApi(app);

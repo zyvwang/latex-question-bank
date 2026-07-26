@@ -15,6 +15,64 @@ beforeEach(async () => {
 });
 
 describe("API validation", () => {
+  it("rebuilds missing subdirectories when opening a bank.json-only workspace", async () => {
+    // git 和 zip 都不保留空目录,拿到手的工作区经常只有 bank.json。
+    await mkdir(workspacePath, { recursive: true });
+    await writeFile(
+      path.join(workspacePath, "bank.json"),
+      `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+      "utf8"
+    );
+
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/open")
+      .send({ workspacePath })
+      .expect(200);
+
+    await request(app)
+      .get("/api/exports/default-name")
+      .expect(200)
+      .expect(({ body }) => expect(body.exportName).toMatch(/^questions-/));
+    expect(await readdir(workspacePath)).toEqual(
+      expect.arrayContaining([".tmp", "assets", "bank.json", "exports"])
+    );
+  });
+
+  it("answers unknown API routes with JSON instead of the SPA shell", async () => {
+    // 落到 SPA 兜底会返回 200 text/html,客户端 response.json() 抛 SyntaxError,
+    // 而只检查 response.ok 的调用方会把 HTML 当成成功。
+    const response = await request(createApiApp())
+      .get("/api/does-not-exist")
+      .expect(404);
+    expect(response.headers["content-type"]).toContain("application/json");
+    expect(response.body.code).toBe("API_NOT_FOUND");
+
+    await request(createApiApp())
+      .post("/api/does-not-exist")
+      .send({})
+      .expect(404)
+      .expect(({ body }) => expect(body.code).toBe("API_NOT_FOUND"));
+  });
+
+  it("reports workspace lifecycle failures with stable codes", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ALREADY_EXISTS"));
+    await request(app)
+      .post("/api/workspaces/open")
+      .send({ workspacePath: path.join(workspacePath, "missing-folder") })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_MISSING"));
+  });
+
   it("allows the MathJax worker required for repeated preview typesetting", async () => {
     const response = await request(createApiApp()).get("/api/app").expect(200);
     expect(response.headers["content-security-policy"]).toContain("worker-src 'self' blob:");
