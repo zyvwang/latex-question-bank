@@ -68,6 +68,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Verify Windows atomic JSON writes
+        if: runner.os == 'Windows'
+        run: npx vitest run --config vitest.node.config.ts tests/unit/json-file.test.ts
       - run: npm run build
       - run: npm run test:desktop
       - if: runner.os == 'macOS'

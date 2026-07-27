@@ -42,7 +42,9 @@ export async function writeJsonFileAtomic(
 }
 
 async function syncFile(filePath: string) {
-  const handle = await open(filePath, "r");
+  // Windows 的 FlushFileBuffers 要求句柄带写权限。"r" 在 POSIX 上可以 sync,
+  // 但在 Windows 上会让每次需要备份的 JSON 覆盖都失败。
+  const handle = await open(filePath, "r+");
   try {
     await handle.sync();
   } finally {

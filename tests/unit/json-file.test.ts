@@ -1,5 +1,5 @@
 import { deepStrictEqual, equal } from "node:assert";
-import type { PathLike } from "node:fs";
+import type { Mode, OpenMode, PathLike } from "node:fs";
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,15 +11,27 @@ import { writeJsonFileAtomic } from "../../server/json-file.js";
  * 模块边界上注入一个「先写半截再抛」的 copyFile,其余调用透传给真实实现。
  * 单独一个测试文件是为了把这个模块级 mock 关在这里,不影响 domain.test.ts。
  */
-const copyFileControl = vi.hoisted(() => ({ failing: false }));
+const fileControl = vi.hoisted(() => ({
+  copyFailing: false,
+  backupSyncFlags: [] as OpenMode[]
+}));
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...actual,
     default: actual,
+    open: async (filePath: PathLike, flags?: OpenMode, mode?: Mode) => {
+      if (
+        String(filePath).includes(".bak.") &&
+        String(filePath).endsWith(".tmp")
+      ) {
+        fileControl.backupSyncFlags.push(flags ?? "r");
+      }
+      return actual.open(filePath, flags, mode);
+    },
     copyFile: async (source: PathLike, destination: PathLike, mode?: number) => {
-      if (!copyFileControl.failing) {
+      if (!fileControl.copyFailing) {
         return actual.copyFile(source, destination, mode);
       }
       await actual.writeFile(destination, '{\n  "version": 1,\n  "val');
@@ -34,7 +46,8 @@ describe("writeJsonFileAtomic", () => {
   const backupPath = `${filePath}.bak`;
 
   beforeEach(async () => {
-    copyFileControl.failing = false;
+    fileControl.copyFailing = false;
+    fileControl.backupSyncFlags = [];
     await rm(directory, { recursive: true, force: true });
     await mkdir(directory, { recursive: true });
   });
@@ -44,7 +57,7 @@ describe("writeJsonFileAtomic", () => {
     await writeJsonFileAtomic(filePath, { version: 1, value: "second" });
     equal(readValue(await readFile(backupPath, "utf8")), "first");
 
-    copyFileControl.failing = true;
+    fileControl.copyFailing = true;
     await expect(
       writeJsonFileAtomic(filePath, { version: 1, value: "third" })
     ).rejects.toThrow(/copy interrupted/);
@@ -67,6 +80,7 @@ describe("writeJsonFileAtomic", () => {
       (await readdir(directory)).sort(),
       ["bank.json", "bank.json.bak"]
     );
+    deepStrictEqual(fileControl.backupSyncFlags, ["r+"]);
   });
 });
 
