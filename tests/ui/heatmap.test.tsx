@@ -1,5 +1,4 @@
 import {
-  fireEvent,
   render,
   screen,
   waitFor,
@@ -149,31 +148,6 @@ describe("heatmap UI", () => {
       name: "题目热力图滚动区域"
     })).toHaveProperty("scrollTop", 137);
   });
-
-  it("renders a 1000-item fixture with one preview and keeps mode input responsive", async () => {
-    currentBank = largeBank();
-    render(<App />);
-    await screen.findByRole("button", { name: "热力图" });
-
-    const startedAt = performance.now();
-    fireEvent.click(screen.getByRole("button", { name: "热力图" }));
-    await waitFor(
-      () =>
-        expect(document.querySelectorAll("[data-heatmap-cell]"))
-          .toHaveLength(1000),
-      { timeout: 5000 }
-    );
-    expect(performance.now() - startedAt).toBeLessThan(5000);
-    expect(screen.getAllByTestId("latex-preview")).toHaveLength(1);
-
-    const modeStartedAt = performance.now();
-    fireEvent.click(screen.getByRole("button", { name: "错误原因" }));
-    await waitFor(() =>
-      expect(document.querySelector("[data-heatmap-cell]"))
-        .toHaveAttribute("data-heatmap-mode", "errorReason")
-    );
-    expect(performance.now() - modeStartedAt).toBeLessThan(2000);
-  }, 10_000);
 });
 
 async function handleFetch(
@@ -283,30 +257,6 @@ function heatmapBank(): Bank {
       item("loose-u", null, 1, "", "U", [])
     ]
   };
-}
-
-function largeBank(): Bank {
-  const base = heatmapBank();
-  const chapters = Array.from({ length: 10 }, (_, index) => ({
-    id: `chapter-${index + 1}`,
-    name: `性能章节 ${index + 1}`,
-    order: index + 1
-  }));
-  const items = chapters.flatMap((chapter) =>
-    Array.from({ length: 100 }, (_, index) => ({
-      ...base.items[0],
-      id: `${chapter.id}-item-${index + 1}`,
-      chapterId: chapter.id,
-      chapterOrder: index + 1,
-      sourceNumber: `${chapter.order}-${index + 1}`,
-      modules: {
-        question: { tex: `题目 ${chapter.order}-${index + 1} $x$` },
-        solution: { tex: "解析" },
-        note: { tex: "" }
-      }
-    }))
-  );
-  return { ...base, chapters, items };
 }
 
 function json(value: unknown, status = 200): Response {

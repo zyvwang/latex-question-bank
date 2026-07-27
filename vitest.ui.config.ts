@@ -5,7 +5,6 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    fileParallelism: false,
     globals: true,
     restoreMocks: true,
     setupFiles: ["tests/setup/ui.ts"],
