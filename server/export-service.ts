@@ -11,6 +11,11 @@ import {
   selectedItems
 } from "./latex.js";
 import { StorageError } from "./storage-types.js";
+import {
+  EXPORT_TEMP_PREFIX,
+  pruneWorkspaceTempArtifacts
+} from "./temp-directory-cleanup.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { getWorkspaceDirs } from "./workspace-storage.js";
 
 export async function exportBank(
@@ -28,8 +33,17 @@ export async function exportBank(
   }
 
   const { exportDir, tempDir } = getWorkspaceDirs(workspacePath);
+  await Promise.all([
+    assertRealWorkspaceSubdir(exportDir),
+    assertRealWorkspaceSubdir(tempDir)
+  ]);
   const targetDir = path.join(exportDir, fileName);
-  const stagingDir = path.join(tempDir, `export-${crypto.randomUUID()}`);
+  // 失败的 staging 目录会以 /tmp/... 链接给用户查看 tex 和日志,所以保留最近一份;
+  // 在新建之前修剪,正在进行中的那份天然不会被删。
+  await pruneWorkspaceTempArtifacts(tempDir, [
+    { prefix: EXPORT_TEMP_PREFIX, keepNewest: 1 }
+  ]);
+  const stagingDir = path.join(tempDir, `${EXPORT_TEMP_PREFIX}${crypto.randomUUID()}`);
   await mkdir(stagingDir, { recursive: true });
   await copyAssetsForItems(items, stagingDir, workspacePath);
 

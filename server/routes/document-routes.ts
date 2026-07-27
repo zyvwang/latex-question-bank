@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, json } from "express";
 import multer from "multer";
 import path from "node:path";
 import {
@@ -26,8 +26,11 @@ const upload = multer({
   }
 });
 
-export function createDocumentRouter(): Router {
+export function createDocumentRouter(options: {
+  jsonBodyLimitBytes: number;
+}): Router {
   const router = Router();
+  const parseJson = json({ limit: options.jsonBodyLimitBytes });
 
   router.post("/assets", upload.single("file"), async (request, response, next) => {
     try {
@@ -46,7 +49,7 @@ export function createDocumentRouter(): Router {
     }
   });
 
-  router.post("/compile-item", async (request, response, next) => {
+  router.post("/compile-item", parseJson, async (request, response, next) => {
     try {
       const validation = validateCompileItemRequest(request.body);
       if (!validation.ok || !validation.value) {
@@ -68,7 +71,7 @@ export function createDocumentRouter(): Router {
     }
   });
 
-  router.post("/export", async (request, response, next) => {
+  router.post("/export", parseJson, async (request, response, next) => {
     try {
       const validation = validateExportRequest(request.body);
       if (!validation.ok || !validation.value) {
@@ -95,7 +98,7 @@ export function createDocumentRouter(): Router {
     }
   });
 
-  router.post("/exports/reveal", async (request, response, next) => {
+  router.post("/exports/reveal", parseJson, async (request, response, next) => {
     try {
       const validation = validateRevealExportRequest(request.body);
       if (!validation.ok || !validation.value) {

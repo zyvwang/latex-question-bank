@@ -9,25 +9,49 @@ import type {
 import type {
   AppInfo,
   Bank,
+  Chapter,
+  MasteryHistoryEntry,
   CompileResponse,
   ExportOrderMode,
   ModuleKind,
   QuestionItem,
-  RecoveryCandidate
+  RecoveryCandidate,
+  ReviewOption
 } from "../../shared/types.js";
-import type { AddMenu, AddMode, Notice, ReorderMenu, SaveState } from "../hooks/controllerTypes.js";
+import type {
+  AddMenu,
+  AddMode,
+  Notice,
+  ReorderMenu,
+  SaveIssue,
+  SaveState
+} from "../hooks/controllerTypes.js";
+import type { AppView } from "../hooks/useAppView.js";
+import type { HeatmapMode } from "../heatmap.js";
+import type { QuestionListMode } from "../hooks/useSelectionFilters.js";
 import type { DropPosition } from "../itemOrder.js";
 
 export interface LifecycleContextValue {
   saveState: SaveState;
+  saveIssue: SaveIssue | null;
+  isConflictDialogOpen: boolean;
   notice: Notice | null;
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
   setNotice: (notice: Notice | null) => void;
   retrySave: () => Promise<void>;
+  refreshSaveConflict: () => Promise<void>;
+  useDiskVersion: () => Promise<void>;
+  overwriteDiskVersion: () => Promise<void>;
+  saveConflictAs: () => Promise<void>;
+  openConflictDialog: () => void;
+  closeConflictDialog: () => void;
   retryInitialLoad: () => Promise<void>;
   recoverFromCandidate: (candidateId: string) => Promise<void>;
   flushPendingChanges: () => Promise<void>;
+  /** 关闭边界专用,见 src/hooks/useBeforeCloseFlush.ts。 */
+  beginDraftCommit: () => void;
+  takeDraftCommitRejection: () => string | null;
 }
 
 export interface WorkspaceContextValue {
@@ -41,7 +65,7 @@ export interface WorkspaceContextValue {
   switchToWorkspace: (workspacePath: string) => Promise<void>;
   relocateWorkspace: (workspacePath: string) => Promise<void>;
   moveWorkspaceInList: (workspacePath: string, direction: "up" | "down") => Promise<void>;
-  deleteWorkspace: (workspacePath: string) => Promise<void>;
+  removeWorkspaceFromList: (workspacePath: string) => Promise<void>;
   saveTexPathOverride: () => Promise<void>;
   openCurrentWorkspaceFolder: () => void;
 }
@@ -55,6 +79,8 @@ export interface QuestionContextValue {
   setActiveId: Dispatch<SetStateAction<string | null>>;
   updateBank: (updater: (current: Bank) => Bank) => void;
   updateItem: (id: string, patch: Partial<QuestionItem>) => void;
+  commitSourceNumber: (id: string, sourceNumber: string) => boolean;
+  moveItemToChapter: (id: string, chapterId: string | null) => boolean;
   addItem: (mode?: AddMode) => void;
   deleteItem: (id: string) => void;
   deleteActiveItem: () => void;
@@ -65,19 +91,81 @@ export interface QuestionContextValue {
 
 export interface SelectionContextValue {
   filteredItems: QuestionItem[];
-  chapters: string[];
+  listItems: QuestionItem[];
+  chapters: Chapter[];
   tags: string[];
   selectedIds: Set<string>;
-  chapterFilter: string;
-  tagFilter: string;
-  starFilter: string;
+  chapterFilters: string[];
+  tagFilters: string[];
+  masteryFilters: string[];
+  errorReasonFilters: string[];
   search: string;
-  setChapterFilter: (value: string) => void;
-  setTagFilter: (value: string) => void;
-  setStarFilter: (value: string) => void;
+  listMode: QuestionListMode;
+  setChapterFilters: (value: string[]) => void;
+  setTagFilters: (value: string[]) => void;
+  setMasteryFilters: (value: string[]) => void;
+  setErrorReasonFilters: (value: string[]) => void;
   setSearch: (value: string) => void;
+  setListMode: (value: QuestionListMode) => void;
   toggleSelected: (id: string) => void;
-  toggleAllFiltered: () => void;
+  toggleAllVisible: () => void;
+}
+
+export interface AppViewContextValue {
+  activeView: AppView;
+  setActiveView: (view: AppView) => void;
+  heatmapMode: HeatmapMode;
+  setHeatmapMode: (mode: HeatmapMode) => void;
+  heatmapFocusedId: string | null;
+  setHeatmapFocusedId: (id: string | null) => void;
+  heatmapScrollTop: number;
+  setHeatmapScrollTop: (value: number) => void;
+  openQuestionFromHeatmap: (id: string) => void;
+}
+
+export interface ReviewContextValue {
+  chapters: Chapter[];
+  masteryOptions: ReviewOption[];
+  errorReasonOptions: ReviewOption[];
+  masteryHistory: MasteryHistoryEntry[];
+  capacityRequest: {
+    entries: MasteryHistoryEntry[];
+    selectedId: string;
+  } | null;
+  createChapter: (name: string) => string | null;
+  renameChapter: (id: string, name: string) => boolean;
+  moveChapter: (id: string, direction: -1 | 1) => void;
+  moveChapterToIndex: (id: string, targetIndex: number) => void;
+  deleteChapter: (id: string) => void;
+  createReviewOption: (
+    kind: "mastery" | "errorReason",
+    option: Pick<ReviewOption, "name" | "color" | "pattern">
+  ) => boolean;
+  updateReviewOption: (
+    kind: "mastery" | "errorReason",
+    id: string,
+    patch: Partial<Pick<ReviewOption, "name" | "color" | "pattern">>
+  ) => boolean;
+  moveReviewOption: (
+    kind: "mastery" | "errorReason",
+    id: string,
+    direction: -1 | 1
+  ) => void;
+  moveReviewOptionToIndex: (
+    kind: "mastery" | "errorReason",
+    id: string,
+    targetIndex: number
+  ) => void;
+  deleteReviewOption: (
+    kind: "mastery" | "errorReason",
+    id: string
+  ) => void;
+  selectCapacityDeletion: (id: string) => void;
+  confirmCapacityDeletion: () => void;
+  cancelCapacityDeletion: () => void;
+  renameHistory: (id: string, name: string) => boolean;
+  deleteHistory: (id: string) => void;
+  restoreHistory: (id: string) => void;
 }
 
 export interface CompileExportContextValue {
@@ -130,4 +218,6 @@ export interface QuestionBankContextValues {
   selection: SelectionContextValue;
   compileExport: CompileExportContextValue;
   workspaceUi: WorkspaceUiContextValue;
+  appView: AppViewContextValue;
+  review: ReviewContextValue;
 }

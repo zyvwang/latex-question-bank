@@ -32,11 +32,27 @@ The application interface currently uses Simplified Chinese. This README provide
 
 - Write LaTeX in separate question, solution, and note modules.
 - Preview formulas with MathJax and insert PNG or JPEG images.
-- Check the current item with a local XeLaTeX installation.
-- Organize items by source ID, chapter, tags, rating, and search.
-- Select and drag items into order, or use a saved seed for reproducible random order.
+- Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
+- Organize items with formal chapters, source IDs, and multiple tags, and record mastery and error reasons.
+- Combine keyword, chapter, tag, mastery, and error-reason filters. Multiple values within one field use OR, while different fields use AND.
+- Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
+- Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
+- Review mastery and error reasons by chapter in a dedicated heatmap, preview Question, Solution, or Note content, and jump back into the full editor.
+- Manage chapters, mastery options, error-reason options, five daily mastery-history records, and global LaTeX on the dedicated Bank Settings page.
 - Export question-only and complete `.tex` and `.pdf` files.
 - Manage multiple local workspaces with autosave, atomic writes, backups, and history snapshots.
+
+### Heatmap overview
+
+Review mastery and error reasons by chapter. Color, patterns, and corner marks convey status together, while the selected question remains visible in the preview.
+
+![Combined-mode heatmap in LaTeX Question Bank](docs/screenshots/heatmap.png)
+
+### Daily mastery history
+
+Keep one final review state per day, then view, rename, delete, or restore any of the five most recent saved days.
+
+![Daily mastery history in LaTeX Question Bank](docs/screenshots/history.png)
 
 ## Requirements
 
@@ -55,7 +71,7 @@ latexmk --version
 xelatex --version
 ```
 
-The app checks `PATH` and common install locations. If TeX is elsewhere, set the `latexmk` path under Global LaTeX.
+The app checks `PATH` and common install locations. If TeX is elsewhere, set the `latexmk` path under Bank Settings → LaTeX.
 
 ## Install
 
@@ -77,10 +93,12 @@ xattr -dr com.apple.quarantine "/Applications/LaTeX Question Bank.app"
 1. Launch the app and choose “新建空白题库” (New blank bank).
 2. Pick a normal folder for the workspace.
 3. Click `+` in the upper-left corner to create an item.
-4. Add a source ID, chapter, tags, and rating.
+4. Add a source ID, chapter, and tags, then set mastery and error reasons as needed.
 5. Write LaTeX in the Question, Solution, and Note tabs.
 6. Click “检查当前题” (Check current item) to run a real compile.
-7. Select the items you need, choose an order, and export.
+7. Open “热力图” (Heatmap) to review status. Focus a cell to preview it, then click it or press Enter to open the full editor.
+8. Filter and select the items you need, review them in the selected-items list, choose an order, and export.
+9. Use “题库设置 → 掌握历史” (Bank Settings → Mastery History) to view, rename, delete, or restore the final review state from any of the five most recent saved days.
 
 Choose “体验示例题库” (Try sample bank) on first launch if you want to explore a filled workspace.
 
@@ -102,7 +120,7 @@ Display math works as expected:
 \]
 ```
 
-Put shared packages and commands under Global LaTeX:
+Put shared packages and commands under Bank Settings → LaTeX:
 
 ```tex
 \usepackage{amssymb}
@@ -127,7 +145,7 @@ exports/
 - `questions.*` contains question statements only.
 - `full.*` contains questions, solutions, and notes.
 - Default names use `questions-YYYY-MM-DD-N`.
-- Normal order follows the list. A random order can be reproduced with the same seed.
+- Normal order follows chapter order and then chapter-local order, with uncategorized items last. A random order can be reproduced with the same seed.
 - A same-name export is built in a temporary directory and replaces the previous result only after both PDFs succeed.
 
 ## Workspace and data
@@ -140,17 +158,23 @@ workspace/
 ├── bank.json.bak
 ├── assets/
 ├── exports/
+├── .tmp/
 └── .history/
 ```
 
-- `bank.json` stores questions, settings, and order.
+- `bank.json` uses schema `version: 2` for formal chapters, chapter-local order, mastery and error-reason options, up to five daily mastery-history records, item content, and LaTeX settings.
 - `assets/` stores inserted images.
 - `exports/` stores completed exports.
-- `bank.json.bak` and `.history/` provide recovery points.
+- `.tmp/` stores temporary files from current-item checks and export work. The app limits how many it keeps during a session and removes entries older than seven days at startup.
+- `bank.json.bak` and `.history/` provide disk disaster-recovery points. They are separate from the user-managed mastery history stored inside `bank.json`.
 
-Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
+Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. You can load the disk version, refresh its revision and overwrite it with your local version, or save the local content as an independent workspace. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
 
-The app keeps only recent workspace paths and a custom TeX path in local application data. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
+A complete bank save request is supported up to 64 MiB. Oversized banks remain pending and prompt you to split the workspace or reduce its content. File content is flushed to storage, and parent directory entries are synced on a best-effort basis on POSIX platforms.
+
+Existing `version: 1` banks open directly. Legacy chapter text is converted to formal chapters in memory, while ratings are intentionally not mapped to mastery. Read-only use does not rewrite the file. Before the first real edit is saved as v2, the original v1 content is retained in `bank.json.bak` and the session recovery snapshot.
+
+The app keeps only recent workspace paths and a custom TeX path in local application data. Workspaces remain ordinary folders under your control: “Remove from list” only clears the recent entry, and the app never deletes the folder or its `bank.json`. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
 
 ## Local development
 

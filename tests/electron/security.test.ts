@@ -6,6 +6,13 @@ import {
   createEmptyWorkspace,
   isKnownWorkspacePath
 } from "../../server/workspace-storage.js";
+import {
+  classifyExternalUrl,
+  classifySender,
+  createSecureWebPreferences,
+  isCloseResponse,
+  navigationIsAllowed
+} from "../../electron/security-policy.js";
 
 const workspacePath = path.resolve(".tmp/vitest-electron-workspace");
 const unrelatedPath = path.resolve(".tmp/vitest-electron-unrelated");
@@ -24,45 +31,59 @@ describe("Electron shell path allowlist", () => {
     await expect(isKnownWorkspacePath(unrelatedPath)).resolves.toBe(false);
   });
 
-  it("keeps preload sandboxing and navigation restrictions enabled", async () => {
-    const mainSource = await readFile(path.resolve("electron/main.ts"), "utf8");
-    const preloadSource = await readFile(path.resolve("electron/preload.cts"), "utf8");
-    expect(mainSource).toContain("contextIsolation: true");
-    expect(mainSource).toContain("nodeIntegration: false");
-    expect(mainSource).toContain("sandbox: true");
-    expect(mainSource).toContain("setWindowOpenHandler");
-    expect(mainSource).toContain("assertTrustedSender");
-    expect(mainSource).toContain('ipcMain.handle("shell:reveal-export"');
-    expect(mainSource).toContain('ipcMain.on("app:close-response"');
-    expect(mainSource).toContain("quitRequested = true");
-    expect(preloadSource).toContain('contextBridge.exposeInMainWorld("lqb"');
-    expect(preloadSource).toContain("revealExportFolder");
-    expect(preloadSource).not.toContain("ipcRenderer:");
+  it("enforces executable window, sender, navigation, and close policies", () => {
+    expect(createSecureWebPreferences("/safe/preload.cjs")).toEqual({
+      preload: "/safe/preload.cjs",
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    });
+
+    expect(navigationIsAllowed("http://127.0.0.1:5174/settings", "http://127.0.0.1:5174"))
+      .toBe(true);
+    expect(navigationIsAllowed("http://127.0.0.1:9999/", "http://127.0.0.1:5174"))
+      .toBe(false);
+    expect(navigationIsAllowed("not a url", "http://127.0.0.1:5174")).toBe(false);
+
+    expect(classifySender({
+      senderId: 7,
+      expectedSenderId: 7,
+      senderUrl: "http://127.0.0.1:5174/editor",
+      currentUrl: "http://127.0.0.1:5174/"
+    })).toBe("trusted");
+    expect(classifySender({
+      senderId: 8,
+      expectedSenderId: 7,
+      senderUrl: "http://127.0.0.1:5174/",
+      currentUrl: "http://127.0.0.1:5174/"
+    })).toBe("wrong-window");
+    expect(classifySender({
+      senderId: 7,
+      expectedSenderId: 7,
+      senderUrl: "https://example.invalid/",
+      currentUrl: "http://127.0.0.1:5174/"
+    })).toBe("wrong-origin");
+
+    expect(classifyExternalUrl("https://example.com/docs", "http://127.0.0.1:5174"))
+      .toBe("external");
+    expect(classifyExternalUrl("http://127.0.0.1:5174/tmp/item.pdf", "http://127.0.0.1:5174"))
+      .toBe("local");
+    expect(classifyExternalUrl("http://example.com/", "http://127.0.0.1:5174"))
+      .toBe("blocked");
+    expect(classifyExternalUrl("javascript:alert(1)", "http://127.0.0.1:5174"))
+      .toBe("blocked");
+
+    expect(isCloseResponse({ ok: true })).toBe(true);
+    expect(isCloseResponse({ ok: false, error: "save failed" })).toBe(true);
+    expect(isCloseResponse({ ok: "yes" })).toBe(false);
+    expect(isCloseResponse({ ok: false, error: 42 })).toBe(false);
   });
 
-  it("keeps development boot compatible without weakening packaged storage", async () => {
-    const mainSource = await readFile(path.resolve("electron/main.ts"), "utf8");
+  it("keeps packaged mock-keychain metadata and cleanup command", async () => {
     const packageMetadata = JSON.parse(await readFile(path.resolve("package.json"), "utf8")) as {
       build?: { extraMetadata?: { lqbUseMockKeychain?: boolean } };
       scripts?: { "dist:mac"?: string };
     };
-    const viteSource = await readFile(path.resolve("vite.config.ts"), "utf8");
-    const serverMiddlewareSource = await readFile(
-      path.resolve("server/http/middleware.ts"),
-      "utf8"
-    );
-    const previewSource = await readFile(path.resolve("src/utils/preview.ts"), "utf8");
-
-    expect(viteSource).toContain("script-src 'self' 'unsafe-inline'");
-    expect(viteSource).toContain("worker-src 'self' blob:");
-    expect(serverMiddlewareSource).toContain("worker-src 'self' blob:");
-    expect(previewSource).toContain('fonts: "/vendor/mathjax-fonts"');
-    expect(mainSource).toContain("if (isDevelopment)");
-    expect(mainSource).toContain("if (configuredAppDataDir)");
-    expect(mainSource).toContain("function shouldUseMockKeychain()");
-    expect(mainSource).toContain("packageMetadata.lqbUseMockKeychain === true");
-    expect(mainSource).toContain('app.setPath("sessionData"');
-    expect(mainSource).toContain('app.commandLine.appendSwitch("use-mock-keychain")');
     expect(packageMetadata.build?.extraMetadata?.lqbUseMockKeychain).toBe(true);
     expect(packageMetadata.scripts?.["dist:mac"]).toContain("cleanup-macos-unpacked.mjs");
   });

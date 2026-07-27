@@ -1,5 +1,14 @@
 import { deepStrictEqual, equal, ok } from "node:assert";
-import { mkdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, beforeEach } from "vitest";
 import {
@@ -33,10 +42,11 @@ import {
   resolveCurrentExportDirectory
 } from "../../server/export-directory-service.js";
 import {
-  cleanupOldTempDirs,
   listRecoveryCandidates,
   recoverBank
 } from "../../server/recovery-storage.js";
+import { cleanupOldTempDirs } from "../../server/storage.js";
+import { pruneWorkspaceTempArtifacts } from "../../server/temp-directory-cleanup.js";
 import {
   createEmptyWorkspace,
   createSampleWorkspace,
@@ -46,8 +56,13 @@ import {
   switchWorkspace
 } from "../../server/workspace-storage.js";
 import type { QuestionItem } from "../../shared/types.js";
+import { orderItemsByChapter } from "../../shared/chapter-order.js";
 import { moveItemToPositionInList, reorderItemByDrop } from "../../src/itemOrder.js";
-import { nextWheelScrollState, wheelDeltaToPixels } from "../../src/wheelScroll.js";
+import {
+  nextWheelScrollState,
+  normalizeWheelAxes,
+  wheelDeltaToPixels
+} from "../../src/wheelScroll.js";
 import { validateReorderTarget } from "../../src/questionReorder.js";
 import { compileContentVersion } from "../../src/utils/compileVersion.js";
 
@@ -67,12 +82,19 @@ describe("domain helpers", () => {
   it("reorders items and normalizes wheel scroll", () => {
     const items = createItems(["one", "two", "three", "four"]);
 
-    deepStrictEqual(itemIds(moveItemToPositionInList(items, "four", 2, fixedNow)), ["one", "four", "two", "three"]);
+    const moved = moveItemToPositionInList(items, "four", 2, fixedNow);
+    deepStrictEqual(itemIds(orderItemsByChapter(moved, [])), ["one", "four", "two", "three"]);
     deepStrictEqual(
-      moveItemToPositionInList(items, "four", 2, fixedNow).map((item) => item.order),
+      orderItemsByChapter(moved, []).map((item) => item.chapterOrder),
       [1, 2, 3, 4]
     );
-    deepStrictEqual(itemIds(reorderItemByDrop(items, "one", "three", "after", fixedNow)), ["two", "three", "one", "four"]);
+    deepStrictEqual(
+      itemIds(orderItemsByChapter(
+        reorderItemByDrop(items, "one", "three", "after", fixedNow),
+        []
+      )),
+      ["two", "three", "one", "four"]
+    );
 
     const nearBottomWheel = nextWheelScrollState({
       scrollTop: 95,
@@ -87,6 +109,39 @@ describe("domain helpers", () => {
     equal(nearBottomWheel.scrollTop, 100);
     equal(nearBottomWheel.changed, true);
     deepStrictEqual(wheelDeltaToPixels(1, 1, 2, 320, 240), { deltaX: 320, deltaY: 240 });
+    deepStrictEqual(normalizeWheelAxes(0, 48, true), {
+      deltaX: 48,
+      deltaY: 0
+    });
+    deepStrictEqual(normalizeWheelAxes(32, 18, true), {
+      deltaX: 32,
+      deltaY: 18
+    });
+    const horizontalWheel = nextWheelScrollState({
+      scrollTop: 0,
+      scrollLeft: 70,
+      scrollHeight: 100,
+      scrollWidth: 260,
+      clientHeight: 100,
+      clientWidth: 100,
+      deltaX: 140,
+      deltaY: 0
+    });
+    deepStrictEqual(horizontalWheel, {
+      scrollTop: 0,
+      scrollLeft: 160,
+      changed: true
+    });
+    equal(nextWheelScrollState({
+      scrollTop: 0,
+      scrollLeft: 160,
+      scrollHeight: 100,
+      scrollWidth: 260,
+      clientHeight: 100,
+      clientWidth: 100,
+      deltaX: 20,
+      deltaY: 0
+    }).changed, false);
     equal(validateReorderTarget("2", 4), null);
     equal(validateReorderTarget("0", 4), "题序需在 1 到 4 之间。");
     equal(validateReorderTarget("1.5", 4), "请输入有效的整数题序。");
@@ -181,7 +236,14 @@ describe("domain helpers", () => {
     const initial = compileContentVersion(item, bank.settings);
 
     equal(
-      compileContentVersion({ ...item, chapter: "changed", tags: ["changed"], star: 5 }, bank.settings),
+      compileContentVersion({
+        ...item,
+        chapterId: null,
+        chapterOrder: 9,
+        tags: ["changed"],
+        masteryOptionId: null,
+        errorReasonOptionIds: []
+      }, bank.settings),
       initial
     );
     expect(compileContentVersion({ ...item, sourceNumber: "changed" }, bank.settings)).not.toBe(initial);
@@ -277,13 +339,25 @@ describe("storage", () => {
     equal(backup.value, "first");
   });
 
+  it("cleans its temporary JSON file when the final rename fails", async () => {
+    const parentPath = path.resolve(".tmp/vitest-atomic-failure");
+    const filePath = path.join(parentPath, "atomic.json");
+    await rm(parentPath, { recursive: true, force: true });
+    await mkdir(filePath, { recursive: true });
+
+    await expect(
+      writeJsonFileAtomic(filePath, { version: 1 }, { backup: false })
+    ).rejects.toBeDefined();
+    deepStrictEqual(await readdir(parentPath), ["atomic.json"]);
+  });
+
   it("rejects stale saves and restores a valid backup after corruption", async () => {
     await createSampleWorkspace(workspacePath);
     const snapshot = await readBankSnapshot();
     const changed = {
       ...snapshot.bank,
-      items: snapshot.bank.items.map((item, index) =>
-        index === 0 ? { ...item, chapter: "已修改章节" } : item
+      chapters: snapshot.bank.chapters.map((chapter, index) =>
+        index === 0 ? { ...chapter, name: "已修改章节" } : chapter
       )
     };
     const saved = await saveBankSnapshot({
@@ -292,7 +366,7 @@ describe("storage", () => {
       bank: changed
     });
     ok(saved.revision !== snapshot.revision);
-    equal(saved.bank.items[0].chapter, "已修改章节");
+    equal(saved.bank.chapters[0].name, "已修改章节");
 
     await expectStorageError(
       () =>
@@ -311,11 +385,11 @@ describe("storage", () => {
     await writeFile(path.join(workspacePath, "bank.json"), "{ broken", "utf8");
     await expectStorageError(() => readBank(), "BANK_JSON_INVALID");
     const recovered = await recoverBank("bank.json.bak");
-    equal(recovered.bank.items[0].chapter, snapshot.bank.items[0].chapter);
+    equal(recovered.bank.chapters[0].name, snapshot.bank.chapters[0].name);
     const preservedBackup = JSON.parse(
       await readFile(path.join(workspacePath, "bank.json.bak"), "utf8")
-    ) as { items: QuestionItem[] };
-    equal(preservedBackup.items[0].chapter, snapshot.bank.items[0].chapter);
+    ) as { chapters: Array<{ name: string }> };
+    equal(preservedBackup.chapters[0].name, snapshot.bank.chapters[0].name);
     await expectStorageError(() => recoverBank("missing.json"), "RECOVERY_CANDIDATE_INVALID");
   });
 
@@ -376,6 +450,54 @@ describe("storage", () => {
     await expect(stat(recentDir)).resolves.toBeDefined();
   });
 
+  it("keeps only the newest compile artifacts and never touches sibling prefixes", async () => {
+    await createEmptyWorkspace(workspacePath);
+    const tempDir = path.join(workspacePath, ".tmp");
+    const compileDirs = ["compile-a", "compile-b", "compile-c", "compile-d", "compile-e"];
+    // 与 export- 前缀相邻但必须留下的目录:导出回滚用的上一份,以及 verify 脚本的工作目录。
+    const untouched = ["previous-export-1", "verify-export", "export-live"];
+    for (const name of [...compileDirs, ...untouched]) {
+      await mkdir(path.join(tempDir, name), { recursive: true });
+    }
+    // mtime 越小越旧;compile-a 最旧,compile-e 最新。
+    for (const [index, name] of compileDirs.entries()) {
+      const stamp = new Date(Date.now() - (compileDirs.length - index) * 60_000);
+      await utimes(path.join(tempDir, name), stamp, stamp);
+    }
+
+    await pruneWorkspaceTempArtifacts(tempDir, [
+      { prefix: "compile-", keepNewest: 2 }
+    ]);
+
+    for (const name of ["compile-a", "compile-b", "compile-c"]) {
+      await expect(stat(path.join(tempDir, name))).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    }
+    for (const name of ["compile-d", "compile-e", ...untouched]) {
+      await expect(stat(path.join(tempDir, name))).resolves.toBeDefined();
+    }
+  });
+
+  it("skips pruning instead of following a symlinked temp directory", async () => {
+    await mkdir(workspacePathB, { recursive: true });
+    const externalDir = path.join(workspacePathB, "prune-external");
+    const preciousDir = path.join(externalDir, "compile-precious");
+    await mkdir(preciousDir, { recursive: true });
+    await mkdir(workspacePathC, { recursive: true });
+    const linkedTempDir = path.join(workspacePathC, ".tmp");
+    await symlink(
+      externalDir,
+      linkedTempDir,
+      process.platform === "win32" ? "junction" : "dir"
+    );
+
+    await pruneWorkspaceTempArtifacts(linkedTempDir, [
+      { prefix: "compile-", keepNewest: 0 }
+    ]);
+    await expect(stat(preciousDir)).resolves.toBeDefined();
+  });
+
   it("resolves only real direct-child export directories", async () => {
     await createEmptyWorkspace(workspacePath);
     const exportDir = path.join(workspacePath, "exports");
@@ -416,11 +538,12 @@ function itemIds(items: QuestionItem[]) {
 function createItems(ids: string[]): QuestionItem[] {
   return ids.map((id, index) => ({
     id,
-    order: index + 1,
     sourceNumber: id,
-    chapter: "chapter",
+    chapterId: null,
+    chapterOrder: index + 1,
     tags: [],
-    star: 3,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: { tex: `question ${id}` },
       solution: { tex: `solution ${id}` },

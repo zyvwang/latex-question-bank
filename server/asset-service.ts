@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AssetUploadResponse, QuestionAsset } from "../shared/types.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { getCurrentWorkspaceDirs } from "./workspace-storage.js";
 
 interface UploadedFile {
@@ -34,6 +35,7 @@ export async function saveQuestionAsset(file: UploadedFile): Promise<AssetUpload
   }
 
   const { assetDir } = await getCurrentWorkspaceDirs();
+  await assertRealWorkspaceSubdir(assetDir);
   await mkdir(assetDir, { recursive: true });
   const fileName = `${crypto.randomUUID()}${imageType.safeExtension}`;
   await writeFile(path.join(assetDir, fileName), file.buffer);

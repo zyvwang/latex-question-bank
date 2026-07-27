@@ -54,7 +54,7 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
         <input
           ref={fileInput}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg"
           hidden
           onChange={(event) => void handleFile(event.target.files?.[0])}
         />

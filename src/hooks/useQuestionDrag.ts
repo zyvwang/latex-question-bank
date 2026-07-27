@@ -43,6 +43,12 @@ export function useQuestionDrag({
         setCurrentDropTarget(null);
         return;
       }
+      const draggedItem = orderedItems.find((item) => item.id === draggedId);
+      const targetItem = orderedItems.find((item) => item.id === targetId);
+      if (!draggedItem || !targetItem || draggedItem.chapterId !== targetItem.chapterId) {
+        setCurrentDropTarget(null);
+        return;
+      }
       const bounds = row.getBoundingClientRect();
       const position: DropPosition =
         clientY < bounds.top + bounds.height / 2 ? "before" : "after";

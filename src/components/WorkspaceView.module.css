@@ -1,8 +1,9 @@
 .workspace {
   min-width: 0;
-  height: 100vh;
+  min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
 }
 .topBar {
@@ -39,11 +40,17 @@
 .notice span { max-width: min(44vw, 700px); overflow: hidden; text-overflow: ellipsis; }
 .notice button { padding: 3px 6px; border-radius: var(--radius-sm); color: inherit; background: transparent; font-weight: 700; }
 
+.metadataPanel {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 13px 18px 10px;
+}
+
 .metaStrip {
   display: grid;
-  grid-template-columns: minmax(120px, 0.72fr) 1.15fr 1.25fr minmax(116px, 0.72fr);
+  grid-template-columns: minmax(120px, 0.65fr) minmax(280px, 1.25fr) minmax(220px, 1fr);
   gap: 9px;
-  padding: 13px 18px 9px;
 }
 .metaStrip label,
 .settingsGrid label,
@@ -73,6 +80,46 @@
   color: var(--ink);
   background: transparent;
 }
+.chapterField { min-width: 0; }
+.tagsField > div { flex: 1; }
+
+.reviewFields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 9px;
+}
+.reviewFields fieldset {
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.reviewFields legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.reviewFields label {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.reviewFields input { accent-color: var(--teal); }
+.reviewFields i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+}
+.unsetLabel { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .settingsBand {
   margin: 0 18px 10px;
   border: 1px solid var(--hairline);
@@ -187,6 +234,8 @@
 
 @media (max-width: 1040px) {
   .metaStrip, .settingsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tagsField { grid-column: 1 / -1; }
+  .reviewFields { grid-template-columns: 1fr; }
   .preambleField, .texPathField { grid-column: 1 / -1; }
   .exportDock, .topBar { align-items: stretch; flex-direction: column; }
   .exportBlock { justify-content: flex-start; flex-wrap: wrap; }
@@ -196,12 +245,14 @@
 @media (max-width: 760px) {
   .workspace { height: auto; min-height: 100vh; overflow: visible; }
   .metaStrip { grid-template-columns: 1fr; }
+  .tagsField { grid-column: auto; }
+  .reviewFields fieldset { flex-wrap: wrap; }
   .settingsGrid { grid-template-columns: 1fr; }
   .editorSurface { min-height: 680px; margin-inline: 12px; }
   .moduleTabs { min-width: 0; flex: 1; }
   .moduleTabs button { min-width: 0; flex: 1; padding-inline: 10px; }
   .exportDock, .topBar { padding-inline: 12px; }
-  .metaStrip { padding-inline: 12px; }
+  .metadataPanel { padding-inline: 12px; }
   .settingsBand { margin-inline: 12px; }
   .exportBlock { display: grid; grid-template-columns: 1fr; width: 100%; }
   .exportBlock label, .exportBlock button { width: 100%; }

@@ -8,6 +8,19 @@ export default defineConfig({
     globals: true,
     restoreMocks: true,
     setupFiles: ["tests/setup/ui.ts"],
-    include: ["tests/ui/**/*.test.tsx"]
+    include: ["tests/ui/**/*.test.tsx"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "coverage/ui",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/main.tsx", "src/**/*.d.ts"],
+      thresholds: {
+        statements: 75,
+        lines: 75,
+        functions: 75,
+        branches: 65
+      }
+    }
   }
 });

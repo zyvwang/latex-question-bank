@@ -1,9 +1,11 @@
 import type { PropsWithChildren } from "react";
 import { useQuestionBankModel } from "../hooks/useQuestionBankModel.js";
 import {
+  AppViewContext,
   CompileExportContext,
   LifecycleContext,
   QuestionContext,
+  ReviewContext,
   SelectionContext,
   WorkspaceContext,
   WorkspaceUiContext
@@ -18,7 +20,11 @@ export function QuestionBankProvider({ children }: PropsWithChildren) {
           <SelectionContext.Provider value={value.selection}>
             <CompileExportContext.Provider value={value.compileExport}>
               <WorkspaceUiContext.Provider value={value.workspaceUi}>
-                {children}
+                <AppViewContext.Provider value={value.appView}>
+                  <ReviewContext.Provider value={value.review}>
+                    {children}
+                  </ReviewContext.Provider>
+                </AppViewContext.Provider>
               </WorkspaceUiContext.Provider>
             </CompileExportContext.Provider>
           </SelectionContext.Provider>

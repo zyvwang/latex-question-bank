@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "settings": {
     "pageSize": "a4",
     "spacing": {
@@ -8,17 +8,79 @@
     },
     "preamble": "% 可在这里添加全局宏命令，例如：\n% \\newcommand{\\R}{\\mathbb{R}}"
   },
+  "chapters": [
+    {
+      "id": "chapter-calculus",
+      "name": "微积分/极限",
+      "order": 1
+    },
+    {
+      "id": "chapter-linear-algebra",
+      "name": "线性代数/矩阵",
+      "order": 2
+    }
+  ],
+  "masteryOptions": [
+    {
+      "id": "mastery-easy",
+      "name": "很简单",
+      "order": 1,
+      "color": "#2F766F",
+      "pattern": "solid"
+    },
+    {
+      "id": "mastery-challenging",
+      "name": "有难度",
+      "order": 2,
+      "color": "#A56A00",
+      "pattern": "diagonal"
+    },
+    {
+      "id": "mastery-hard",
+      "name": "太难了",
+      "order": 3,
+      "color": "#B84A3A",
+      "pattern": "crosshatch"
+    }
+  ],
+  "errorReasonOptions": [
+    {
+      "id": "error-calculation",
+      "name": "计算问题",
+      "order": 1,
+      "color": "#A9571C",
+      "pattern": "diagonal"
+    },
+    {
+      "id": "error-knowledge",
+      "name": "知识问题",
+      "order": 2,
+      "color": "#3F6FA8",
+      "pattern": "dots"
+    },
+    {
+      "id": "error-method",
+      "name": "方法问题",
+      "order": 3,
+      "color": "#74558F",
+      "pattern": "crosshatch"
+    }
+  ],
+  "masteryHistory": [],
   "items": [
     {
       "id": "sample-limit",
-      "order": 1,
       "sourceNumber": "自造示例 1",
-      "chapter": "高等数学/极限",
+      "chapterId": "chapter-calculus",
+      "chapterOrder": 1,
       "tags": [
         "极限",
         "等价无穷小"
       ],
-      "star": 3,
+      "masteryOptionId": "mastery-challenging",
+      "errorReasonOptionIds": [
+        "error-method"
+      ],
       "modules": {
         "question": {
           "tex": "求极限 $\\displaystyle \\lim_{x\\to 0}\\frac{\\sin x-x}{x^3}$。"
@@ -36,14 +98,17 @@
     },
     {
       "id": "sample-linear-algebra",
-      "order": 2,
       "sourceNumber": "自造示例 2",
-      "chapter": "线性代数/矩阵",
+      "chapterId": "chapter-linear-algebra",
+      "chapterOrder": 1,
       "tags": [
         "矩阵",
         "行列式"
       ],
-      "star": 2,
+      "masteryOptionId": "mastery-easy",
+      "errorReasonOptionIds": [
+        "error-calculation"
+      ],
       "modules": {
         "question": {
           "tex": "设 $A=\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}$，求 $\\det A$ 与 $A$ 的特征值。"

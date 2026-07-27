@@ -15,23 +15,25 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
+      reportsDirectory: "coverage/node",
       include: [
-        "server/app-state.ts",
-        "server/asset-service.ts",
-        "server/bank-schema.ts",
-        "server/export-service.ts",
-        "server/json-file.ts",
-        "server/bank-storage.ts",
-        "server/recovery-storage.ts",
-        "server/workspace-storage.ts",
-        "server/storage-utils.ts",
-        "server/latex-files.ts",
-        "server/latex-renderer.ts",
-        "server/latex-runtime.ts",
-        "shared/validation.ts",
+        "server/**/*.ts",
+        "shared/**/*.ts",
+        "electron/security-policy.ts",
+        "src/color-contrast.ts",
+        "src/heatmap.ts",
         "src/itemOrder.ts",
+        "src/questionFilters.ts",
         "src/questionReorder.ts",
+        "src/review-history.ts",
         "src/wheelScroll.ts"
+      ],
+      exclude: [
+        "**/*.d.ts",
+        "server/latex.ts",
+        "server/storage.ts",
+        "shared/types.ts",
+        "shared/validation.ts"
       ],
       thresholds: {
         statements: 75,

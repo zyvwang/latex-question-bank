@@ -14,6 +14,7 @@ import type {
   QuestionItem
 } from "../../shared/types.js";
 import { compileContentVersion } from "../utils/compileVersion.js";
+import { appendTex } from "../utils/form.js";
 import type { Notice } from "./controllerTypes.js";
 
 interface CompileExportOptions {
@@ -23,7 +24,7 @@ interface CompileExportOptions {
   selectedIds: Set<string>;
   persistBank: (bank: Bank) => Promise<void>;
   setNotice: (notice: Notice | null) => void;
-  updateItem: (id: string, patch: Partial<QuestionItem>) => void;
+  updateBank: (updater: (current: Bank) => Bank) => void;
 }
 
 interface CompileTarget {
@@ -42,10 +43,11 @@ export function useCompileExportActions({
   selectedIds,
   persistBank,
   setNotice,
-  updateItem
+  updateBank
 }: CompileExportOptions) {
-  const initialExportName = defaultExportName();
-  const [exportName, setExportNameState] = useState(initialExportName);
+  // 导出名的唯一来源是服务端(它才知道 exports/ 下已有几份同日导出)。渲染期不猜,
+  // 空串由 fetch 结果填上;只有服务端不可达时才退回本地日期名,见下面的 catch。
+  const [exportName, setExportNameState] = useState("");
   const [exportOrderMode, setExportOrderMode] = useState<ExportOrderMode>("normal");
   const [randomSeed, setRandomSeed] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -53,8 +55,9 @@ export function useCompileExportActions({
   const [compileRecord, setCompileRecord] = useState<CompileRecord | null>(null);
   const [exportFailureResult, setExportFailureResult] = useState<CompileResponse | null>(null);
   const exportNameManualRef = useRef(false);
-  const exportNameRef = useRef(initialExportName);
+  const exportNameRef = useRef("");
   const compileGenerationRef = useRef(0);
+  const workspacePathRef = useRef(workspacePath);
 
   const currentContentVersion = useMemo(
     () => activeItem && bank ? compileContentVersion(activeItem, bank.settings) : null,
@@ -82,15 +85,25 @@ export function useCompileExportActions({
     compileStatus?.state === "failure" && compileRecord ? compileRecord.result : null;
 
   useEffect(() => {
+    workspacePathRef.current = workspacePath;
+  }, [workspacePath]);
+
+  useEffect(() => {
     exportNameManualRef.current = false;
-    setAutomaticExportName(defaultExportName());
+    setAutomaticExportName("");
     if (!workspacePath) return;
     let cancelled = false;
     void fetchDefaultExportName()
       .then((name) => {
         if (!cancelled && !exportNameManualRef.current) setAutomaticExportName(name);
       })
-      .catch(() => undefined);
+      // 服务端不可达时才用本地日期名兜底:字段留空会让 exportSelected 带 fileName: ""
+      // 打过去,被 sanitizeFileName 兜成 export-<date>,比 questions-<date>-1 更难认。
+      .catch(() => {
+        if (!cancelled && !exportNameManualRef.current) {
+          setAutomaticExportName(defaultExportName());
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -116,9 +129,48 @@ export function useCompileExportActions({
 
   async function uploadAsset(kind: ModuleKind, file: File) {
     if (!activeItem) return;
-    const { patch } = await uploadQuestionAsset(kind, activeItem, file);
-    updateItem(activeItem.id, patch);
-    setNotice({ type: "ok", text: "图片已插入当前模块。" });
+    const itemId = activeItem.id;
+    const requestWorkspace = workspacePath;
+    try {
+      const { asset, insertText } = await uploadQuestionAsset(file);
+      if (workspacePathRef.current !== requestWorkspace) {
+        // 上传期间已切换工作区:丢弃过期响应,避免把资源写入另一工作区中同 ID 的题目。
+        return;
+      }
+      let applied = false;
+      updateBank((current) => {
+        if (!current.items.some((item) => item.id === itemId)) return current;
+        applied = true;
+        const now = new Date().toISOString();
+        return {
+          ...current,
+          items: current.items.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  assets: [...item.assets, asset],
+                  modules: {
+                    ...item.modules,
+                    [kind]: {
+                      ...item.modules[kind],
+                      tex: appendTex(item.modules[kind].tex, insertText)
+                    }
+                  },
+                  updatedAt: now
+                }
+              : item
+          )
+        };
+      });
+      if (applied) {
+        setNotice({ type: "ok", text: "图片已插入当前模块。" });
+      }
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text: error instanceof Error ? error.message : "图片上传失败。"
+      });
+    }
   }
 
   async function compileCurrentItem() {

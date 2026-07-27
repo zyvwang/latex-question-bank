@@ -1,4 +1,8 @@
-import { nextWheelScrollState, wheelDeltaToPixels } from "../wheelScroll.js";
+import {
+  nextWheelScrollState,
+  normalizeWheelAxes,
+  wheelDeltaToPixels
+} from "../wheelScroll.js";
 
 export function bindWheelScroller(root: HTMLElement, getTarget: () => HTMLElement | null) {
   const handleWheel = (event: WheelEvent) => scrollElementFromWheelEvent(root, event, getTarget());
@@ -9,9 +13,14 @@ export function bindWheelScroller(root: HTMLElement, getTarget: () => HTMLElemen
 function scrollElementFromWheelEvent(root: HTMLElement, event: WheelEvent, target: HTMLElement | null) {
   if (!target || event.ctrlKey) return;
 
-  const { deltaX, deltaY } = wheelDeltaToPixels(
+  const normalized = normalizeWheelAxes(
     event.deltaX,
     event.deltaY,
+    event.shiftKey
+  );
+  const { deltaX, deltaY } = wheelDeltaToPixels(
+    normalized.deltaX,
+    normalized.deltaY,
     event.deltaMode,
     root.clientWidth,
     root.clientHeight

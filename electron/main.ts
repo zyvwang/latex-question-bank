@@ -4,6 +4,14 @@ import { mkdirSync, readFileSync } from "node:fs";
 import type { Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  classifyExternalUrl,
+  classifySender,
+  createSecureWebPreferences,
+  isCloseResponse,
+  navigationIsAllowed,
+  type RendererCloseResponse
+} from "./security-policy.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDevelopment = Boolean(process.env.LQB_DEV_SERVER_URL);
@@ -56,21 +64,20 @@ async function createWindow() {
     minHeight: 720,
     title: "LaTeX 题库",
     backgroundColor: "#f7f5ef",
-    webPreferences: {
-      preload: path.join(currentDir, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
+    webPreferences: createSecureWebPreferences(
+      path.join(currentDir, "preload.cjs")
+    )
   });
 
   const appUrl = process.env.LQB_DEV_SERVER_URL || apiServerUrl;
   const trustedOrigin = new URL(appUrl).origin;
   mainWindow.webContents.on("will-navigate", (event, targetUrl) => {
-    if (!hasOrigin(targetUrl, trustedOrigin)) event.preventDefault();
+    if (!navigationIsAllowed(targetUrl, trustedOrigin)) event.preventDefault();
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isTrustedExternalUrl(url)) void shell.openExternal(url);
+    if (classifyExternalUrl(url, appUrl) !== "blocked") {
+      void shell.openExternal(url);
+    }
     return { action: "deny" };
   });
   mainWindow.on("close", (event) => {
@@ -156,16 +163,12 @@ function registerIpcHandlers() {
     return true;
   });
 
-  ipcMain.handle("shell:trash-path", async (event, targetPath: string) => {
-    assertTrustedSender(event);
-    await assertKnownWorkspacePath(targetPath);
-    await shell.trashItem(targetPath);
-    return true;
-  });
-
   ipcMain.handle("shell:open-external", async (event, targetUrl: string) => {
     assertTrustedSender(event);
-    if (!isTrustedExternalUrl(targetUrl)) throw new Error("只允许打开本机链接或 HTTPS 链接。");
+    const localAppUrl = process.env.LQB_DEV_SERVER_URL || apiServerUrl;
+    if (classifyExternalUrl(targetUrl, localAppUrl) === "blocked") {
+      throw new Error("只允许打开本机链接或 HTTPS 链接。");
+    }
     await shell.openExternal(targetUrl);
     return true;
   });
@@ -192,32 +195,17 @@ async function assertKnownWorkspacePath(targetPath: string) {
 }
 
 function assertTrustedSender(event: IpcMainInvokeEvent | IpcMainEvent) {
-  if (!mainWindow || event.sender.id !== mainWindow.webContents.id) {
+  const trust = classifySender({
+    senderId: event.sender.id,
+    expectedSenderId: mainWindow?.webContents.id ?? null,
+    senderUrl: event.senderFrame?.url,
+    currentUrl: mainWindow?.webContents.getURL()
+  });
+  if (trust === "wrong-window") {
     throw new Error("拒绝未知窗口的 IPC 请求。");
   }
-  const senderUrl = event.senderFrame?.url;
-  const currentUrl = mainWindow.webContents.getURL();
-  if (!senderUrl || !currentUrl || !hasOrigin(senderUrl, new URL(currentUrl).origin)) {
+  if (trust === "wrong-origin") {
     throw new Error("拒绝非本机页面的 IPC 请求。");
-  }
-}
-
-function hasOrigin(value: string, expectedOrigin: string): boolean {
-  try {
-    return new URL(value).origin === expectedOrigin;
-  } catch {
-    return false;
-  }
-}
-
-function isTrustedExternalUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    if (url.protocol === "https:") return true;
-    const localAppUrl = process.env.LQB_DEV_SERVER_URL || apiServerUrl;
-    return Boolean(localAppUrl && hasOrigin(value, new URL(localAppUrl).origin));
-  } catch {
-    return false;
   }
 }
 
@@ -235,18 +223,16 @@ function shouldUseMockKeychain(): boolean {
   }
 }
 
-function isCloseResponse(value: unknown): value is { ok: boolean; error?: string } {
-  if (typeof value !== "object" || value === null || !("ok" in value)) return false;
-  if (typeof value.ok !== "boolean") return false;
-  return !("error" in value) || value.error === undefined || typeof value.error === "string";
-}
-
 function requestRendererCloseCheck() {
   if (!mainWindow || closeCheckPending) return;
   closeCheckPending = true;
   mainWindow.webContents.send("app:before-close");
   closeCheckTimer = setTimeout(async () => {
     if (!mainWindow || !closeCheckPending) return;
+    // 必须在 await 之前就交出这一轮:对话框展示期间渲染端的 app:close-response
+    // 仍会到达,它的 closeCheckPending 守卫要能挡住,否则叠出第二个对话框。
+    closeCheckPending = false;
+    closeCheckTimer = null;
     const choice = await dialog.showMessageBox(mainWindow, {
       type: "warning",
       title: "保存检查超时",
@@ -256,8 +242,6 @@ function requestRendererCloseCheck() {
       cancelId: 0,
       noLink: true
     });
-    closeCheckPending = false;
-    closeCheckTimer = null;
     if (choice.response === 1 && mainWindow) {
       allowWindowClose = true;
       mainWindow.close();
@@ -272,8 +256,11 @@ function finishCloseCheckTimer() {
   closeCheckTimer = null;
 }
 
-async function handleRendererCloseResponse(result: { ok: boolean; error?: string }) {
+async function handleRendererCloseResponse(result: RendererCloseResponse) {
   if (!closeCheckPending || !mainWindow) return;
+  // 同上:先交出这一轮再 await。preload 每收到一次 app:before-close 就回一次,
+  // 重复的关闭请求不能在对话框上再叠一个。
+  closeCheckPending = false;
   finishCloseCheckTimer();
   if (result.ok) {
     allowWindowClose = true;
@@ -291,7 +278,6 @@ async function handleRendererCloseResponse(result: { ok: boolean; error?: string
     cancelId: 0,
     noLink: true
   });
-  closeCheckPending = false;
   if (choice.response === 1 && mainWindow) {
     allowWindowClose = true;
     mainWindow.close();

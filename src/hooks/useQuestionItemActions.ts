@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { DEFAULT_STAR_RATING } from "../constants.js";
-import { withOrder } from "../itemOrder.js";
+import {
+  itemsInChapter,
+  normalizeChapterItemOrders
+} from "../../shared/chapter-order.js";
+import { restoreDeletedItem } from "../itemOrder.js";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMode, Notice } from "./controllerTypes.js";
 
@@ -28,10 +31,7 @@ export function useQuestionItemActions({
   closeMenus,
   workspacePath
 }: QuestionItemActionsOptions) {
-  const [deletedItem, setDeletedItem] = useState<{
-    item: QuestionItem;
-    index: number;
-  } | null>(null);
+  const [deletedItem, setDeletedItem] = useState<QuestionItem | null>(null);
   const undoTimerRef = useRef<number | null>(null);
 
   function clearDeletedUndo() {
@@ -50,86 +50,115 @@ export function useQuestionItemActions({
   }, [workspacePath]);
 
   function addItem(mode: AddMode = { type: "append" }) {
-    let insertIndex = orderedItems.length;
-    let inheritedChapter = "";
-    let noticeText = `已追加至第 ${orderedItems.length + 1} 题。`;
+    const anchor =
+      mode.type === "append"
+        ? null
+        : orderedItems.find((item) => item.id === mode.afterId) ?? null;
+    if (mode.type !== "append" && !anchor) return;
 
-    if (mode.type === "insertAfter") {
-      const anchorIndex = orderedItems.findIndex((item) => item.id === mode.afterId);
-      if (anchorIndex === -1) return;
-      insertIndex = anchorIndex + 1;
-      inheritedChapter = orderedItems[anchorIndex].chapter;
-      noticeText = `已插入第 ${insertIndex + 1} 题。`;
-    }
+    const chapterId = anchor?.chapterId ?? null;
+    const chapterItems = itemsInChapter(orderedItems, chapterId);
+    const chapterOrder =
+      mode.type === "insertAfter" && anchor
+        ? anchor.chapterOrder + 1
+        : chapterItems.length + 1;
+    const item = createQuestionItem(chapterId, chapterOrder);
+    const now = item.createdAt;
 
-    const item = createQuestionItem(orderedItems.length, inheritedChapter);
-    const nextItems = [...orderedItems];
-    nextItems.splice(insertIndex, 0, item);
     updateBank((current) => ({
       ...current,
-      items: nextItems.map((nextItem, index) => withOrder(nextItem, index))
+      items: [
+        ...current.items.map((candidate) =>
+          candidate.chapterId === chapterId &&
+          candidate.chapterOrder >= chapterOrder
+            ? {
+                ...candidate,
+                chapterOrder: candidate.chapterOrder + 1,
+                updatedAt: now
+              }
+            : candidate
+        ),
+        item
+      ]
     }));
     setActiveId(item.id);
     setSelectedIds((current) => new Set([...current, item.id]));
     clearFilters();
     closeMenus();
-    setNotice({ type: "ok", text: noticeText });
+    window.setTimeout(() => {
+      const target = document.getElementById(`question-nav-${item.id}`);
+      target?.scrollIntoView?.({ block: "nearest" });
+      target?.focus();
+    }, 0);
+    const location =
+      mode.type === "insertAfter"
+        ? `当前题后（章内第 ${chapterOrder} 题）`
+        : mode.type === "chapterEnd"
+          ? `当前章末（章内第 ${chapterOrder} 题）`
+          : `末尾未分类区域（章内第 ${chapterOrder} 题）`;
+    setNotice({ type: "ok", text: `已插入${location}。` });
   }
 
   function deleteItem(id: string) {
-    const deletedIndex = orderedItems.findIndex((item) => item.id === id);
-    if (deletedIndex === -1) return;
-    const item = orderedItems[deletedIndex];
-    const label = item.sourceNumber || item.chapter || `第 ${deletedIndex + 1} 题`;
-    if (!window.confirm(`确定删除“${label}”吗？\n\n删除后可在 10 秒内撤销。`)) return;
-    const remaining = orderedItems
-      .filter((candidate) => candidate.id !== id)
-      .map((remainingItem, index) => withOrder(remainingItem, index));
+    const item = orderedItems.find((candidate) => candidate.id === id);
+    if (!item) return;
+    const label = item.sourceNumber || `章内第 ${item.chapterOrder} 题`;
+    if (!window.confirm(`确定删除“${label}”吗？\n\n删除后可在 10 秒内撤销。`)) {
+      return;
+    }
+    const remaining = normalizeChapterItemOrders(
+      orderedItems.filter((candidate) => candidate.id !== id),
+      new Date().toISOString()
+    );
     updateBank((current) => ({ ...current, items: remaining }));
     setSelectedIds((current) => {
       const next = new Set(current);
       next.delete(id);
       return next;
     });
+    const sameChapter = itemsInChapter(remaining, item.chapterId);
     setActiveId((currentActiveId) =>
       currentActiveId === id
-        ? remaining[Math.min(deletedIndex, remaining.length - 1)]?.id ?? null
+        ? sameChapter[Math.min(item.chapterOrder - 1, sameChapter.length - 1)]?.id ??
+          remaining[0]?.id ??
+          null
         : currentActiveId
     );
     closeMenus();
     clearDeletedUndo();
-    setDeletedItem({ item, index: deletedIndex });
+    setDeletedItem(item);
     undoTimerRef.current = window.setTimeout(clearDeletedUndo, 10_000);
     setNotice({ type: "info", text: "题目已删除，可在 10 秒内撤销。" });
   }
 
   function undoDelete() {
     if (!deletedItem) return;
-    updateBank((current) => {
-      if (current.items.some((item) => item.id === deletedItem.item.id)) return current;
-      const nextItems = [...current.items].sort((a, b) => a.order - b.order);
-      nextItems.splice(Math.min(deletedItem.index, nextItems.length), 0, deletedItem.item);
-      return {
-        ...current,
-        items: nextItems.map((item, index) => withOrder(item, index))
-      };
-    });
-    setSelectedIds((current) => new Set([...current, deletedItem.item.id]));
-    setActiveId(deletedItem.item.id);
+    updateBank((current) => restoreDeletedItem(current, deletedItem));
+    setSelectedIds((current) => new Set([...current, deletedItem.id]));
+    setActiveId(deletedItem.id);
     clearDeletedUndo();
     setNotice({ type: "ok", text: "已撤销删除。" });
   }
 
   function moveActive(direction: -1 | 1) {
     if (!activeItem) return;
-    const items = [...orderedItems];
-    const index = items.findIndex((item) => item.id === activeItem.id);
+    const chapterItems = itemsInChapter(orderedItems, activeItem.chapterId);
+    const index = chapterItems.findIndex((item) => item.id === activeItem.id);
     const target = index + direction;
-    if (target < 0 || target >= items.length) return;
-    [items[index], items[target]] = [items[target], items[index]];
+    if (target < 0 || target >= chapterItems.length) return;
+    const now = new Date().toISOString();
+    const other = chapterItems[target];
     updateBank((current) => ({
       ...current,
-      items: items.map((item, itemIndex) => withOrder(item, itemIndex))
+      items: current.items.map((item) => {
+        if (item.id === activeItem.id) {
+          return { ...item, chapterOrder: other.chapterOrder, updatedAt: now };
+        }
+        if (item.id === other.id) {
+          return { ...item, chapterOrder: activeItem.chapterOrder, updatedAt: now };
+        }
+        return item;
+      })
     }));
   }
 
@@ -145,15 +174,19 @@ export function useQuestionItemActions({
   };
 }
 
-function createQuestionItem(currentLength: number, chapter = ""): QuestionItem {
+function createQuestionItem(
+  chapterId: string | null,
+  chapterOrder: number
+): QuestionItem {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    order: currentLength + 1,
     sourceNumber: "",
-    chapter,
+    chapterId,
+    chapterOrder,
     tags: [],
-    star: DEFAULT_STAR_RATING,
+    masteryOptionId: null,
+    errorReasonOptionIds: [],
     modules: {
       question: { tex: "" },
       solution: { tex: "" },

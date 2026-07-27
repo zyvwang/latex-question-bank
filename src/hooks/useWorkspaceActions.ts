@@ -142,13 +142,11 @@ export function useWorkspaceActions({
     }
   }
 
-  async function deleteWorkspace(workspacePath: string) {
+  async function removeWorkspaceFromList(workspacePath: string) {
     const workspace = appInfo?.recentWorkspaces.find((item) => item.path === workspacePath);
     const name = workspace?.name ?? workspacePath;
-    const canTrash = Boolean(window.lqb?.trashPath && workspace?.exists);
-    const message = canTrash
-      ? `确定要删除工作区“${name}”吗？\n\n工作区文件夹会移到废纸篓/回收站，并从列表移除。`
-      : `确定要从列表移除工作区“${name}”吗？\n\n当前环境不能移动文件夹到废纸篓，磁盘文件不会被删除。`;
+    const message =
+      `确定要从列表移除工作区“${name}”吗？\n\n磁盘上的工作区文件夹和 bank.json 会保持不变。`;
     if (!window.confirm(message)) return;
 
     setIsChangingWorkspace(true);
@@ -156,14 +154,11 @@ export function useWorkspaceActions({
       if (workspacePath === appInfo?.currentWorkspacePath) {
         await saveBeforeWorkspaceChange();
       }
-      if (canTrash && window.lqb?.trashPath) {
-        await window.lqb.trashPath(workspacePath);
-      }
       const nextAppInfo = await removeWorkspace(workspacePath);
       await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: canTrash ? `已删除工作区：${name}` : `已移除工作区记录：${name}` });
+      setNotice({ type: "ok", text: `已从列表移除工作区：${name}；磁盘文件保持不变。` });
     } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "删除工作区失败。" });
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "移除工作区记录失败。" });
     } finally {
       setIsChangingWorkspace(false);
     }
@@ -201,13 +196,16 @@ export function useWorkspaceActions({
     switchToWorkspace,
     relocateWorkspace,
     moveWorkspaceInList,
-    deleteWorkspace,
+    removeWorkspaceFromList,
     saveTexPathOverride,
     openCurrentWorkspaceFolder
   };
 }
 
-async function pickWorkspaceDirectory(title: string, fallbackPrompt: string): Promise<string | null> {
+export async function pickWorkspaceDirectory(
+  title: string,
+  fallbackPrompt: string
+): Promise<string | null> {
   if (window.lqb?.selectWorkspaceDirectory) {
     return window.lqb.selectWorkspaceDirectory(title);
   }

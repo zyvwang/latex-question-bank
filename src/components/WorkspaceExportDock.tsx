@@ -33,7 +33,11 @@ export function WorkspaceExportDock() {
       <div className={styles.exportBlock}>
         <label className={styles.exportNameField}>
           <span>导出名</span>
-          <input value={compileExport.exportName} onChange={(event) => compileExport.setExportName(event.target.value)} />
+          <input
+            value={compileExport.exportName}
+            placeholder="载入中"
+            onChange={(event) => compileExport.setExportName(event.target.value)}
+          />
         </label>
         <label className={styles.exportOrderField}>
           <span>顺序</span>

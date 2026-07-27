@@ -5,7 +5,6 @@ import {
   Check,
   ListOrdered,
   Plus,
-  Save,
   Trash2
 } from "lucide-react";
 import {
@@ -58,12 +57,15 @@ function TopBar() {
   return (
     <header className={styles.topBar}>
       <div className={styles.statusCluster}>
-        <span className={`${styles.savePill} ${styles[lifecycle.saveState]}`}>
-          {lifecycle.saveState === "saving" ? <Save size={15} /> :
-            lifecycle.saveState === "error" ? <AlertTriangle size={15} /> : <Check size={15} />}
-          {lifecycle.saveState === "saving" ? "保存中" :
-            lifecycle.saveState === "error" ? "保存失败" : "已保存"}
-        </span>
+        {lifecycle.saveIssue?.kind === "error" && (
+          <div
+            className={`${styles.notice} ${styles.error}`}
+            role="alert"
+          >
+            <AlertTriangle size={15} />
+            <span>{lifecycle.saveIssue.message}</span>
+          </div>
+        )}
         {compileExport.compileStatus && (
           <div
             className={`${styles.notice} ${
@@ -89,9 +91,6 @@ function TopBar() {
           <div className={`${styles.notice} ${styles[lifecycle.notice.type]}`} role="status">
             {lifecycle.notice.type === "error" ? <AlertTriangle size={15} /> : <Check size={15} />}
             <span>{lifecycle.notice.text}</span>
-            {lifecycle.saveState === "error" && (
-              <button type="button" onClick={() => void lifecycle.retrySave()}>重试保存</button>
-            )}
             {questions.canUndoDelete && (
               <button type="button" onClick={questions.undoDelete}>撤销</button>
             )}

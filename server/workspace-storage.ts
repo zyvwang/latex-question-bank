@@ -14,7 +14,8 @@ import { createEmptyBank, createSampleBank } from "./bank-schema.js";
 import { writeJsonFileAtomic } from "./json-file.js";
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import { resetSessionHistory } from "./storage-session.js";
-import { cleanupOldTempDirs } from "./recovery-storage.js";
+import { cleanupTempDirectory } from "./temp-directory-cleanup.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { fileExists, safeOptionalString } from "./storage-utils.js";
 
 const forcedWorkspacePath = process.env.LQB_WORKSPACE_DIR
@@ -28,7 +29,7 @@ export async function ensureProjectDirs() {
   }
   const state = await readAppState();
   if (state.currentWorkspacePath && (await workspaceExists(state.currentWorkspacePath))) {
-    await cleanupOldTempDirs(state.currentWorkspacePath);
+    await cleanupTempDirectory(getWorkspaceDirs(state.currentWorkspacePath).tempDir);
   }
 }
 
@@ -59,10 +60,11 @@ export async function createSampleWorkspace(workspacePath: string): Promise<AppS
 async function createWorkspace(workspacePath: string, sample: boolean): Promise<AppState> {
   const resolvedPath = path.resolve(workspacePath);
   if (await workspaceExists(resolvedPath)) {
-    throw new Error(
+    throw new StorageError(
       sample
         ? "该文件夹已经是题库工作区。请选择一个新文件夹，或使用“打开”切换到它。"
-        : "该文件夹已经是题库工作区。请使用“打开”切换到它。"
+        : "该文件夹已经是题库工作区。请使用“打开”切换到它。",
+      "WORKSPACE_ALREADY_EXISTS"
     );
   }
   await ensureWorkspace(resolvedPath, { sample });
@@ -72,7 +74,10 @@ async function createWorkspace(workspacePath: string, sample: boolean): Promise<
 export async function openExistingWorkspace(workspacePath: string): Promise<AppState> {
   const resolvedPath = path.resolve(workspacePath);
   if (!(await workspaceExists(resolvedPath))) {
-    throw new Error("这个文件夹不是题库工作区：缺少 bank.json。请使用“新建”创建空工作区。");
+    throw new StorageError(
+      "这个文件夹不是题库工作区：缺少 bank.json。请使用“新建”创建空工作区。",
+      "WORKSPACE_MISSING"
+    );
   }
   return switchWorkspace(resolvedPath);
 }
@@ -85,6 +90,9 @@ export async function switchWorkspace(workspacePath: string): Promise<AppState> 
       "WORKSPACE_MISSING"
     );
   }
+  // 打开/切换也要走一遍:git 或 zip 分发的工作区常常只带 bank.json,缺少的子目录要补建,
+  // 子目录是符号链接时要在这里就拒绝,而不是等到导出或上传时逐个报错。
+  await ensureWorkspace(resolvedPath, { sample: false });
   return updateAppState((state) => ({
     ...state,
     currentWorkspacePath: resolvedPath,
@@ -150,7 +158,9 @@ export function getWorkspaceDirs(workspacePath: string): WorkspaceDirs {
 
 export async function getCurrentWorkspaceDirs(): Promise<WorkspaceDirs> {
   const state = await readAppState();
-  if (!state.currentWorkspacePath) throw new Error("尚未选择题库工作区。");
+  if (!state.currentWorkspacePath) {
+    throw new StorageError("尚未选择题库工作区。", "WORKSPACE_NOT_SELECTED");
+  }
   return getWorkspaceDirs(state.currentWorkspacePath);
 }
 
@@ -159,8 +169,16 @@ export async function ensureWorkspace(
   options: { sample: boolean }
 ): Promise<WorkspaceDirs> {
   const dirs = getWorkspaceDirs(workspacePath);
+  await mkdir(dirs.workspaceDir, { recursive: true });
+  // 新建与打开/切换都会走到这里:拒绝把子目录做成符号链接(fail-closed),
+  // 避免后续读写删逃逸到 workspace 外部。
   await Promise.all([
-    mkdir(dirs.workspaceDir, { recursive: true }),
+    assertRealWorkspaceSubdir(dirs.assetDir),
+    assertRealWorkspaceSubdir(dirs.exportDir),
+    assertRealWorkspaceSubdir(dirs.tempDir),
+    assertRealWorkspaceSubdir(dirs.historyDir)
+  ]);
+  await Promise.all([
     mkdir(dirs.assetDir, { recursive: true }),
     mkdir(dirs.exportDir, { recursive: true }),
     mkdir(dirs.tempDir, { recursive: true })

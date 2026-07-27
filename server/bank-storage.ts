@@ -1,8 +1,14 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Bank, BankSnapshot, SaveBankRequest } from "../shared/types.js";
+import type {
+  Bank,
+  BankHead,
+  BankSnapshot,
+  SaveBankRequest
+} from "../shared/types.js";
 import { createEmptyBank } from "./bank-schema.js";
 import { writeJsonFileAtomic } from "./json-file.js";
+import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { withWorkspaceWriteLock } from "./storage-lock.js";
 import {
   hasSessionHistory,
@@ -11,6 +17,7 @@ import {
 import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import {
   isNotFound,
+  MAX_HISTORY_SNAPSHOTS,
   parseStoredBank,
   requireValidBank,
   revisionForContent,
@@ -43,6 +50,34 @@ export async function readBankSnapshot(): Promise<BankSnapshot> {
   } catch (error) {
     if (isNotFound(error)) {
       throw new StorageError("当前工作区缺少 bank.json。", "WORKSPACE_MISSING", 404);
+    }
+    throw error;
+  }
+}
+
+export async function readBankHead(): Promise<BankHead> {
+  const state = await readAppState();
+  if (!state.currentWorkspacePath) {
+    const bank = createEmptyBank();
+    return {
+      workspacePath: "",
+      revision: revisionForContent(serializeJson(bank))
+    };
+  }
+  const dirs = getWorkspaceDirs(state.currentWorkspacePath);
+  try {
+    const raw = await readFile(dirs.bankPath, "utf8");
+    return {
+      workspacePath: dirs.workspaceDir,
+      revision: revisionForContent(raw)
+    };
+  } catch (error) {
+    if (isNotFound(error)) {
+      throw new StorageError(
+        "当前工作区缺少 bank.json。",
+        "WORKSPACE_MISSING",
+        404
+      );
     }
     throw error;
   }
@@ -82,13 +117,21 @@ export async function saveBankSnapshot(request: SaveBankRequest): Promise<BankSn
 }
 
 async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision: string) {
+  await assertRealWorkspaceSubdir(dirs.historyDir);
   await mkdir(dirs.historyDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `${timestamp}-${revision.slice(0, 12)}.json`;
-  await writeFile(path.join(dirs.historyDir, fileName), raw, "utf8");
+  await writeFile(path.join(dirs.historyDir, fileName), raw, {
+    encoding: "utf8",
+    flush: true
+  });
   const files = (await readdir(dirs.historyDir))
     .filter((file) => file.endsWith(".json"))
     .sort()
     .reverse();
-  await Promise.all(files.slice(10).map((file) => rm(path.join(dirs.historyDir, file), { force: true })));
+  await Promise.all(
+    files
+      .slice(MAX_HISTORY_SNAPSHOTS)
+      .map((file) => rm(path.join(dirs.historyDir, file), { force: true }))
+  );
 }

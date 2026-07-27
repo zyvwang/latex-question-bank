@@ -1,10 +1,10 @@
 export {
   readBank,
+  readBankHead,
   readBankSnapshot,
   saveBankSnapshot
 } from "./bank-storage.js";
 export {
-  cleanupOldTempDirs,
   listRecoveryCandidates,
   recoverBank
 } from "./recovery-storage.js";
@@ -28,3 +28,16 @@ export {
   workspaceExists,
   workspaceNameFromPath
 } from "./workspace-storage.js";
+
+import { cleanupTempDirectory } from "./temp-directory-cleanup.js";
+import { getWorkspaceDirs } from "./workspace-storage.js";
+
+export async function cleanupOldTempDirs(
+  workspacePath: string,
+  maxAgeMs?: number
+) {
+  await cleanupTempDirectory(
+    getWorkspaceDirs(workspacePath).tempDir,
+    maxAgeMs
+  );
+}

@@ -1,8 +1,9 @@
 .sidebar {
   min-width: 0;
-  height: 100vh;
+  min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   border-right: 1px solid var(--hairline);
   background: var(--sidebar);
 }
@@ -29,7 +30,7 @@
   box-shadow: 0 1px 3px rgb(23 33 29 / 0.12);
 }
 
-.brandBar h1 {
+.brandBar h2 {
   margin: 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;
   font-size: 20px;
@@ -39,107 +40,9 @@
 
 .brandBar p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 
-.workspacePanel {
-  margin: 0 14px 12px;
-  display: grid;
-  gap: 9px;
-  padding: 11px;
-  border: 1px solid oklch(0.84 0.025 160);
-  border-radius: var(--radius-lg);
-  background: oklch(0.985 0.009 105 / 0.88);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.08);
-}
-
-.workspaceTitle { min-width: 0; display: grid; gap: 2px; }
-.workspaceTitle span { color: var(--muted); font-size: 12px; }
-.workspaceTitle strong,
-.workspaceListMain strong,
-.workspaceListMain small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspaceActions { display: flex; gap: 7px; }
-.workspaceActionButton {
-  min-width: 0;
-  min-height: 38px;
-  display: inline-flex;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 7px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  color: var(--teal-strong);
-  background: var(--field);
-  transition: transform 140ms var(--ease-out), background-color 140ms ease;
-}
-.workspaceActionButton:active { transform: scale(0.96); }
-
-.workspaceList { display: grid; gap: 6px; }
-.workspaceListItem {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-  align-items: center;
-  padding: 6px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: rgb(255 255 255 / 0.75);
-}
-.activeWorkspace { border-color: oklch(0.7 0.075 180); background: var(--teal-soft); }
-.missingWorkspace { border-color: oklch(0.79 0.08 35); }
-.workspaceListMain {
-  width: 100%;
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-  padding: 3px 4px;
-  color: var(--ink);
-  background: transparent;
-  text-align: left;
-}
-.workspaceListMain strong { font-size: 13px; }
-.workspaceListMain small { color: var(--muted); font-size: 11px; }
-.workspaceListControls { display: flex; gap: 3px; }
-.miniIconButton {
-  position: relative;
-  width: 28px;
-  height: 28px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  background: var(--field);
-  transition: transform 140ms var(--ease-out), color 140ms ease;
-}
-.miniIconButton::after { content: ""; position: absolute; inset: -6px; }
-.miniIconButton:active { transform: scale(0.94); }
-.danger { color: var(--coral); }
-
-.texStatus {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--field);
-  color: var(--muted);
-}
-.texAvailable { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
-.texMissing { color: var(--coral); border-color: oklch(0.79 0.08 35); }
-
 .filterStack { padding: 0 14px 14px; display: grid; gap: 9px; }
 .searchBox,
-.filterRow label {
+.filterMenu > summary {
   min-width: 0;
   min-height: 40px;
   display: flex;
@@ -150,8 +53,7 @@
   border-radius: var(--radius-md);
   background: var(--field);
 }
-.searchBox input,
-.filterRow select {
+.searchBox input {
   width: 100%;
   min-width: 0;
   border: 0;
@@ -159,20 +61,132 @@
   color: var(--ink);
   background: transparent;
 }
-.filterRow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-.filterRow select { appearance: none; }
-.selectFiltered {
-  min-height: 38px;
+.filterRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.filterMenu { position: relative; min-width: 0; }
+.filterMenu > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+.filterMenu > summary::-webkit-details-marker { display: none; }
+.filterMenu > summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filterMenu[open] > summary {
+  color: var(--teal-strong);
+  background: var(--teal-soft);
+}
+.filterOptions {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 5px);
+  left: 0;
+  width: max(100%, 220px);
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid oklch(0.82 0.025 160);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(23 33 29 / 0.16);
+}
+.filterMenu:nth-child(even) .filterOptions { right: 0; left: auto; }
+.filterOptionsHeader {
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 6px 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+.filterOptionsHeader strong { font-size: 13px; }
+.filterOptionsHeader button {
+  min-height: 30px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  color: var(--teal-strong);
+  background: transparent;
+}
+.filterOptions > label {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+.filterOptions input { width: 16px; height: 16px; accent-color: var(--teal); }
+.filterOptions i {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+}
+.filterOptions p { margin: 7px; color: var(--muted); font-size: 12px; }
+.listActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 7px;
+}
+.listModeToggle,
+.bulkSelectButton {
+  min-height: 40px;
   border-radius: var(--radius-md);
   background: oklch(0.9 0.028 170);
   color: var(--teal-strong);
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+.listModeToggle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 9px;
+}
+.listModeToggle span { font-weight: 700; }
+.listModeToggle small {
+  margin-left: auto;
+  color: oklch(0.5 0.045 175);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.bulkSelectButton { width: 40px; display: grid; place-items: center; }
+.listModeToggle:active,
+.bulkSelectButton:active,
+.filterMenu > summary:active { transform: scale(0.96); }
+.pausedFilters {
+  min-height: 40px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px dashed oklch(0.8 0.025 160);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  background: rgb(255 255 255 / 0.38);
+  font-size: 12px;
 }
 
 .questionList { min-height: 0; overflow: auto; padding: 0 10px 16px; }
+.emptyQuestionList {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+}
 .questionListItem {
   position: relative;
   min-height: 64px;
@@ -210,6 +224,7 @@
 .checkHit input { width: 17px; height: 17px; accent-color: var(--teal); }
 .dragHandle { margin-left: -8px; color: oklch(0.64 0.035 165); cursor: grab; touch-action: none; }
 .questionIndex {
+  align-self: center;
   height: 32px;
   display: grid;
   place-items: center;
@@ -218,11 +233,14 @@
   color: var(--teal-strong);
   font-variant-numeric: tabular-nums;
 }
-.questionMeta { min-width: 0; display: grid; gap: 2px; }
-.questionMeta strong,
-.questionMeta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.questionMeta small { color: var(--muted); }
-.starText { color: var(--amber); }
+.questionMeta { min-width: 0; display: grid; gap: 5px; padding-block: 3px; }
+.questionMeta strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+}
 .dropBefore::before,
 .dropAfter::after {
   content: "";
@@ -248,14 +266,15 @@
 }
 
 @media (hover: hover) {
-  .workspaceActionButton:hover,
-  .miniIconButton:hover { background: var(--teal-soft); color: var(--teal-strong); }
   .questionListItem:hover { border-color: oklch(0.78 0.035 165); }
+  .filterMenu > summary:hover,
+  .listModeToggle:hover,
+  .bulkSelectButton:hover { background: oklch(0.87 0.035 170); }
+  .filterOptions > label:hover { background: var(--teal-soft); }
 }
 
 @media (max-width: 1040px) and (min-width: 761px) {
   .sidebar { font-size: 14px; }
-  .workspacePanel { margin-inline: 10px; }
   .filterStack { padding-inline: 10px; }
 }
 
@@ -266,14 +285,20 @@
     border-right: 0;
     border-bottom: 1px solid var(--hairline);
   }
-  .workspacePanel { display: none; }
-  .filterStack { grid-template-columns: minmax(180px, 1fr) auto; align-items: center; }
-  .filterRow { display: none; }
+  .filterStack { grid-template-columns: 1fr; }
   .questionList { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; }
   .questionListItem { min-width: 250px; margin-bottom: 0; }
 }
 
 @media (max-width: 520px) {
   .filterStack { display: grid; grid-template-columns: 1fr; }
-  .questionListItem { min-width: 224px; }
+  .filterRow { grid-template-columns: 1fr; }
+  .filterOptions {
+    position: static;
+    width: 100%;
+    margin-top: 5px;
+    box-shadow: 0 2px 8px rgb(23 33 29 / 0.11);
+  }
+  .questionList { display: grid; overflow-x: visible; }
+  .questionListItem { min-width: 0; width: 100%; }
 }

@@ -39,7 +39,9 @@ React UI
 - 完整验证：`npm run verify`
 - 桌面冒烟测试：`npm run test:desktop`
 
-`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证。未检测到 `latexmk` 或 `xelatex` 时，`scripts/verify-export.ts` 会跳过真实 PDF 编译并以成功状态退出；只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
+`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证。`scripts/verify-export.ts` 只主动探测 `latexmk`：未检测到时会跳过真实 PDF 编译并以成功状态退出；如果已检测到 `latexmk` 但 `xelatex` 不可用，真实编译会失败。只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
+
+设 `LQB_REQUIRE_TEX=1` 时，缺少 TeX 不再跳过而是直接失败。CI 的 `latex-export` job（`.github/workflows/ci.yml`，只在 push main 和 workflow_dispatch 上跑）和发布工作流的 `verify-latex` job（`.github/workflows/release.yml`）负责真实编译；PR 上的 `verify` job 没有 TeX，它的绿色不代表导出可用。改动 `server/latex-renderer.ts` 的 preamble 引入新宏包时，要同步检查这两个 job 的 apt 包清单，并保留 `LQB_REQUIRE_TEX=1`，避免缺少 TeX 时产生空验证。
 
 开发端口约定：
 
@@ -53,6 +55,7 @@ React UI
 - `src/api/client.ts`：前端唯一的应用 API 请求入口。新增应用 API 调用时放在这里。
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
+- `src/hooks/useAppView.ts`：顶层 editor、heatmap、settings 视图及热力图会话状态。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
@@ -66,16 +69,17 @@ React UI
 - `server/asset-service.ts`：图片扩展名、MIME 和文件签名校验。
 - `server/export-service.ts`：导出 staging、PDF 编译和最终目录原子替换。
 - `server/latex*.ts`：LaTeX 渲染、临时文件准备和 TeX 进程管理。
-- `shared/types.ts`、`shared/validation.ts`：前后端共享数据契约和运行时校验。不要在前后端各自复制类型。
+- `shared/types.ts`：前后端共享数据契约。
+- `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验；`shared/validation.ts` 仅为兼容 barrel。
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
-- `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉和发布约定。改相关领域时同步更新。
+- `docs/architecture.md`、`docs/design-system.md`、`docs/mastery-heatmap.md`、`docs/release-checklist.md`：架构、视觉、热力图与掌握历史、发布约定。改相关领域时同步更新。
 
 避免手动编辑或提交生成目录：`node_modules/`、`build/`、`dist/`、`coverage/`、`release/`、`.tmp/`、`.app-data/`、`test-results/`、`public/vendor/`。`public/vendor/mathjax/` 由 `scripts/copy-mathjax.mjs` 在安装后复制生成。
 
 ## 数据模型与安全
 
-当前 workspace schema 是 `version: 1`。每道题的 LaTeX 内容存在：
+当前写入的 workspace schema 是 `version: 2`；`version: 1` 仅作为只读迁移输入。每道题的 LaTeX 内容存在：
 
 - `modules.question.tex`
 - `modules.solution.tex`
@@ -84,6 +88,8 @@ React UI
 若改 schema，需要同时检查：
 
 - `shared/types.ts`
+- `shared/bank-validation.ts`
+- `shared/bank-migration.ts`
 - `shared/validation.ts`
 - `server/bank-schema.ts`
 - `examples/sample-bank/bank.json`
@@ -102,13 +108,14 @@ React UI
 - 渲染端自动保存保持最多一个请求在途，并合并后续编辑。
 - 每次应用会话中的首次 bank 修改会在 `.history/` 记录快照，最多保留 10 个。
 - 恢复接口只接受服务端枚举出的候选 ID，不接受任意路径。
+- workspace 顶层子目录（`.tmp`、`.history`、`assets`、`exports`）在读、写、删、rename 前必须经 `server/workspace-paths.ts` 的 `assertRealWorkspaceSubdir` 做符号链接与 realpath 校验（fail-closed）：子目录是符号链接或其真实路径逃逸出 workspace 时拒绝该次操作，避免跟随软链删除或覆盖外部文件。新增任何涉及 workspace 子目录的读写路径都要走该守卫。
 
 涉及保存、恢复、导入导出、路径处理、图片上传、Electron IPC 或 TeX 命令执行的改动，要优先补充安全和错误路径测试。
 
 ## 前端约定
 
 - React 组件和 hooks 使用 TypeScript strict 模式。
-- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI。
+- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、review。
 - 新增应用 API 请求只通过 `src/api/client.ts`。
 - CodeMirror 封装在 `src/components/LatexEditor.tsx`，不要在其他组件散落编辑器配置。
 - 样式优先使用 CSS Modules；全局 token 只放 `src/styles/foundation.css`。
@@ -128,7 +135,8 @@ React UI
 - 导出应先写入临时 staging，只有两个 PDF 都成功后再替换最终目录。
 - Electron preload 不暴露 `ipcRenderer`。新增 IPC 能力必须窄、可验证，并检查 sender。
 - 主窗口导航锁定到应用 origin；外部 HTTPS 或本地 PDF 链接交给系统浏览器。
-- 关闭和退出应用前必须尊重 renderer 的保存 flush 边界。
+- 关闭和退出应用前必须尊重 renderer 的保存 flush 边界。该边界是两步：先提交当前聚焦元素上的草稿，再 flush 自动保存队列，见 `src/hooks/useBeforeCloseFlush.ts`。
+- 新增「打字 → 失焦提交」的字段（本地 draft + `onBlur={commit}`）时，失败分支必须 `setNotice({ type: "error", ... })`。关闭流程靠这条约定判断草稿是否被校验拒绝，拒绝时会中止关闭并把该文案交给主进程的「尚未保存」对话框；不设 error notice 的失败分支会让用户那次输入被静默丢弃。
 
 ## TypeScript 与代码风格
 
@@ -164,14 +172,14 @@ React UI
 
 开始前：
 
-- 阅读与改动相关的 `docs/architecture.md` 或 `docs/design-system.md` 片段。
+- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/mastery-heatmap.md` 片段。
 - 确认是否涉及 workspace 持久化、schema、Electron IPC、TeX 执行或文件路径安全。
 - 检查工作区是否已有用户改动，不要回退无关变更。
 
 完成后：
 
 - 运行与改动范围匹配的测试或说明未运行原因。
-- 如果改了用户可见行为，同步 README 或 docs。
+- 如果改了用户可见行为，同步 README 或 docs；布局变化还要重新截取 README 实际引用的界面图片。
 - 如果改了 schema 或示例数据，同步迁移脚本、样例和测试。
 - 如果改了导出或编译，确认失败时不会破坏上一次成功输出。
 - 不要提交用户 workspace 内容、生成产物、覆盖率结果或本地应用数据。

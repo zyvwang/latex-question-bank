@@ -2,18 +2,23 @@ import type {
   AppInfo,
   AssetUploadResponse,
   Bank,
+  BankHead,
   BankSnapshot,
   CompileResponse,
   ExportDefaultNameResponse,
   ExportOrderMode,
   ExportResponse,
-  ModuleKind,
-  QuestionAsset,
   QuestionItem,
   RecoveryCandidate,
+  SaveBankAsRequest,
+  SaveBankAsResponse,
   SaveBankRequest
 } from "../../shared/types.js";
-import { appendTex } from "../utils/form.js";
+import {
+  BANK_PAYLOAD_TOO_LARGE_CODE,
+  BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+  BANK_SAVE_BODY_LIMIT_BYTES
+} from "../../shared/api-limits.js";
 
 export async function fetchAppInfo(): Promise<AppInfo> {
   return fetchJson<AppInfo>("/api/app");
@@ -23,11 +28,23 @@ export async function fetchBank(): Promise<BankSnapshot> {
   return fetchJson<BankSnapshot>("/api/bank");
 }
 
+export async function fetchBankHead(): Promise<BankHead> {
+  return fetchJson<BankHead>("/api/bank/head");
+}
+
 export async function saveBank(request: SaveBankRequest): Promise<BankSnapshot> {
+  const body = JSON.stringify(request);
+  if (new TextEncoder().encode(body).byteLength > BANK_SAVE_BODY_LIMIT_BYTES) {
+    throw new ApiRequestError(
+      BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+      413,
+      BANK_PAYLOAD_TOO_LARGE_CODE
+    );
+  }
   const response = await fetch("/api/bank", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request)
+    body
   });
   return readJsonResponse<BankSnapshot>(response);
 }
@@ -47,6 +64,23 @@ export async function createSampleWorkspace(workspacePath: string): Promise<AppI
 
 export async function createEmptyWorkspace(workspacePath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/workspaces/create-empty", { workspacePath });
+}
+
+export async function saveBankAs(request: SaveBankAsRequest): Promise<SaveBankAsResponse> {
+  const body = JSON.stringify(request);
+  if (new TextEncoder().encode(body).byteLength > BANK_SAVE_BODY_LIMIT_BYTES) {
+    throw new ApiRequestError(
+      BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+      413,
+      BANK_PAYLOAD_TOO_LARGE_CODE
+    );
+  }
+  const response = await fetch("/api/workspaces/save-as", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body
+  });
+  return readJsonResponse<SaveBankAsResponse>(response);
 }
 
 export async function openExistingWorkspace(workspacePath: string): Promise<AppInfo> {
@@ -69,27 +103,11 @@ export async function saveTexPath(texPath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/tex-path", { texPath });
 }
 
-export async function uploadQuestionAsset(kind: ModuleKind, item: QuestionItem, file: File): Promise<{
-  asset: QuestionAsset;
-  patch: Pick<QuestionItem, "assets" | "modules">;
-}> {
+export async function uploadQuestionAsset(file: File): Promise<AssetUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
   const response = await fetch("/api/assets", { method: "POST", body: formData });
-  const data = await readJsonResponse<AssetUploadResponse>(response);
-  return {
-    asset: data.asset,
-    patch: {
-      assets: [...item.assets, data.asset],
-      modules: {
-        ...item.modules,
-        [kind]: {
-          ...item.modules[kind],
-          tex: appendTex(item.modules[kind].tex, data.insertText)
-        }
-      }
-    }
-  };
+  return readJsonResponse<AssetUploadResponse>(response);
 }
 
 export async function compileItem(item: QuestionItem, settings: Bank["settings"]): Promise<CompileResponse> {
@@ -142,6 +160,15 @@ async function readJsonResponse<T>(
   response: Response,
   options: { allowErrorPayload?: boolean } = {}
 ): Promise<T> {
+  // 非 JSON 响应(代理错误页、SPA 兜底 HTML)先转成带状态码的 ApiRequestError,
+  // 否则用户看到的是 "Unexpected token '<'"。
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new ApiRequestError(
+      `服务器返回了非 JSON 响应（HTTP ${response.status}）。`,
+      response.status,
+      "RESPONSE_NOT_JSON"
+    );
+  }
   const data = (await response.json()) as T & { error?: string; code?: string };
   if (!response.ok && !options.allowErrorPayload) {
     throw new ApiRequestError(data.error ?? "请求失败。", response.status, data.code);
