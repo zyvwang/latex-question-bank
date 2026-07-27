@@ -406,7 +406,7 @@ test("keeps a 1000-item production heatmap responsive without virtualization", a
     await expect(page.locator("[data-heatmap-mode='errorReason']")).toHaveCount(1000);
     expect(Date.now() - switchedAt).toBeLessThan(3000);
 
-    await page.locator('[data-heatmap-cell="large-10-100"]').hover();
+    await page.locator('[data-heatmap-cell="large-10-100"]').focus();
     await expect(page.getByRole("heading", { name: "10-100" })).toBeVisible();
     await expect
       .poll(() => page.locator('[aria-label="题目预览"] mjx-container').count())

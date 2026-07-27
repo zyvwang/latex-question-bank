@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   useQuestions,
   useReview,
@@ -33,7 +33,7 @@ function SourceNumberField() {
   const [draft, setDraft] = useState(item?.sourceNumber ?? "");
   const committedRef = useRef(item?.sourceNumber ?? "");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const nextValue = item?.sourceNumber ?? "";
     setDraft(nextValue);
     committedRef.current = nextValue;

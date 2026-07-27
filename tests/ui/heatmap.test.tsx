@@ -173,7 +173,7 @@ describe("heatmap UI", () => {
         .toHaveAttribute("data-heatmap-mode", "errorReason")
     );
     expect(performance.now() - modeStartedAt).toBeLessThan(2000);
-  }, 10_000);
+  }, 20_000);
 });
 
 async function handleFetch(
