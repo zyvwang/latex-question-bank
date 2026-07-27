@@ -1,6 +1,6 @@
 {
   "name": "latex-question-bank",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local-first desktop question bank for writing, organizing, and exporting LaTeX.",
   "author": "LaTeX Question Bank contributors",
   "private": true,
