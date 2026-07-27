@@ -80,12 +80,9 @@ export function HeatmapScreen() {
       scrollRef.current.scrollTop = restoreScrollTop.current;
     }
     if (!restoreFocusId.current) return;
-    const frame = window.requestAnimationFrame(() => {
-      document.getElementById(`heatmap-cell-${restoreFocusId.current}`)?.focus({
-        preventScroll: true
-      });
+    document.getElementById(`heatmap-cell-${restoreFocusId.current}`)?.focus({
+      preventScroll: true
     });
-    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
