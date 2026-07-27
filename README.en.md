@@ -32,7 +32,7 @@ The application interface currently uses Simplified Chinese. This README provide
 
 - Write LaTeX in separate question, solution, and note modules.
 - Preview formulas with MathJax and insert PNG or JPEG images.
-- Check the current item with a local XeLaTeX installation.
+- Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, source IDs, and multiple tags, and record mastery and error reasons.
 - Combine keyword, chapter, tag, mastery, and error-reason filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
@@ -158,15 +158,17 @@ workspace/
 ├── bank.json.bak
 ├── assets/
 ├── exports/
+├── .tmp/
 └── .history/
 ```
 
 - `bank.json` uses schema `version: 2` for formal chapters, chapter-local order, mastery and error-reason options, up to five daily mastery-history records, item content, and LaTeX settings.
 - `assets/` stores inserted images.
 - `exports/` stores completed exports.
+- `.tmp/` stores temporary files from current-item checks and export work. The app limits how many it keeps during a session and removes entries older than seven days at startup.
 - `bank.json.bak` and `.history/` provide disk disaster-recovery points. They are separate from the user-managed mastery history stored inside `bank.json`.
 
-Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
+Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. You can load the disk version, refresh its revision and overwrite it with your local version, or save the local content as an independent workspace. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
 
 A complete bank save request is supported up to 64 MiB. Oversized banks remain pending and prompt you to split the workspace or reduce its content. File content is flushed to storage, and parent directory entries are synced on a best-effort basis on POSIX platforms.
 

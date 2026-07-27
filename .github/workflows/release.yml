@@ -32,6 +32,8 @@ jobs:
         run: npm ci
 
       - name: Verify real LaTeX exports
+        env:
+          LQB_REQUIRE_TEX: "1"
         run: |
           npm run build
           LQB_WORKSPACE_DIR=.tmp/release-tex-workspace npx tsx scripts/verify-export.ts
