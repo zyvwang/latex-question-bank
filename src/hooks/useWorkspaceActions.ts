@@ -202,7 +202,10 @@ export function useWorkspaceActions({
   };
 }
 
-async function pickWorkspaceDirectory(title: string, fallbackPrompt: string): Promise<string | null> {
+export async function pickWorkspaceDirectory(
+  title: string,
+  fallbackPrompt: string
+): Promise<string | null> {
   if (window.lqb?.selectWorkspaceDirectory) {
     return window.lqb.selectWorkspaceDirectory(title);
   }

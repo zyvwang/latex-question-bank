@@ -1,11 +1,13 @@
 import { Router, json, type RequestHandler } from "express";
 import {
+  validateSaveBankAsRequest,
   validateTexPathRequest,
   validateWorkspaceMoveRequest,
   validateWorkspacePathRequest
 } from "../../shared/validation.js";
 import { updateTexPathOverride } from "../app-state.js";
 import { buildAppInfo } from "../app-info.js";
+import { saveBankAsWorkspace } from "../workspace-save-as.js";
 import { sendApiError } from "../http/api-response.js";
 import {
   createEmptyWorkspace,
@@ -17,10 +19,12 @@ import {
 } from "../workspace-storage.js";
 
 export function createWorkspaceRouter(options: {
+  bankBodyLimitBytes: number;
   jsonBodyLimitBytes: number;
 }): Router {
   const router = Router();
   const parseJson = json({ limit: options.jsonBodyLimitBytes });
+  const parseBankJson = json({ limit: options.bankBodyLimitBytes });
 
   router.get("/app", async (_request, response, next) => {
     try {
@@ -37,6 +41,32 @@ export function createWorkspaceRouter(options: {
     "缺少示例工作区路径。",
     async (path) => {
       await createSampleWorkspace(path);
+    }
+  );
+
+  router.post(
+    "/workspaces/save-as",
+    parseBankJson,
+    async (request, response, next) => {
+      try {
+        const validation = validateSaveBankAsRequest(request.body);
+        if (!validation.ok || !validation.value) {
+          sendApiError(
+            response,
+            400,
+            validation.error,
+            "WORKSPACE_SAVE_AS_INVALID"
+          );
+          return;
+        }
+        const snapshot = await saveBankAsWorkspace(validation.value);
+        response.json({
+          appInfo: await buildAppInfo(),
+          snapshot
+        });
+      } catch (error) {
+        next(error);
+      }
     }
   );
   registerWorkspacePathRoute(

@@ -10,11 +10,19 @@ export function useQuestionBankContextValues(
 
   const lifecycle = useMemo<QuestionBankContextValues["lifecycle"]>(() => ({
     saveState: input.saveState,
+    saveIssue: input.saveIssue,
+    isConflictDialogOpen: input.isConflictDialogOpen,
     notice: input.notice,
     loadError: input.loadError,
     recoveryCandidates: input.recoveryCandidates,
     setNotice: input.setNotice,
     retrySave: stable.retrySave,
+    refreshSaveConflict: stable.refreshSaveConflict,
+    useDiskVersion: stable.useDiskVersion,
+    overwriteDiskVersion: stable.overwriteDiskVersion,
+    saveConflictAs: stable.saveConflictAs,
+    openConflictDialog: stable.openConflictDialog,
+    closeConflictDialog: stable.closeConflictDialog,
     retryInitialLoad: stable.loadAppAndBank,
     recoverFromCandidate: stable.recoverFromCandidate,
     flushPendingChanges: stable.flushPendingChanges,
@@ -23,15 +31,23 @@ export function useQuestionBankContextValues(
   }), [
     input.beginDraftCommit,
     input.loadError,
+    input.isConflictDialogOpen,
     input.notice,
     input.recoveryCandidates,
     input.saveState,
+    input.saveIssue,
     input.setNotice,
     input.takeDraftCommitRejection,
     stable.flushPendingChanges,
     stable.loadAppAndBank,
+    stable.closeConflictDialog,
+    stable.openConflictDialog,
+    stable.overwriteDiskVersion,
+    stable.refreshSaveConflict,
     stable.recoverFromCandidate,
-    stable.retrySave
+    stable.retrySave,
+    stable.saveConflictAs,
+    stable.useDiskVersion
   ]);
 
   const workspace = useMemo<QuestionBankContextValues["workspace"]>(() => ({

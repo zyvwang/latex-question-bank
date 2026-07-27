@@ -1,5 +1,6 @@
 export {
   readBank,
+  readBankHead,
   readBankSnapshot,
   saveBankSnapshot
 } from "./bank-storage.js";

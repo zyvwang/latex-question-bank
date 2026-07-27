@@ -3,7 +3,11 @@ import {
   validateRecoverBankRequest,
   validateSaveBankRequest
 } from "../../shared/validation.js";
-import { readBankSnapshot, saveBankSnapshot } from "../bank-storage.js";
+import {
+  readBankHead,
+  readBankSnapshot,
+  saveBankSnapshot
+} from "../bank-storage.js";
 import { sendApiError } from "../http/api-response.js";
 import {
   listRecoveryCandidates,
@@ -15,6 +19,14 @@ export function createBankRouter(options: {
   jsonBodyLimitBytes: number;
 }): Router {
   const router = Router();
+
+  router.get("/bank/head", async (_request, response, next) => {
+    try {
+      response.json(await readBankHead());
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get("/bank", async (_request, response, next) => {
     try {

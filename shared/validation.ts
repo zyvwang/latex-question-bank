@@ -4,6 +4,7 @@ export {
   validateExportRequest,
   validateRecoverBankRequest,
   validateRevealExportRequest,
+  validateSaveBankAsRequest,
   validateSaveBankRequest,
   validateTexPathRequest,
   validateWorkspaceMoveRequest,

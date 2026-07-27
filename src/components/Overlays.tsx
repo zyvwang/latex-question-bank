@@ -1,16 +1,29 @@
-import { ListOrdered, Plus, Trash2 } from "lucide-react";
 import {
+  Copy,
+  HardDriveDownload,
+  ListOrdered,
+  Plus,
+  RefreshCw,
+  Save,
+  Trash2
+} from "lucide-react";
+import { useMemo } from "react";
+import {
+  useLifecycle,
   useQuestions,
   useReview,
+  useWorkspace,
   useWorkspaceUi
 } from "../context/questionBankContexts.js";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { oldestMasteryHistoryId } from "../review-history.js";
+import { summarizeBankConflict } from "../save-conflict.js";
 import controls from "../styles/controls.module.css";
 import styles from "./Overlays.module.css";
 
 export function Overlays() {
   const questions = useQuestions();
+  const lifecycle = useLifecycle();
   const review = useReview();
   const ui = useWorkspaceUi();
   return (
@@ -63,7 +76,157 @@ export function Overlays() {
       {ui.reorderDialogItem && <ReorderDialog />}
       {/* 条件渲染而非组件内早返回:focus trap 要在对话框内容挂载时才生效。 */}
       {review.capacityRequest && <HistoryCapacityDialog />}
+      {lifecycle.saveIssue?.kind === "conflict" &&
+        lifecycle.isConflictDialogOpen && <SaveConflictDialog />}
     </>
+  );
+}
+
+function SaveConflictDialog() {
+  const lifecycle = useLifecycle();
+  const questions = useQuestions();
+  const workspace = useWorkspace();
+  const dialogRef = useFocusTrap<HTMLElement>();
+  const issue =
+    lifecycle.saveIssue?.kind === "conflict"
+      ? lifecycle.saveIssue
+      : null;
+  const summary = useMemo(() => {
+    if (!questions.bank || !issue?.diskSnapshot) return null;
+    return summarizeBankConflict(
+      questions.bank,
+      issue.diskSnapshot.bank
+    );
+  }, [issue?.diskSnapshot, questions.bank]);
+  if (!issue) return null;
+
+  const changedSections = summary
+    ? [
+        summary.settingsChanged && "LaTeX 设置",
+        summary.chaptersChanged && "章节",
+        summary.masteryOptionsChanged && "掌握程度选项",
+        summary.errorReasonOptionsChanged && "错误原因选项",
+        summary.masteryHistoryChanged && "掌握历史"
+      ].filter((label): label is string => Boolean(label))
+    : [];
+
+  return (
+    <div
+      className={styles.modalBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-conflict-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          lifecycle.closeConflictDialog();
+        }
+      }}
+    >
+      <section
+        ref={dialogRef}
+        className={`${styles.reorderDialog} ${styles.conflictDialog}`}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            lifecycle.closeConflictDialog();
+          }
+        }}
+      >
+        <header>
+          <div>
+            <h2 id="save-conflict-title">题库保存冲突</h2>
+            <span>
+              磁盘文件在编辑期间发生了变化。自动保存已经暂停，继续编辑只会更新内存草稿。
+            </span>
+          </div>
+        </header>
+
+        {issue.diskSnapshot && summary ? (
+          <div className={styles.conflictSummary}>
+            <strong>当前本地版本与磁盘版本</strong>
+            <dl>
+              <div>
+                <dt>仅本地题目</dt>
+                <dd>{summary.localOnlyItems}</dd>
+              </div>
+              <div>
+                <dt>仅磁盘题目</dt>
+                <dd>{summary.diskOnlyItems}</dd>
+              </div>
+              <div>
+                <dt>同题内容不同</dt>
+                <dd>{summary.changedItems}</dd>
+              </div>
+            </dl>
+            <p>
+              {changedSections.length > 0
+                ? `其他差异：${changedSections.join("、")}`
+                : "其他设置与记录没有差异。"}
+            </p>
+          </div>
+        ) : issue.diskReadError ? (
+          <p className={styles.conflictReadError}>
+            无法读取磁盘版本：{issue.diskReadError}
+          </p>
+        ) : (
+          <p className={styles.conflictLoading}>正在读取磁盘版本…</p>
+        )}
+
+        <div className={styles.conflictActions}>
+          <button
+            type="button"
+            className={controls.secondaryAction}
+            onClick={() => void lifecycle.refreshSaveConflict()}
+          >
+            <RefreshCw size={16} />
+            刷新差异
+          </button>
+          <button
+            type="button"
+            className={controls.secondaryAction}
+            onClick={workspace.openCurrentWorkspaceFolder}
+          >
+            <HardDriveDownload size={16} />
+            打开工作区
+          </button>
+          <button
+            type="button"
+            className={controls.secondaryAction}
+            onClick={() => void lifecycle.saveConflictAs()}
+          >
+            <Copy size={16} />
+            另存为新题库
+          </button>
+          <button
+            type="button"
+            className={`${controls.secondaryAction} ${styles.conflictDiscard}`}
+            disabled={!issue.diskSnapshot}
+            onClick={() => void lifecycle.useDiskVersion()}
+          >
+            <HardDriveDownload size={16} />
+            采用磁盘版本
+          </button>
+          <button
+            type="button"
+            className={controls.primaryAction}
+            onClick={() => void lifecycle.overwriteDiskVersion()}
+          >
+            <Save size={16} />
+            用本地版本覆盖
+          </button>
+        </div>
+        <footer>
+          <span>关闭后可继续编辑，自动保存仍保持暂停。</span>
+          <button
+            type="button"
+            className={controls.tertiaryAction}
+            onClick={lifecycle.closeConflictDialog}
+          >
+            暂时关闭
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 

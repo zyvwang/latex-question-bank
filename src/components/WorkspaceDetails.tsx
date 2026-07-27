@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useQuestions,
   useReview,
@@ -32,6 +32,12 @@ function SourceNumberField() {
   const item = questions.activeItem;
   const [draft, setDraft] = useState(item?.sourceNumber ?? "");
   const committedRef = useRef(item?.sourceNumber ?? "");
+
+  useEffect(() => {
+    const nextValue = item?.sourceNumber ?? "";
+    setDraft(nextValue);
+    committedRef.current = nextValue;
+  }, [item?.id, item?.sourceNumber]);
 
   if (!item) return null;
   const currentItem = item;

@@ -51,20 +51,41 @@ export function AppNavigation() {
             {lifecycle.notice.text}
           </span>
         )}
-        <span className={`${styles.saveState} ${styles[lifecycle.saveState]}`}>
-          {lifecycle.saveState === "saving" ? (
-            <Save size={15} />
-          ) : lifecycle.saveState === "error" ? (
+        {lifecycle.saveState === "conflict" ? (
+          <button
+            type="button"
+            className={`${styles.saveState} ${styles.conflict}`}
+            onClick={lifecycle.openConflictDialog}
+          >
             <AlertTriangle size={15} />
-          ) : (
-            <Check size={15} />
-          )}
-          {lifecycle.saveState === "saving"
-            ? "保存中"
-            : lifecycle.saveState === "error"
-              ? "保存失败"
+            保存冲突 · 处理
+          </button>
+        ) : lifecycle.saveState === "error" ? (
+          <button
+            type="button"
+            className={`${styles.saveState} ${styles.error}`}
+            aria-label="重试保存"
+            onClick={() => void lifecycle.retrySave()}
+          >
+            <AlertTriangle size={15} />
+            保存失败 · 重试
+          </button>
+        ) : (
+          <span
+            className={`${styles.saveState} ${
+              styles[lifecycle.saveState]
+            }`}
+          >
+            {lifecycle.saveState === "saving" ? (
+              <Save size={15} />
+            ) : (
+              <Check size={15} />
+            )}
+            {lifecycle.saveState === "saving"
+              ? "保存中"
               : "已保存"}
-        </span>
+          </span>
+        )}
       </div>
     </header>
   );

@@ -55,6 +55,7 @@ No remote font dependency is required.
 - Motion is limited to opacity and transform, and is disabled for reduced-motion preferences.
 - Focus rings remain visible for keyboard users.
 - Modal dialogs contain keyboard focus. The backdrop only blocks the pointer, so `src/hooks/useFocusTrap.ts` wraps Tab and Shift+Tab at both ends and returns focus to the opening element on close. The hook owns initial focus; a dialog that needs a specific landing spot marks it with `data-autofocus` rather than `autoFocus`, which fires too early to record the outside element.
+- A save conflict opens a dismissible, focus-contained resolution dialog and leaves a persistent coral “保存冲突” action in the global navigation. Dismissing it allows continued editing but does not resume disk writes. The dialog shows a structural difference summary and keeps destructive disk/local replacement actions explicit; save-as remains non-destructive to the original workspace.
 
 ## CSS Ownership
 

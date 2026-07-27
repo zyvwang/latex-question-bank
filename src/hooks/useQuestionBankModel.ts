@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAppInfo,
   fetchBank,
+  fetchBankHead,
   fetchRecoveryCandidates,
-  recoverBank
+  recoverBank,
+  saveBankAs
 } from "../api/client.js";
 import type {
   AppInfo,
@@ -28,7 +30,10 @@ import { useQuestionBankContextValues } from "./useQuestionBankContextValues.js"
 import { useQuestionReorder } from "./useQuestionReorder.js";
 import { useReviewHistory } from "./useReviewHistory.js";
 import { useSelectionFilters } from "./useSelectionFilters.js";
-import { useWorkspaceActions } from "./useWorkspaceActions.js";
+import {
+  pickWorkspaceDirectory,
+  useWorkspaceActions
+} from "./useWorkspaceActions.js";
 
 export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
@@ -60,6 +65,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     QuestionBankContextValues["lifecycle"]["recoveryCandidates"]
   >([]);
   const [activeModule, setActiveModule] = useState<ModuleKind>("question");
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
   const appView = useAppView();
   const {
     resetAppView,
@@ -91,7 +97,20 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     selection.listMode
   );
   const autosave = useAutosave(bank, setNotice);
-  const { persistBank, resetAutosave, retrySave, saveState } = autosave;
+  const {
+    overwriteConflict,
+    persistBank,
+    refreshConflict,
+    resetAutosave,
+    retrySave,
+    saveIssue,
+    saveState
+  } = autosave;
+  useEffect(() => {
+    if (saveIssue?.kind === "conflict") {
+      setIsConflictDialogOpen(true);
+    }
+  }, [saveIssue?.kind]);
 
   const updateBank = useCallback((updater: (current: Bank) => Bank) => {
     setBank((current) => (current ? updater(current) : current));
@@ -337,6 +356,125 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const flushPendingChanges = useCallback(async () => {
     if (bank && appInfo?.currentWorkspacePath) await persistBank(bank);
   }, [appInfo?.currentWorkspacePath, bank, persistBank]);
+  const useDiskVersion = useCallback(async () => {
+    if (
+      saveIssue?.kind !== "conflict" ||
+      !appInfo?.currentWorkspacePath
+    ) {
+      return;
+    }
+    if (
+      !window.confirm(
+        "采用磁盘版本会放弃当前仍在内存中的全部修改。确定继续吗？"
+      )
+    ) {
+      return;
+    }
+    try {
+      const snapshot = await fetchBank();
+      if (snapshot.workspacePath !== appInfo.currentWorkspacePath) {
+        throw new Error("磁盘题库已切换到其他工作区。");
+      }
+      applyBankSnapshot(appInfo, snapshot, appView.activeView);
+      setIsConflictDialogOpen(false);
+      setNotice({ type: "ok", text: "已采用最新磁盘版本。" });
+    } catch (error) {
+      await refreshConflict();
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "读取磁盘版本失败。"
+      });
+    }
+  }, [
+    appInfo,
+    appView.activeView,
+    applyBankSnapshot,
+    refreshConflict,
+    saveIssue?.kind,
+    setNotice
+  ]);
+  const overwriteDiskVersion = useCallback(async () => {
+    if (
+      saveIssue?.kind !== "conflict" ||
+      !bank ||
+      !appInfo?.currentWorkspacePath
+    ) {
+      return;
+    }
+    if (
+      !window.confirm(
+        "这会用当前本地版本覆盖磁盘上的外部修改。确定继续吗？"
+      )
+    ) {
+      return;
+    }
+    try {
+      const head = await fetchBankHead();
+      if (head.workspacePath !== appInfo.currentWorkspacePath) {
+        throw new Error("磁盘题库已切换到其他工作区。");
+      }
+      await overwriteConflict(bank, head.revision);
+      setIsConflictDialogOpen(false);
+      setNotice({ type: "ok", text: "已用本地版本覆盖磁盘内容。" });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "覆盖磁盘版本失败。"
+      });
+    }
+  }, [
+    appInfo?.currentWorkspacePath,
+    bank,
+    overwriteConflict,
+    saveIssue?.kind,
+    setNotice
+  ]);
+  const saveConflictAs = useCallback(async () => {
+    if (
+      saveIssue?.kind !== "conflict" ||
+      !bank ||
+      !appInfo?.currentWorkspacePath
+    ) {
+      return;
+    }
+    const targetWorkspacePath = await pickWorkspaceDirectory(
+      "选择空文件夹另存当前题库",
+      "输入一个空文件夹路径，用于另存当前题库"
+    );
+    if (!targetWorkspacePath?.trim()) return;
+    try {
+      const response = await saveBankAs({
+        sourceWorkspacePath: appInfo.currentWorkspacePath,
+        targetWorkspacePath,
+        bank
+      });
+      applyBankSnapshot(
+        response.appInfo,
+        response.snapshot,
+        appView.activeView
+      );
+      setIsConflictDialogOpen(false);
+      setNotice({
+        type: "ok",
+        text: `已另存为新题库：${response.appInfo.currentWorkspaceName}`
+      });
+    } catch (error) {
+      setNotice({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "另存当前题库失败。"
+      });
+    }
+  }, [
+    appInfo?.currentWorkspacePath,
+    appView.activeView,
+    applyBankSnapshot,
+    bank,
+    saveIssue?.kind,
+    setNotice
+  ]);
   const openQuestionFromHeatmap = useCallback((id: string) => {
     setHeatmapFocusedId(id);
     setActiveId(id);
@@ -352,6 +490,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     loadError,
     recoveryCandidates,
     saveState,
+    saveIssue,
+    isConflictDialogOpen,
     activeModule,
     derived,
     selection,
@@ -372,6 +512,12 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     bankSettings,
     reviewHistory,
     retrySave,
+    refreshSaveConflict: refreshConflict,
+    useDiskVersion,
+    overwriteDiskVersion,
+    saveConflictAs,
+    openConflictDialog: () => setIsConflictDialogOpen(true),
+    closeConflictDialog: () => setIsConflictDialogOpen(false),
     loadAppAndBank,
     recoverFromCandidate,
     flushPendingChanges

@@ -4,6 +4,12 @@ import { useLatestCallback } from "./useLatestCallback.js";
 export function useQuestionBankStableActions(input: ContextValueInput) {
   return {
     retrySave: useLatestCallback(input.retrySave),
+    refreshSaveConflict: useLatestCallback(input.refreshSaveConflict),
+    useDiskVersion: useLatestCallback(input.useDiskVersion),
+    overwriteDiskVersion: useLatestCallback(input.overwriteDiskVersion),
+    saveConflictAs: useLatestCallback(input.saveConflictAs),
+    openConflictDialog: useLatestCallback(input.openConflictDialog),
+    closeConflictDialog: useLatestCallback(input.closeConflictDialog),
     loadAppAndBank: useLatestCallback(input.loadAppAndBank),
     recoverFromCandidate: useLatestCallback(input.recoverFromCandidate),
     flushPendingChanges: useLatestCallback(input.flushPendingChanges),

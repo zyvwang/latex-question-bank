@@ -45,7 +45,10 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
   app.use(rejectForeignMutatingOrigins);
   app.use("/assets", dynamicWorkspaceStatic("assetDir"));
   app.use("/tmp", dynamicWorkspaceStatic("tempDir"));
-  app.use("/api", createWorkspaceRouter({ jsonBodyLimitBytes }));
+  app.use(
+    "/api",
+    createWorkspaceRouter({ bankBodyLimitBytes, jsonBodyLimitBytes })
+  );
   app.use(
     "/api",
     createBankRouter({ bankBodyLimitBytes, jsonBodyLimitBytes })

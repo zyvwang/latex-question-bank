@@ -6,7 +6,7 @@ import type {
   QuestionItem,
   RecoveryCandidate
 } from "../../shared/types.js";
-import type { Notice, SaveState } from "./controllerTypes.js";
+import type { Notice, SaveIssue, SaveState } from "./controllerTypes.js";
 import type { useCompileExportActions } from "./useCompileExportActions.js";
 import type { useBankSettingsActions } from "./useBankSettingsActions.js";
 import type { useAppView } from "./useAppView.js";
@@ -24,6 +24,8 @@ export interface ContextValueInput {
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
   saveState: SaveState;
+  saveIssue: SaveIssue | null;
+  isConflictDialogOpen: boolean;
   activeModule: ModuleKind;
   appView: ReturnType<typeof useAppView>;
   derived: ReturnType<typeof useQuestionDerivedData>;
@@ -44,6 +46,12 @@ export interface ContextValueInput {
   commitSourceNumber: (id: string, sourceNumber: string) => boolean;
   moveItemToChapter: (id: string, chapterId: string | null) => boolean;
   retrySave: () => Promise<void>;
+  refreshSaveConflict: () => Promise<void>;
+  useDiskVersion: () => Promise<void>;
+  overwriteDiskVersion: () => Promise<void>;
+  saveConflictAs: () => Promise<void>;
+  openConflictDialog: () => void;
+  closeConflictDialog: () => void;
   loadAppAndBank: () => Promise<void>;
   recoverFromCandidate: (candidateId: string) => Promise<void>;
   flushPendingChanges: () => Promise<void>;

@@ -9,6 +9,7 @@ import type {
   ExportRequest,
   RecoverBankRequest,
   RevealExportRequest,
+  SaveBankAsRequest,
   SaveBankRequest,
   TexPathRequest,
   WorkspaceMoveRequest,
@@ -34,6 +35,31 @@ export function validateSaveBankRequest(
       value: {
         workspacePath: requiredNonEmptyString(value, "workspacePath"),
         baseRevision: requiredRevision(value, "baseRevision"),
+        bank: parseV2Bank(value.bank)
+      }
+    };
+  } catch (error) {
+    if (error instanceof ValidationError) return invalid(error.message);
+    throw error;
+  }
+}
+
+export function validateSaveBankAsRequest(
+  value: unknown
+): ValidationResult<SaveBankAsRequest> {
+  try {
+    if (!isRecord(value)) throw new ValidationError("请求体必须是对象。");
+    return {
+      ok: true,
+      value: {
+        sourceWorkspacePath: requiredNonEmptyString(
+          value,
+          "sourceWorkspacePath"
+        ),
+        targetWorkspacePath: requiredNonEmptyString(
+          value,
+          "targetWorkspacePath"
+        ),
         bank: parseV2Bank(value.bank)
       }
     };

@@ -19,6 +19,7 @@ import { getWorkspaceDirs } from "../../server/workspace-storage.js";
 
 const workspacePath = path.resolve(".tmp/vitest-symlink-workspace");
 const externalDir = path.resolve(".tmp/vitest-symlink-external");
+const saveAsPath = path.resolve(".tmp/vitest-symlink-save-as");
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 async function createEmptyWorkspaceViaApi(app: ReturnType<typeof createApiApp>) {
@@ -38,6 +39,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
     await rm(appDataDir, { recursive: true, force: true });
     await rm(workspacePath, { recursive: true, force: true });
     await rm(externalDir, { recursive: true, force: true });
+    await rm(saveAsPath, { recursive: true, force: true });
   });
 
   it("accepts real directories, allows missing ones, and rejects symlinks", async () => {
@@ -162,5 +164,77 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .post("/api/assets")
       .attach("file", pngSignature, { filename: "ok.png", contentType: "image/png" })
       .expect(200);
+  });
+
+  it("rejects save-as when a referenced asset file is a symlink", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    await mkdir(externalDir, { recursive: true });
+    const externalFile = path.join(externalDir, "private.png");
+    await writeFile(externalFile, pngSignature);
+    const assetFileName = "linked.png";
+    await symlink(
+      externalFile,
+      path.join(workspacePath, "assets", assetFileName)
+    );
+    await mkdir(saveAsPath, { recursive: true });
+    const sample = createSampleBank();
+    const bankWithLinkedAsset = {
+      ...sample,
+      items: sample.items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              assets: [
+                {
+                  id: "linked-asset",
+                  fileName: assetFileName,
+                  originalName: assetFileName,
+                  relativePath: `assets/${assetFileName}`,
+                  mimeType: "image/png",
+                  size: pngSignature.length,
+                  uploadedAt: "2026-01-01T00:00:00.000Z"
+                }
+              ]
+            }
+          : item
+      )
+    };
+
+    await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: saveAsPath,
+        bank: bankWithLinkedAsset
+      })
+      .expect(403)
+      .expect(({ body }) =>
+        expect(body.code).toBe("WORKSPACE_SAVE_AS_ASSET_INVALID")
+      );
+
+    expect(await readdir(saveAsPath)).toEqual([]);
+    expect(await readFile(externalFile)).toEqual(pngSignature);
+  });
+
+  it("rejects a save-as target that is a symlink", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    await mkdir(externalDir, { recursive: true });
+    await symlink(externalDir, saveAsPath);
+
+    await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: saveAsPath,
+        bank: createSampleBank()
+      })
+      .expect(403)
+      .expect(({ body }) =>
+        expect(body.code).toBe("WORKSPACE_SAVE_AS_TARGET_SYMLINK")
+      );
+
+    expect(await readdir(externalDir)).toEqual([]);
   });
 });

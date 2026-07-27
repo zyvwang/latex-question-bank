@@ -108,9 +108,20 @@ export interface BankSnapshot {
   bank: Bank;
 }
 
+export interface BankHead {
+  workspacePath: string;
+  revision: string;
+}
+
 export interface SaveBankRequest {
   workspacePath: string;
   baseRevision: string;
+  bank: Bank;
+}
+
+export interface SaveBankAsRequest {
+  sourceWorkspacePath: string;
+  targetWorkspacePath: string;
   bank: Bank;
 }
 
@@ -143,6 +154,11 @@ export interface AppInfo {
   texStatus: TexStatus;
   isDesktop: boolean;
   setupRequired: boolean;
+}
+
+export interface SaveBankAsResponse {
+  appInfo: AppInfo;
+  snapshot: BankSnapshot;
 }
 
 export interface CompileResult {

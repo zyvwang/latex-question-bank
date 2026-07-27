@@ -1,6 +1,11 @@
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Bank, BankSnapshot, SaveBankRequest } from "../shared/types.js";
+import type {
+  Bank,
+  BankHead,
+  BankSnapshot,
+  SaveBankRequest
+} from "../shared/types.js";
 import { createEmptyBank } from "./bank-schema.js";
 import { writeJsonFileAtomic } from "./json-file.js";
 import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
@@ -45,6 +50,34 @@ export async function readBankSnapshot(): Promise<BankSnapshot> {
   } catch (error) {
     if (isNotFound(error)) {
       throw new StorageError("当前工作区缺少 bank.json。", "WORKSPACE_MISSING", 404);
+    }
+    throw error;
+  }
+}
+
+export async function readBankHead(): Promise<BankHead> {
+  const state = await readAppState();
+  if (!state.currentWorkspacePath) {
+    const bank = createEmptyBank();
+    return {
+      workspacePath: "",
+      revision: revisionForContent(serializeJson(bank))
+    };
+  }
+  const dirs = getWorkspaceDirs(state.currentWorkspacePath);
+  try {
+    const raw = await readFile(dirs.bankPath, "utf8");
+    return {
+      workspacePath: dirs.workspaceDir,
+      revision: revisionForContent(raw)
+    };
+  } catch (error) {
+    if (isNotFound(error)) {
+      throw new StorageError(
+        "当前工作区缺少 bank.json。",
+        "WORKSPACE_MISSING",
+        404
+      );
     }
     throw error;
   }

@@ -116,6 +116,63 @@
   background: var(--coral);
   border-color: var(--coral);
 }
+.conflictDialog { width: min(650px, 100%); }
+.conflictDialog header { align-items: start; }
+.conflictDialog header span {
+  display: block;
+  margin-top: 5px;
+  white-space: normal;
+  line-height: 1.6;
+}
+.conflictSummary {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+}
+.conflictSummary dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.conflictSummary dl div {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.conflictSummary dt { color: var(--muted); font-size: 12px; }
+.conflictSummary dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+.conflictSummary p,
+.conflictLoading,
+.conflictReadError {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.conflictReadError { color: var(--coral); }
+.conflictLoading { color: var(--muted); }
+.conflictActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.conflictActions button { width: 100%; }
+.conflictActions button:last-child { grid-column: 1 / -1; }
+.conflictDiscard { color: var(--coral); }
+.conflictDialog footer span {
+  color: var(--muted);
+  font-size: 12px;
+}
 
 @media (hover: hover) {
   .contextMenu button:hover { color: var(--teal-strong); background: var(--teal-soft); }

@@ -1,4 +1,10 @@
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile
+} from "node:fs/promises";
 import path from "node:path";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -8,10 +14,14 @@ import { createSampleBank } from "../../server/bank-schema.js";
 import { revisionForContent } from "../../server/storage-utils.js";
 
 const workspacePath = path.resolve(".tmp/vitest-api-workspace");
+const saveAsWorkspacePath = path.resolve(
+  ".tmp/vitest-api-save-as-workspace"
+);
 
 beforeEach(async () => {
   await rm(appDataDir, { recursive: true, force: true });
   await rm(workspacePath, { recursive: true, force: true });
+  await rm(saveAsWorkspacePath, { recursive: true, force: true });
 });
 
 describe("API validation", () => {
@@ -53,6 +63,213 @@ describe("API validation", () => {
       .send({})
       .expect(404)
       .expect(({ body }) => expect(body.code).toBe("API_NOT_FOUND"));
+  });
+
+  it("returns the raw bank revision even when the disk JSON is invalid", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const invalidRaw = "{ externally broken";
+    await writeFile(
+      path.join(workspacePath, "bank.json"),
+      invalidRaw,
+      "utf8"
+    );
+
+    await request(app)
+      .get("/api/bank/head")
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.workspacePath).toBe(workspacePath);
+        expect(body.revision).toBe(revisionForContent(invalidRaw));
+      });
+    await request(app).get("/api/bank").expect(400);
+  });
+
+  it("saves the current in-memory bank as an independent workspace", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const sample = createSampleBank();
+    const referencedFile = "referenced.png";
+    const unreferencedFile = "old.png";
+    await writeFile(
+      path.join(workspacePath, "assets", referencedFile),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    );
+    await writeFile(
+      path.join(workspacePath, "assets", unreferencedFile),
+      Buffer.from("old")
+    );
+    const bankWithAsset = {
+      ...sample,
+      items: sample.items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              assets: [
+                {
+                  id: "asset-one",
+                  fileName: referencedFile,
+                  originalName: "source.png",
+                  relativePath: `assets/${referencedFile}`,
+                  mimeType: "image/png",
+                  size: 4,
+                  uploadedAt: "2026-01-01T00:00:00.000Z"
+                }
+              ]
+            }
+          : item
+      )
+    };
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+
+    const response = await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: saveAsWorkspacePath,
+        bank: bankWithAsset
+      })
+      .expect(200);
+
+    expect(response.body.appInfo.currentWorkspacePath).toBe(
+      saveAsWorkspacePath
+    );
+    expect(response.body.snapshot.bank).toEqual(bankWithAsset);
+    expect(
+      await readFile(
+        path.join(saveAsWorkspacePath, "assets", referencedFile)
+      )
+    ).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    expect(
+      await readdir(path.join(saveAsWorkspacePath, "assets"))
+    ).not.toContain(unreferencedFile);
+    expect(await readdir(saveAsWorkspacePath)).toEqual(
+      expect.arrayContaining([".tmp", "assets", "bank.json", "exports"])
+    );
+    expect(await readdir(saveAsWorkspacePath)).not.toContain(".history");
+  });
+
+  it("leaves the current workspace unchanged when save-as cannot commit", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "keep.txt"),
+      "keep",
+      "utf8"
+    );
+
+    await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: saveAsWorkspacePath,
+        bank: createSampleBank()
+      })
+      .expect(400)
+      .expect(({ body }) =>
+        expect(body.code).toBe("WORKSPACE_SAVE_AS_TARGET_NOT_EMPTY")
+      );
+
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
+    expect(
+      await readFile(path.join(saveAsWorkspacePath, "keep.txt"), "utf8")
+    ).toBe("keep");
+
+    await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: workspacePath,
+        bank: createSampleBank()
+      })
+      .expect(400)
+      .expect(({ body }) =>
+        expect(body.code).toBe("WORKSPACE_SAVE_AS_SAME_PATH")
+      );
+  });
+
+  it("applies the bank payload limit to save-as requests", async () => {
+    const bootstrapApp = createApiApp();
+    await request(bootstrapApp)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const saveAsRequest = {
+      sourceWorkspacePath: workspacePath,
+      targetWorkspacePath: saveAsWorkspacePath,
+      bank: createSampleBank()
+    };
+    const requestBytes = Buffer.byteLength(JSON.stringify(saveAsRequest));
+
+    await request(createApiApp({
+      bankBodyLimitBytes: requestBytes - 1
+    }))
+      .post("/api/workspaces/save-as")
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify(saveAsRequest))
+      .expect(413)
+      .expect(({ body }) => {
+        expect(body.code).toBe("BANK_PAYLOAD_TOO_LARGE");
+        expect(body.error).toContain("64 MiB");
+      });
+  });
+
+  it("fails save-as atomically when a referenced asset is missing", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const sample = createSampleBank();
+    const bankWithMissingAsset = {
+      ...sample,
+      items: sample.items.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              assets: [
+                {
+                  id: "asset-missing",
+                  fileName: "missing.png",
+                  originalName: "missing.png",
+                  relativePath: "assets/missing.png",
+                  mimeType: "image/png",
+                  size: 1,
+                  uploadedAt: "2026-01-01T00:00:00.000Z"
+                }
+              ]
+            }
+          : item
+      )
+    };
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+
+    await request(app)
+      .post("/api/workspaces/save-as")
+      .send({
+        sourceWorkspacePath: workspacePath,
+        targetWorkspacePath: saveAsWorkspacePath,
+        bank: bankWithMissingAsset
+      })
+      .expect(400)
+      .expect(({ body }) =>
+        expect(body.code).toBe("WORKSPACE_SAVE_AS_ASSET_MISSING")
+      );
+
+    expect(await readdir(saveAsWorkspacePath)).toEqual([]);
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
   });
 
   it("reports workspace lifecycle failures with stable codes", async () => {

@@ -2,6 +2,7 @@ import type {
   AppInfo,
   AssetUploadResponse,
   Bank,
+  BankHead,
   BankSnapshot,
   CompileResponse,
   ExportDefaultNameResponse,
@@ -9,6 +10,8 @@ import type {
   ExportResponse,
   QuestionItem,
   RecoveryCandidate,
+  SaveBankAsRequest,
+  SaveBankAsResponse,
   SaveBankRequest
 } from "../../shared/types.js";
 import {
@@ -23,6 +26,10 @@ export async function fetchAppInfo(): Promise<AppInfo> {
 
 export async function fetchBank(): Promise<BankSnapshot> {
   return fetchJson<BankSnapshot>("/api/bank");
+}
+
+export async function fetchBankHead(): Promise<BankHead> {
+  return fetchJson<BankHead>("/api/bank/head");
 }
 
 export async function saveBank(request: SaveBankRequest): Promise<BankSnapshot> {
@@ -57,6 +64,23 @@ export async function createSampleWorkspace(workspacePath: string): Promise<AppI
 
 export async function createEmptyWorkspace(workspacePath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/workspaces/create-empty", { workspacePath });
+}
+
+export async function saveBankAs(request: SaveBankAsRequest): Promise<SaveBankAsResponse> {
+  const body = JSON.stringify(request);
+  if (new TextEncoder().encode(body).byteLength > BANK_SAVE_BODY_LIMIT_BYTES) {
+    throw new ApiRequestError(
+      BANK_PAYLOAD_TOO_LARGE_MESSAGE,
+      413,
+      BANK_PAYLOAD_TOO_LARGE_CODE
+    );
+  }
+  const response = await fetch("/api/workspaces/save-as", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body
+  });
+  return readJsonResponse<SaveBankAsResponse>(response);
 }
 
 export async function openExistingWorkspace(workspacePath: string): Promise<AppInfo> {

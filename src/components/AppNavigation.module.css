@@ -58,6 +58,15 @@
 }
 .saving { color: var(--amber); }
 .saved { color: var(--teal-strong); }
+.conflict {
+  color: var(--coral);
+  border-color: oklch(0.79 0.08 35);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .conflict:hover { background: oklch(0.95 0.035 30); }
+}
 
 @media (max-width: 760px) {
   .navigation { grid-template-columns: 1fr auto; }

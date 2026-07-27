@@ -36,12 +36,14 @@ const appInfo: AppInfo = {
 
 let currentBank: Bank;
 let savedBanks: Bank[];
+let forceSaveConflict: boolean;
 /** useBeforeCloseFlush 注册进来的关闭监听器,等同于主进程发 app:before-close。 */
 let closeListener: (() => Promise<void>) | null;
 
 beforeEach(() => {
   currentBank = sameChapterBank();
   savedBanks = [];
+  forceSaveConflict = false;
   closeListener = null;
   vi.stubGlobal("fetch", vi.fn(handleFetch));
   window.lqb = {
@@ -121,6 +123,25 @@ describe("close boundary commits focused drafts", () => {
 
     await expect(closeListener!()).resolves.toBeUndefined();
   });
+
+  it("rejects close immediately while a save conflict is unresolved", async () => {
+    forceSaveConflict = true;
+    const user = userEvent.setup();
+    render(<App />);
+    const input = await screen.findByLabelText("原编号");
+
+    await user.clear(input);
+    await user.type(input, "仍在内存中的修改");
+    await user.tab();
+    expect(await screen.findByRole("button", {
+      name: "保存冲突 · 处理"
+    })).toBeInTheDocument();
+
+    await expect(closeListener!()).rejects.toThrow(
+      /题库已被其他程序修改/
+    );
+    expect(savedBanks).toEqual([]);
+  });
 });
 
 /**
@@ -155,6 +176,12 @@ async function handleFetch(
   }
   if (url === "/api/bank" && init?.method === "PUT") {
     const request = JSON.parse(String(init.body)) as { bank: Bank };
+    if (forceSaveConflict) {
+      return json({
+        error: "题库已被其他程序修改。",
+        code: "BANK_CONFLICT"
+      }, 409);
+    }
     currentBank = request.bank;
     savedBanks.push(request.bank);
     return json({

@@ -103,9 +103,14 @@ export function apiErrorHandler(
   _next: express.NextFunction
 ) {
   if (isEntityTooLarge(error)) {
+    const pathname = new URL(
+      request.originalUrl,
+      "http://localhost"
+    ).pathname;
     const isBankSave =
-      request.method === "PUT" &&
-      new URL(request.originalUrl, "http://localhost").pathname === "/api/bank";
+      (request.method === "PUT" && pathname === "/api/bank") ||
+      (request.method === "POST" &&
+        pathname === "/api/workspaces/save-as");
     sendApiError(
       response,
       413,

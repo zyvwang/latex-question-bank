@@ -938,15 +938,17 @@ describe("App UI", () => {
     expect(saveBodies[1].bank.items[0].sourceNumber).toBe("最终修改");
   });
 
-  it("retains a failed save and retries it on demand", async () => {
+  it("pauses a failed save and retries only the latest bank on demand", async () => {
     const user = userEvent.setup();
     let saveAttempts = 0;
+    const saveBodies: Bank[] = [];
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       if (String(input) === "/api/bank" && init?.method === "PUT") {
         saveAttempts += 1;
         const body = JSON.parse(String(init.body)) as { workspacePath: string; bank: Bank };
+        saveBodies.push(body.bank);
         if (saveAttempts === 1) {
-          return json({ error: "题库已被其他程序修改。", code: "BANK_CONFLICT" }, 409);
+          return json({ error: "服务器暂时不可用。", code: "INTERNAL_ERROR" }, 500);
         }
         return json({ workspacePath: body.workspacePath, revision: "revision-retried", bank: body.bank });
       }
@@ -957,12 +959,273 @@ describe("App UI", () => {
     await screen.findByText("2024-1");
     const sourceInput = screen.getByDisplayValue("2024-1");
     await user.clear(sourceInput);
-    await user.type(sourceInput, "等待重试");
+    await user.type(sourceInput, "第一次失败");
     await user.tab();
     await new Promise((resolve) => window.setTimeout(resolve, 650));
 
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "等待重试的最新版本");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    expect(saveAttempts).toBe(1);
+
     await user.click(await screen.findByRole("button", { name: "重试保存" }));
     await waitFor(() => expect(saveAttempts).toBe(2));
+    expect(saveBodies[1].items[0].sourceNumber).toBe("等待重试的最新版本");
+    expect(await screen.findByText("已保存")).toBeInTheDocument();
+  });
+
+  it("freezes autosave on a persistent bank conflict without a request loop", async () => {
+    const user = userEvent.setup();
+    let saveAttempts = 0;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/bank" && init?.method === "PUT") {
+        saveAttempts += 1;
+        return json(
+          { error: "题库已被其他程序修改。", code: "BANK_CONFLICT" },
+          409
+        );
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+    await screen.findByText("2024-1");
+    const sourceInput = screen.getByDisplayValue("2024-1");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "冲突后的本地修改");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+
+    expect(await screen.findByRole("dialog", {
+      name: "题库保存冲突"
+    })).toBeInTheDocument();
+    expect(saveAttempts).toBe(1);
+    expect(
+      screen.queryByRole("button", { name: "重试保存" })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "暂时关闭" }));
+
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "冲突期间继续编辑");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    expect(saveAttempts).toBe(1);
+    expect(screen.getByRole("button", {
+      name: "保存冲突 · 处理"
+    })).toBeInTheDocument();
+  });
+
+  it("overwrites a conflict with the latest disk revision and latest local bank", async () => {
+    const user = userEvent.setup();
+    const saveRequests: Array<{
+      baseRevision: string;
+      bank: Bank;
+      workspacePath: string;
+    }> = [];
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/bank" && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as {
+          baseRevision: string;
+          bank: Bank;
+          workspacePath: string;
+        };
+        saveRequests.push(body);
+        if (saveRequests.length === 1) {
+          return json(
+            { error: "题库已被其他程序修改。", code: "BANK_CONFLICT" },
+            409
+          );
+        }
+        return json({
+          workspacePath: body.workspacePath,
+          revision: "revision-overwritten",
+          bank: body.bank
+        });
+      }
+      if (url === "/api/bank/head") {
+        return json({
+          workspacePath: "/tmp/latex-bank",
+          revision: "latest-disk-revision"
+        });
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+    await screen.findByText("2024-1");
+    const sourceInput = screen.getByDisplayValue("2024-1");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "引发冲突");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    await screen.findByRole("dialog", { name: "题库保存冲突" });
+    await user.click(screen.getByRole("button", { name: "暂时关闭" }));
+
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "最终本地版本");
+    await user.tab();
+    await user.click(screen.getByRole("button", {
+      name: "保存冲突 · 处理"
+    }));
+    await user.click(screen.getByRole("button", {
+      name: "用本地版本覆盖"
+    }));
+
+    await waitFor(() => expect(saveRequests).toHaveLength(2));
+    expect(saveRequests[1].baseRevision).toBe("latest-disk-revision");
+    expect(saveRequests[1].bank.items[0].sourceNumber).toBe("最终本地版本");
+    expect(await screen.findByText("已保存")).toBeInTheDocument();
+  });
+
+  it("can discard local conflict edits and resume from the latest disk revision", async () => {
+    const user = userEvent.setup();
+    const diskBank = {
+      ...bank,
+      items: bank.items.map((item, index) =>
+        index === 0
+          ? { ...item, sourceNumber: "磁盘版本" }
+          : item
+      )
+    };
+    let bankReads = 0;
+    const saveRequests: Array<{
+      baseRevision: string;
+      bank: Bank;
+      workspacePath: string;
+    }> = [];
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/bank" && !init) {
+        bankReads += 1;
+        return bankReads === 1
+          ? json({
+              workspacePath: "/tmp/latex-bank",
+              revision: "revision-1",
+              bank
+            })
+          : json({
+              workspacePath: "/tmp/latex-bank",
+              revision: "disk-revision",
+              bank: diskBank
+            });
+      }
+      if (url === "/api/bank" && init?.method === "PUT") {
+        const request = JSON.parse(String(init.body)) as {
+          baseRevision: string;
+          bank: Bank;
+          workspacePath: string;
+        };
+        saveRequests.push(request);
+        if (saveRequests.length === 1) {
+          return json(
+            { error: "题库已被其他程序修改。", code: "BANK_CONFLICT" },
+            409
+          );
+        }
+        return json({
+          workspacePath: request.workspacePath,
+          revision: "after-disk-reload",
+          bank: request.bank
+        });
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+    await screen.findByText("2024-1");
+    const sourceInput = screen.getByDisplayValue("2024-1");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "将被放弃的本地版本");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    const useDiskButton = await screen.findByRole("button", {
+      name: "采用磁盘版本"
+    });
+    await waitFor(() => expect(useDiskButton).toBeEnabled());
+    await user.click(useDiskButton);
+
+    expect(await screen.findByDisplayValue("磁盘版本"))
+      .toBeInTheDocument();
+    const reloadedInput = screen.getByDisplayValue("磁盘版本");
+    await user.clear(reloadedInput);
+    await user.type(reloadedInput, "磁盘基础上的新修改");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+
+    await waitFor(() => expect(saveRequests).toHaveLength(2));
+    expect(saveRequests[1].baseRevision).toBe("disk-revision");
+    expect(saveRequests[1].bank.items[0].sourceNumber).toBe(
+      "磁盘基础上的新修改"
+    );
+  });
+
+  it("saves a conflicted local bank as a new independent workspace", async () => {
+    const user = userEvent.setup();
+    const selectWorkspaceDirectory = vi.fn().mockResolvedValue(
+      "/tmp/conflict-copy"
+    );
+    window.lqb = {
+      platform: "darwin",
+      selectWorkspaceDirectory,
+      openPath: vi.fn().mockResolvedValue(""),
+      revealExportFolder: vi.fn().mockResolvedValue(true),
+      openExternal: vi.fn().mockResolvedValue(true),
+      onBeforeClose: vi.fn(() => () => undefined)
+    };
+    let requestedBank: Bank | null = null;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/bank" && init?.method === "PUT") {
+        return json(
+          { error: "题库已被其他程序修改。", code: "BANK_CONFLICT" },
+          409
+        );
+      }
+      if (url === "/api/workspaces/save-as") {
+        const request = JSON.parse(String(init?.body)) as {
+          bank: Bank;
+          targetWorkspacePath: string;
+        };
+        requestedBank = request.bank;
+        const nextAppInfo = {
+          ...appInfo,
+          currentWorkspaceName: "conflict-copy",
+          currentWorkspacePath: request.targetWorkspacePath,
+          appState: {
+            ...appInfo.appState,
+            currentWorkspacePath: request.targetWorkspacePath
+          }
+        };
+        return json({
+          appInfo: nextAppInfo,
+          snapshot: {
+            workspacePath: request.targetWorkspacePath,
+            revision: "copy-revision",
+            bank: request.bank
+          }
+        });
+      }
+      return handleFetch(input, init);
+    });
+
+    render(<App />);
+    await screen.findByText("2024-1");
+    const sourceInput = screen.getByDisplayValue("2024-1");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "需要另存的本地版本");
+    await user.tab();
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    await user.click(await screen.findByRole("button", {
+      name: "另存为新题库"
+    }));
+
+    await waitFor(() => expect(requestedBank).not.toBeNull());
+    expect(requestedBank!.items[0].sourceNumber).toBe(
+      "需要另存的本地版本"
+    );
+    expect(await screen.findByText("conflict-copy")).toBeInTheDocument();
     expect(await screen.findByText("已保存")).toBeInTheDocument();
   });
 
@@ -1003,6 +1266,12 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   if (url === "/api/app") return json(appInfo);
   if (url === "/api/bank" && !init) {
     return json({ workspacePath: "/tmp/latex-bank", revision: "revision-1", bank });
+  }
+  if (url === "/api/bank/head") {
+    return json({
+      workspacePath: "/tmp/latex-bank",
+      revision: "revision-1"
+    });
   }
   if (url === "/api/bank" && init?.method === "PUT") {
     const request = JSON.parse(String(init.body)) as { workspacePath: string; bank: Bank };

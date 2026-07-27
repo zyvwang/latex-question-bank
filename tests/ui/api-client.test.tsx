@@ -4,7 +4,8 @@ import { BANK_SAVE_BODY_LIMIT_BYTES } from "../../shared/api-limits.js";
 import {
   ApiRequestError,
   fetchAppInfo,
-  saveBank
+  saveBank,
+  saveBankAs
 } from "../../src/api/client.js";
 
 vi.mock("../../shared/api-limits.js", async (importOriginal) => {
@@ -63,6 +64,23 @@ describe("bank save client limit", () => {
       revision: "b".repeat(64)
     });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the same client limit to save-as", async () => {
+    const oversizedBank = createSampleBank();
+    oversizedBank.settings.preamble = "x".repeat(32 * 1024);
+
+    await expect(
+      saveBankAs({
+        sourceWorkspacePath: "/tmp/source",
+        targetWorkspacePath: "/tmp/target",
+        bank: oversizedBank
+      })
+    ).rejects.toMatchObject({
+      status: 413,
+      code: "BANK_PAYLOAD_TOO_LARGE"
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

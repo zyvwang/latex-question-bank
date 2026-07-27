@@ -178,6 +178,80 @@ test("persists an edited item in the packaged desktop runtime", async () => {
   }
 });
 
+test("pauses on a real disk conflict and blocks close without overwriting either version", async () => {
+  const workspacePath = path.resolve(
+    ".tmp/playwright-save-conflict-workspace"
+  );
+  const appDataPath = path.resolve(
+    ".tmp/playwright-save-conflict-app-data"
+  );
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  const initialBank = createSampleBank();
+  const bankPath = path.join(workspacePath, "bank.json");
+  await writeFile(
+    bankPath,
+    `${JSON.stringify(initialBank, null, 2)}\n`,
+    "utf8"
+  );
+
+  const electronApp = await electron.launch({
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
+    }
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
+    const externalBank = {
+      ...initialBank,
+      settings: {
+        ...initialBank.settings,
+        preamble: `${initialBank.settings.preamble}\n% external edit`
+      }
+    };
+    await writeFile(
+      bankPath,
+      `${JSON.stringify(externalBank, null, 2)}\n`,
+      "utf8"
+    );
+
+    await page.getByLabel("原编号").fill("desktop-local-conflict");
+    await page.getByLabel("原编号").press("Tab");
+    await expect(page.getByRole("dialog", {
+      name: "题库保存冲突"
+    })).toBeVisible();
+    await page.getByRole("button", { name: "暂时关闭" }).click();
+
+    await page.getByLabel("原编号").fill("desktop-local-latest");
+    await page.getByLabel("原编号").press("Tab");
+    await page.waitForTimeout(800);
+    const diskAfterFurtherEditing = JSON.parse(
+      await readFile(bankPath, "utf8")
+    ) as Bank;
+    expect(diskAfterFurtherEditing.items[0].sourceNumber).toBe("示例 1");
+    expect(diskAfterFurtherEditing.settings.preamble).toContain(
+      "% external edit"
+    );
+
+    await installMessageBoxRecorder(electronApp, 0);
+    await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
+    await expect.poll(() => readMessageBoxCalls(electronApp)).toHaveLength(1);
+    const [dialog] = await readMessageBoxCalls(electronApp);
+    expect(dialog.detail).toContain("题库已被其他程序修改");
+    await expect(page.getByRole("button", {
+      name: "保存冲突 · 处理"
+    })).toBeVisible();
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+});
+
 test("keeps MathJax previews working in the editor and heatmap", async () => {
   const workspacePath = path.resolve(".tmp/playwright-preview-workspace");
   const appDataPath = path.resolve(".tmp/playwright-preview-app-data");

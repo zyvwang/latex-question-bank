@@ -18,7 +18,9 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 8. Launch the desktop app with `npm run desktop:dev` and smoke-test:
    - first workspace setup
    - editing followed immediately by app quit and restart
-   - save conflict and retry feedback
+   - generic save failure pauses automatic requests and retries only once on demand
+   - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
+   - conflict save-as copies referenced images only and rejects non-empty or symlinked targets without changing the current workspace
    - missing recent workspace relocation/removal
    - damaged `bank.json` recovery from `.bak` or `.history/`
    - PNG/JPEG upload and disguised-file rejection

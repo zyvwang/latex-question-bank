@@ -18,7 +18,14 @@ import type {
   RecoveryCandidate,
   ReviewOption
 } from "../../shared/types.js";
-import type { AddMenu, AddMode, Notice, ReorderMenu, SaveState } from "../hooks/controllerTypes.js";
+import type {
+  AddMenu,
+  AddMode,
+  Notice,
+  ReorderMenu,
+  SaveIssue,
+  SaveState
+} from "../hooks/controllerTypes.js";
 import type { AppView } from "../hooks/useAppView.js";
 import type { HeatmapMode } from "../heatmap.js";
 import type { QuestionListMode } from "../hooks/useSelectionFilters.js";
@@ -26,11 +33,19 @@ import type { DropPosition } from "../itemOrder.js";
 
 export interface LifecycleContextValue {
   saveState: SaveState;
+  saveIssue: SaveIssue | null;
+  isConflictDialogOpen: boolean;
   notice: Notice | null;
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
   setNotice: (notice: Notice | null) => void;
   retrySave: () => Promise<void>;
+  refreshSaveConflict: () => Promise<void>;
+  useDiskVersion: () => Promise<void>;
+  overwriteDiskVersion: () => Promise<void>;
+  saveConflictAs: () => Promise<void>;
+  openConflictDialog: () => void;
+  closeConflictDialog: () => void;
   retryInitialLoad: () => Promise<void>;
   recoverFromCandidate: (candidateId: string) => Promise<void>;
   flushPendingChanges: () => Promise<void>;

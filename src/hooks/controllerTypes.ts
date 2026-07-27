@@ -1,7 +1,23 @@
-import type { ExportOrderMode, ModuleKind } from "../../shared/types.js";
+import type {
+  BankSnapshot,
+  ExportOrderMode,
+  ModuleKind
+} from "../../shared/types.js";
 import type { DropPosition } from "../itemOrder.js";
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
+export type SaveIssue =
+  | {
+      kind: "error";
+      message: string;
+      code?: string;
+    }
+  | {
+      kind: "conflict";
+      message: string;
+      diskSnapshot: BankSnapshot | null;
+      diskReadError: string | null;
+    };
 export type NoticeAction =
   | { type: "open-url"; href: string; label?: string }
   | { type: "reveal-export"; exportName: string; label: string };
