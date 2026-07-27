@@ -45,6 +45,7 @@ jobs:
             texlive-lang-chinese \
             texlive-latex-recommended \
             texlive-latex-extra \
+            texlive-science \
             texlive-pictures \
             texlive-fonts-recommended
       - name: Verify real PDF export
