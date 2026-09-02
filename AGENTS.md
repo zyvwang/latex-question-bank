@@ -110,6 +110,7 @@ React UI
 - 每次应用会话中的首次 bank 修改会在 `.history/` 记录快照，最多保留 10 个。
 - 恢复接口只接受服务端枚举出的候选 ID，不接受任意路径。
 - workspace 顶层子目录（`.tmp`、`.history`、`assets`、`exports`）在读、写、删、rename 前必须经 `server/workspace-paths.ts` 的 `assertRealWorkspaceSubdir` 做符号链接与 realpath 校验（fail-closed）：子目录是符号链接或其真实路径逃逸出 workspace 时拒绝该次操作，避免跟随软链删除或覆盖外部文件。新增任何涉及 workspace 子目录的读写路径都要走该守卫。
+- 读取上述子目录里的单个文件时，还必须使用 `resolveRealWorkspaceFile` 逐层拒绝符号链接、非普通文件和 realpath 逃逸；不能只校验子目录后再直接调用 `readFile`、`copyFile` 或静态文件 middleware。
 
 涉及保存、恢复、导入导出、路径处理、图片上传、Electron IPC 或 TeX 命令执行的改动，要优先补充安全和错误路径测试。
 
@@ -143,6 +144,7 @@ React UI
 - 导出应先写入临时 staging，只有两个 PDF 都成功后再替换最终目录。
 - Electron preload 不暴露 `ipcRenderer`。新增 IPC 能力必须窄、可验证，并检查 sender。
 - 主窗口导航锁定到应用 origin；外部 HTTPS 或本地 PDF 链接交给系统浏览器。
+- Electron 主进程必须在启动 API、注册 IPC 或创建窗口前取得单实例锁；第二次启动只恢复、显示并聚焦既有窗口，不能启动第二套 API/存储进程。
 - 关闭和退出应用前必须尊重 renderer 的保存 flush 边界。该边界是两步：先提交当前聚焦元素上的草稿，再 flush 自动保存队列，见 `src/hooks/useBeforeCloseFlush.ts`。
 - 新增「打字 → 失焦提交」的字段（本地 draft + `onBlur={commit}`）时，失败分支必须 `setNotice({ type: "error", ... })`。关闭流程靠这条约定判断草稿是否被校验拒绝，拒绝时会中止关闭并把该文案交给主进程的「尚未保存」对话框；不设 error notice 的失败分支会让用户那次输入被静默丢弃。
 

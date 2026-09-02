@@ -44,8 +44,11 @@ let closeCheckPending = false;
 let closeCheckTimer: NodeJS.Timeout | null = null;
 let quitRequested = false;
 let allowAppQuit = false;
+let mainWindowCreation: Promise<BrowserWindow> | null = null;
 
-async function createWindow() {
+const isPrimaryInstance = app.requestSingleInstanceLock();
+
+async function createWindow(): Promise<BrowserWindow> {
   process.env.LQB_DESKTOP = "1";
   process.env.LQB_APP_DATA_DIR = app.getPath("userData");
   process.env.LQB_ROOT_DIR = app.getAppPath();
@@ -98,43 +101,74 @@ async function createWindow() {
   });
 
   await mainWindow.loadURL(appUrl);
+  return mainWindow;
 }
 
-app.whenReady().then(async () => {
-  if (process.platform === "darwin") {
-    app.setAboutPanelOptions({
-      applicationName: "LaTeX Question Bank",
-      applicationVersion: app.getVersion(),
-      copyright: "Copyright © 2026 LaTeX Question Bank contributors"
-    });
-  }
-  registerIpcHandlers();
-  await createWindow();
-
-  app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
-    }
-  });
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-app.on("before-quit", (event) => {
-  if (!allowAppQuit && mainWindow && !mainWindow.isDestroyed()) {
-    event.preventDefault();
-    quitRequested = true;
-    mainWindow.close();
+async function showOrCreateMainWindow(): Promise<void> {
+  await app.whenReady();
+  const existingWindow =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getAllWindows().find((window) => !window.isDestroyed());
+  if (existingWindow) {
+    mainWindow = existingWindow;
+    if (existingWindow.isMinimized()) existingWindow.restore();
+    if (!existingWindow.isVisible()) existingWindow.show();
+    existingWindow.focus();
     return;
   }
-  apiServer?.close();
-  apiServer = null;
-  apiServerUrl = null;
-});
+
+  if (!mainWindowCreation) {
+    mainWindowCreation = createWindow().finally(() => {
+      mainWindowCreation = null;
+    });
+  }
+  const window = await mainWindowCreation;
+  if (window.isMinimized()) window.restore();
+  if (!window.isVisible()) window.show();
+  window.focus();
+}
+
+if (!isPrimaryInstance) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    void showOrCreateMainWindow();
+  });
+
+  app.whenReady().then(async () => {
+    if (process.platform === "darwin") {
+      app.setAboutPanelOptions({
+        applicationName: "LaTeX Question Bank",
+        applicationVersion: app.getVersion(),
+        copyright: "Copyright © 2026 LaTeX Question Bank contributors"
+      });
+    }
+    registerIpcHandlers();
+    app.on("activate", () => {
+      void showOrCreateMainWindow();
+    });
+    await showOrCreateMainWindow();
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+
+  app.on("before-quit", (event) => {
+    if (!allowAppQuit && mainWindow && !mainWindow.isDestroyed()) {
+      event.preventDefault();
+      quitRequested = true;
+      mainWindow.close();
+      return;
+    }
+    apiServer?.close();
+    apiServer = null;
+    apiServerUrl = null;
+  });
+}
 
 function registerIpcHandlers() {
   ipcMain.handle("workspace:select-directory", async (event, title?: string) => {

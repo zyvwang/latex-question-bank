@@ -18,6 +18,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 8. Launch the desktop app with `npm run desktop:dev` and smoke-test:
    - first workspace setup
    - editing followed immediately by app quit and restart
+   - launching a second desktop instance exits the newcomer, restores/focuses the existing window, keeps one BrowserWindow/API server, and preserves pending edits through the normal close flush
    - generic save failure pauses automatic requests and retries only once on demand
    - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
    - conflict save-as copies referenced images only and rejects non-empty or symlinked targets without changing the current workspace

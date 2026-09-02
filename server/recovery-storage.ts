@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { BankSnapshot, RecoveryCandidate } from "../shared/types.js";
 import { writeJsonFileAtomic } from "./json-file.js";
@@ -12,6 +12,10 @@ import {
   serializeJson
 } from "./storage-utils.js";
 import { getCurrentWorkspaceDirs } from "./workspace-storage.js";
+import {
+  assertRealWorkspaceSubdir,
+  resolveRealWorkspaceFile
+} from "./workspace-paths.js";
 
 export async function listRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   return listRecoveryCandidatesForDirs(await getCurrentWorkspaceDirs());
@@ -21,20 +25,22 @@ async function listRecoveryCandidatesForDirs(dirs: WorkspaceDirs): Promise<Recov
   const candidates: RecoveryCandidate[] = [];
   const backup = await recoveryCandidateFromFile(
     "bank.json.bak",
-    `${dirs.bankPath}.bak`,
+    () => resolveRegularRecoveryFile(`${dirs.bankPath}.bak`),
     "backup"
   );
   if (backup) candidates.push(backup);
 
+  const historyDir = await assertRealWorkspaceSubdir(dirs.historyDir);
   try {
-    const files = (await readdir(dirs.historyDir))
-      .filter((file) => file.endsWith(".json"))
+    const files = (await readdir(historyDir, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => entry.name)
       .sort()
       .reverse();
     for (const file of files.slice(0, MAX_HISTORY_SNAPSHOTS)) {
       const candidate = await recoveryCandidateFromFile(
         file,
-        path.join(dirs.historyDir, file),
+        () => resolveRealWorkspaceFile(historyDir, file),
         "history"
       );
       if (candidate) candidates.push(candidate);
@@ -56,10 +62,21 @@ export async function recoverBank(candidateId: string): Promise<BankSnapshot> {
     if (!candidates.some((candidate) => candidate.id === candidateId)) {
       throw new StorageError("无效或已过期的恢复候选。", "RECOVERY_CANDIDATE_INVALID");
     }
-    const candidatePath =
-      candidateId === "bank.json.bak"
-        ? `${dirs.bankPath}.bak`
-        : path.join(dirs.historyDir, candidateId);
+    let candidatePath: string;
+    try {
+      candidatePath =
+        candidateId === "bank.json.bak"
+          ? await resolveRegularRecoveryFile(`${dirs.bankPath}.bak`)
+          : await resolveRealWorkspaceFile(dirs.historyDir, candidateId);
+    } catch (error) {
+      if (isNotFound(error)) {
+        throw new StorageError(
+          "无效或已过期的恢复候选。",
+          "RECOVERY_CANDIDATE_INVALID"
+        );
+      }
+      throw error;
+    }
     const bank = parseStoredBank(await readFile(candidatePath, "utf8"));
     await writeJsonFileAtomic(dirs.bankPath, bank, {
       backup: candidateId !== "bank.json.bak"
@@ -75,12 +92,13 @@ export async function recoverBank(candidateId: string): Promise<BankSnapshot> {
 
 async function recoveryCandidateFromFile(
   id: string,
-  filePath: string,
+  resolveFilePath: () => Promise<string>,
   source: RecoveryCandidate["source"]
 ): Promise<RecoveryCandidate | null> {
   try {
+    const filePath = await resolveFilePath();
     parseStoredBank(await readFile(filePath, "utf8"));
-    const metadata = await stat(filePath);
+    const metadata = await lstat(filePath);
     return {
       id,
       label: source === "backup" ? "最近一次保存前的备份" : `历史快照 ${metadata.mtime.toLocaleString()}`,
@@ -91,4 +109,22 @@ async function recoveryCandidateFromFile(
     if (isNotFound(error) || error instanceof StorageError) return null;
     throw error;
   }
+}
+
+async function resolveRegularRecoveryFile(filePath: string): Promise<string> {
+  const info = await lstat(filePath);
+  if (info.isSymbolicLink()) {
+    throw new StorageError(
+      `恢复文件不能是符号链接：${path.basename(filePath)}`,
+      "WORKSPACE_ENTRY_SYMLINK",
+      403
+    );
+  }
+  if (!info.isFile()) {
+    throw new StorageError(
+      `恢复文件不是普通文件：${path.basename(filePath)}`,
+      "WORKSPACE_ENTRY_INVALID"
+    );
+  }
+  return filePath;
 }

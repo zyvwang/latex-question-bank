@@ -1,5 +1,4 @@
-import { constants } from "node:fs";
-import { access, copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { LatexSettings, QuestionItem } from "../shared/types.js";
 import { buildFullLatex } from "./latex-renderer.js";
@@ -7,7 +6,11 @@ import {
   COMPILE_TEMP_PREFIX,
   pruneWorkspaceTempArtifacts
 } from "./temp-directory-cleanup.js";
-import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
+import { isNotFound } from "./storage-utils.js";
+import {
+  assertRealWorkspaceSubdir,
+  resolveRealWorkspaceFile
+} from "./workspace-paths.js";
 import {
   getCurrentWorkspaceDirs,
   getWorkspaceDirs
@@ -48,12 +51,15 @@ export async function copyAssetsForItems(
   );
   await Promise.all(
     [...fileNames].map(async (fileName) => {
-      const source = path.join(assetDir, path.basename(fileName));
       const target = path.join(targetAssetDir, path.basename(fileName));
       try {
-        await access(source, constants.R_OK);
+        const source = await resolveRealWorkspaceFile(
+          assetDir,
+          path.basename(fileName)
+        );
         await copyFile(source, target);
-      } catch {
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
         // Compilation reports missing assets while preserving the generated source.
       }
     })

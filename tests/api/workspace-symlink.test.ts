@@ -22,6 +22,31 @@ const externalDir = path.resolve(".tmp/vitest-symlink-external");
 const saveAsPath = path.resolve(".tmp/vitest-symlink-save-as");
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+function withAsset(fileName: string) {
+  const sample = createSampleBank();
+  const item = {
+    ...sample.items[0],
+    assets: [
+      {
+        id: "linked-asset",
+        fileName,
+        originalName: fileName,
+        relativePath: `assets/${fileName}`,
+        mimeType: "image/png" as const,
+        size: pngSignature.length,
+        uploadedAt: "2026-01-01T00:00:00.000Z"
+      }
+    ]
+  };
+  return {
+    bank: {
+      ...sample,
+      items: [item, ...sample.items.slice(1)]
+    },
+    item
+  };
+}
+
 async function createEmptyWorkspaceViaApi(app: ReturnType<typeof createApiApp>) {
   await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
 }
@@ -166,6 +191,140 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .expect(200);
   });
 
+  it("serves regular files for GET and HEAD without falling through missing files to the SPA", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    const uploaded = await request(app)
+      .post("/api/assets")
+      .attach("file", pngSignature, { filename: "ok.png", contentType: "image/png" })
+      .expect(200);
+
+    await request(app)
+      .get(`/assets/${uploaded.body.asset.fileName}`)
+      .expect(200)
+      .expect("Content-Type", /image\/png/);
+    await request(app)
+      .head(`/assets/${uploaded.body.asset.fileName}`)
+      .expect(200)
+      .expect("Content-Type", /image\/png/);
+    await request(app)
+      .get(`/assets/${uploaded.body.asset.fileName}`)
+      .set("Range", "bytes=0-3")
+      .expect(206)
+      .expect("Content-Range", `bytes 0-3/${pngSignature.length}`);
+    await request(app).get("/assets/missing.png").expect(404);
+  });
+
+  it("rejects a symlinked asset for preview, compile, and export", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    const initial = await request(app).get("/api/bank").expect(200);
+    const fileName = "linked.png";
+    const { bank, item } = withAsset(fileName);
+    await request(app)
+      .put("/api/bank")
+      .send({ workspacePath, baseRevision: initial.body.revision, bank })
+      .expect(200);
+
+    await mkdir(externalDir, { recursive: true });
+    const externalFile = path.join(externalDir, "private.png");
+    await writeFile(externalFile, pngSignature);
+    await symlink(externalFile, path.join(workspacePath, "assets", fileName));
+
+    await request(app)
+      .get(`/assets/${fileName}`)
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
+    await request(app)
+      .post("/api/compile-item")
+      .send({ item, settings: bank.settings })
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
+    await request(app)
+      .post("/api/export")
+      .send({ itemIds: [item.id], fileName: "linked-export", orderMode: "normal" })
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
+
+    expect(await readFile(externalFile)).toEqual(pngSignature);
+  });
+
+  it("rejects recovery reads when .history is replaced by a symlink", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    await mkdir(externalDir, { recursive: true });
+    await writeFile(
+      path.join(externalDir, "outside.json"),
+      `${JSON.stringify(createSampleBank())}\n`,
+      "utf8"
+    );
+    await symlink(externalDir, path.join(workspacePath, ".history"));
+
+    await request(app)
+      .get("/api/recovery")
+      .expect(403)
+      .expect(({ body }) => expect(body.code).toBe("WORKSPACE_SUBDIR_SYMLINK"));
+  });
+
+  it("omits symlinked recovery candidates and refuses them during restore", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    await mkdir(path.join(workspacePath, ".history"), { recursive: true });
+    await mkdir(externalDir, { recursive: true });
+    const candidateId = "linked-history.json";
+    const externalFile = path.join(externalDir, "outside.json");
+    await writeFile(externalFile, `${JSON.stringify(createSampleBank())}\n`, "utf8");
+    await symlink(externalFile, path.join(workspacePath, ".history", candidateId));
+    await symlink(externalFile, path.join(workspacePath, "bank.json.bak"));
+
+    const candidates = await request(app).get("/api/recovery").expect(200);
+    expect(candidates.body.candidates).not.toContainEqual(
+      expect.objectContaining({ id: candidateId })
+    );
+    expect(candidates.body.candidates).not.toContainEqual(
+      expect.objectContaining({ id: "bank.json.bak" })
+    );
+    await request(app)
+      .post("/api/recovery")
+      .send({ candidateId })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
+    await request(app)
+      .post("/api/recovery")
+      .send({ candidateId: "bank.json.bak" })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
+    expect(await readFile(externalFile, "utf8")).toContain('"version":2');
+  });
+
+  it("revalidates a history candidate when it becomes a symlink before restore", async () => {
+    const app = createApiApp();
+    await createEmptyWorkspaceViaApi(app);
+    const historyDir = path.join(workspacePath, ".history");
+    const candidateId = "replace-after-list.json";
+    const candidatePath = path.join(historyDir, candidateId);
+    await mkdir(historyDir, { recursive: true });
+    await writeFile(candidatePath, `${JSON.stringify(createSampleBank())}\n`, "utf8");
+
+    const listed = await request(app).get("/api/recovery").expect(200);
+    expect(listed.body.candidates).toContainEqual(
+      expect.objectContaining({ id: candidateId })
+    );
+
+    await mkdir(externalDir, { recursive: true });
+    const externalFile = path.join(externalDir, "outside.json");
+    await writeFile(externalFile, `${JSON.stringify(createSampleBank())}\n`, "utf8");
+    await rm(candidatePath);
+    await symlink(externalFile, candidatePath);
+
+    await request(app)
+      .post("/api/recovery")
+      .send({ candidateId })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
+    expect(await readFile(externalFile, "utf8")).toContain('"version":2');
+  });
+
   it("rejects save-as when a referenced asset file is a symlink", async () => {
     const app = createApiApp();
     await createEmptyWorkspaceViaApi(app);
@@ -178,28 +337,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       path.join(workspacePath, "assets", assetFileName)
     );
     await mkdir(saveAsPath, { recursive: true });
-    const sample = createSampleBank();
-    const bankWithLinkedAsset = {
-      ...sample,
-      items: sample.items.map((item, index) =>
-        index === 0
-          ? {
-              ...item,
-              assets: [
-                {
-                  id: "linked-asset",
-                  fileName: assetFileName,
-                  originalName: assetFileName,
-                  relativePath: `assets/${assetFileName}`,
-                  mimeType: "image/png",
-                  size: pngSignature.length,
-                  uploadedAt: "2026-01-01T00:00:00.000Z"
-                }
-              ]
-            }
-          : item
-      )
-    };
+    const { bank: bankWithLinkedAsset } = withAsset(assetFileName);
 
     await request(app)
       .post("/api/workspaces/save-as")

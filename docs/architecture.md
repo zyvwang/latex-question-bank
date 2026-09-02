@@ -75,6 +75,8 @@ Each question stores its three editable LaTeX snippets under `modules.question.t
 
 The `.history/` directory remains disaster-recovery storage. The `masteryHistory` array inside `bank.json` is a separate product data structure that stores at most one final review snapshot per local date and at most five dates. Review-state and option-definition changes update today's record through the normal autosave path. Creating a sixth date requires the user to choose a record to delete; canceling abandons the triggering review mutation.
 
+Workspace subdirectories are checked with `assertRealWorkspaceSubdir` before access. Reads of individual files under `.history/`, `assets/`, and `.tmp/` additionally use `resolveRealWorkspaceFile`, which rejects absolute or parent-relative paths, symlinks in every path component, non-regular final entries, and real paths outside the checked subdirectory. Missing workspace static files may continue to the packaged frontend asset server, but unresolved `/assets/*` and `/tmp/*` requests return 404 instead of falling through to the SPA document.
+
 Restoring mastery history changes only mastery IDs, error-reason IDs, and any missing option definitions. It keeps question bodies, chapters, order, assets, newly added questions, and current definitions. Historical options merge by stable ID, then normalized name, and missing definitions are recreated. Deleted questions are ignored, and the restore is itself captured in today's mastery history.
 
 Question filters and export selection are renderer session state only. Opening or switching a workspace selects every question by default. Search and filter changes affect the current list but never modify `selectedIds`; the selected-items list ignores all filters and returns to the preserved current-list filters.
@@ -84,6 +86,8 @@ The heatmap is also renderer-only derived state. It does not filter or persist a
 ## Desktop Boundary
 
 Electron exposes only narrow preload capabilities for selecting a directory, revealing a known workspace path, opening trusted URLs, reading and writing local UI layout preferences, and registering the close-time flush callback. It does not expose `ipcRenderer` and has no workspace deletion IPC.
+
+The main process acquires Electron's single-instance lock before starting the local API, registering IPC, or creating a window. A second launch exits immediately and asks the primary process to restore, show, and focus its existing window; concurrent activation and second-instance events share one window-creation promise.
 
 Workspaces are user-managed ordinary directories. Removing one from the recent list never deletes or trashes its directory; if it was current, the server selects the next existing recent workspace or returns Setup.
 

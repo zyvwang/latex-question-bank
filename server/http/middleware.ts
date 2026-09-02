@@ -4,6 +4,7 @@ import path from "node:path";
 import { AssetUploadError } from "../asset-service.js";
 import { rootDir } from "../app-state.js";
 import { StorageError } from "../storage-types.js";
+import { resolveRealWorkspaceFile } from "../workspace-paths.js";
 import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
 import { sendApiError } from "./api-response.js";
 import {
@@ -62,9 +63,33 @@ export function dynamicWorkspaceStatic(
   dirKey: "assetDir" | "tempDir"
 ): express.RequestHandler {
   return async (request, response, next) => {
+    if (!["GET", "HEAD"].includes(request.method.toUpperCase())) {
+      next();
+      return;
+    }
     try {
       const dirs = await getCurrentWorkspaceDirs();
-      express.static(dirs[dirKey])(request, response, next);
+      const relativePath = decodeWorkspaceStaticPath(request.path);
+      if (
+        !relativePath ||
+        relativePath.split(/[\\/]/).some((segment) => segment.startsWith("."))
+      ) {
+        next();
+        return;
+      }
+      const filePath = await resolveRealWorkspaceFile(
+        dirs[dirKey],
+        relativePath,
+        { allowMissing: true }
+      );
+      response.sendFile(filePath, { dotfiles: "allow" }, (error) => {
+        if (!error) return;
+        if (isStaticFileMissing(error) && !response.headersSent) {
+          next();
+          return;
+        }
+        next(error);
+      });
     } catch (error) {
       // 按 code 判断,不按文案:改一个字就会让静态资源路由开始抛 500。
       if (
@@ -79,6 +104,26 @@ export function dynamicWorkspaceStatic(
   };
 }
 
+function decodeWorkspaceStaticPath(requestPath: string): string {
+  try {
+    return decodeURIComponent(requestPath).replace(/^\/+/, "");
+  } catch {
+    throw new StorageError(
+      "工作区文件路径编码无效。",
+      "WORKSPACE_ENTRY_INVALID"
+    );
+  }
+}
+
+function isStaticFileMissing(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (("code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code))) ||
+      ("status" in error && error.status === 404))
+  );
+}
+
 export function installFrontend(app: express.Express) {
   app.use(express.static(path.join(rootDir, "dist")));
   app.use((request, response, next) => {
@@ -86,6 +131,15 @@ export function installFrontend(app: express.Express) {
     // response.json() 抛 SyntaxError,而只看 response.ok 的调用方会当成成功。
     if (request.path.startsWith("/api/")) {
       sendApiError(response, 404, "接口不存在。", "API_NOT_FOUND");
+      return;
+    }
+    if (
+      request.path === "/assets" ||
+      request.path.startsWith("/assets/") ||
+      request.path === "/tmp" ||
+      request.path.startsWith("/tmp/")
+    ) {
+      response.sendStatus(404);
       return;
     }
     if (request.method !== "GET") {
