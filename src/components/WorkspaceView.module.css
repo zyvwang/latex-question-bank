@@ -7,12 +7,12 @@
   overflow: hidden;
 }
 .topBar {
-  min-height: 62px;
+  min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 18px;
+  padding: 7px 18px;
   border-bottom: 1px solid var(--hairline);
   background: var(--paper);
 }
@@ -43,28 +43,31 @@
 .metadataPanel {
   min-width: 0;
   display: grid;
-  gap: 8px;
-  padding: 13px 18px 10px;
+  gap: 6px;
+  padding: 8px 18px 7px;
 }
 
 .metaStrip {
   display: grid;
-  grid-template-columns: minmax(120px, 0.65fr) minmax(280px, 1.25fr) minmax(220px, 1fr);
-  gap: 9px;
+  grid-template-columns: minmax(130px, 0.55fr) minmax(280px, 1.25fr) minmax(210px, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
 }
 .metaStrip label,
 .settingsGrid label,
 .exportBlock label {
   min-width: 0;
-  min-height: 40px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  border-right: 1px solid var(--hairline);
+  background: transparent;
 }
+.metaStrip label:last-child { border-right: 0; }
 .metaStrip span,
 .settingsGrid span,
 .exportBlock span { color: var(--muted); font-size: 13px; white-space: nowrap; }
@@ -86,11 +89,12 @@
 .reviewFields {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 9px;
+  gap: 8px;
+  padding: 0 10px 10px;
 }
 .reviewFields fieldset {
   min-width: 0;
-  min-height: 44px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -98,7 +102,7 @@
   padding: 5px 10px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
-  background: var(--panel);
+  background: var(--field);
 }
 .reviewFields legend {
   padding: 0 4px;
@@ -120,6 +124,38 @@
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
 }
 .unsetLabel { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.attributesPanel {
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.attributesPanel > summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  color: var(--teal-strong);
+  cursor: pointer;
+}
+.attributesPanel > summary > span { font-weight: 700; }
+.attributesPanel > summary small {
+  min-width: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.attributesPanel > summary small > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attributesPanel[open] > summary { border-bottom: 1px solid var(--hairline); }
 .settingsBand {
   margin: 0 18px 10px;
   border: 1px solid var(--hairline);
@@ -152,7 +188,7 @@
 
 .editorSurface {
   min-height: 0;
-  margin: 0 18px 12px;
+  margin: 0 18px 9px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
@@ -161,7 +197,7 @@
   box-shadow: var(--shadow-raised);
 }
 .editorHeader {
-  min-height: 58px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -174,11 +210,11 @@
 .moduleTabs button {
   position: relative;
   min-width: 112px;
-  min-height: 49px;
+  min-height: 43px;
   display: grid;
   align-content: center;
   gap: 1px;
-  padding: 6px 18px 8px;
+  padding: 4px 18px 6px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   color: var(--muted);
   background: transparent;
@@ -233,8 +269,8 @@
 }
 
 @media (max-width: 1040px) {
-  .metaStrip, .settingsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tagsField { grid-column: 1 / -1; }
+  .metaStrip { grid-template-columns: minmax(120px, 0.55fr) minmax(250px, 1.2fr) minmax(190px, 1fr); }
+  .settingsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reviewFields { grid-template-columns: 1fr; }
   .preambleField, .texPathField { grid-column: 1 / -1; }
   .exportDock, .topBar { align-items: stretch; flex-direction: column; }
@@ -244,9 +280,12 @@
 
 @media (max-width: 760px) {
   .workspace { height: auto; min-height: 100vh; overflow: visible; }
-  .metaStrip { grid-template-columns: 1fr; }
+  .metaStrip { display: grid; grid-template-columns: 1fr; }
+  .metaStrip label { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .metaStrip label:last-child { border-bottom: 0; }
   .tagsField { grid-column: auto; }
   .reviewFields fieldset { flex-wrap: wrap; }
+  .attributesPanel > summary small > span { display: none; }
   .settingsGrid { grid-template-columns: 1fr; }
   .editorSurface { min-height: 680px; margin-inline: 12px; }
   .moduleTabs { min-width: 0; flex: 1; }

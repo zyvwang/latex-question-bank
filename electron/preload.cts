@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { UiLayoutPreferences } from "../shared/ui-layout-preferences.js";
 
 const beforeCloseListeners = new Set<() => Promise<void>>();
 
@@ -22,6 +23,10 @@ contextBridge.exposeInMainWorld("lqb", {
     ipcRenderer.invoke("shell:reveal-export", exportName) as Promise<boolean>,
   openExternal: (targetUrl: string) =>
     ipcRenderer.invoke("shell:open-external", targetUrl) as Promise<boolean>,
+  readUiLayoutPreferences: () =>
+    ipcRenderer.invoke("ui-layout:read") as Promise<UiLayoutPreferences>,
+  saveUiLayoutPreferences: (preferences: UiLayoutPreferences) =>
+    ipcRenderer.invoke("ui-layout:write", preferences) as Promise<UiLayoutPreferences>,
   onBeforeClose: (listener: () => Promise<void>) => {
     beforeCloseListeners.add(listener);
     return () => beforeCloseListeners.delete(listener);

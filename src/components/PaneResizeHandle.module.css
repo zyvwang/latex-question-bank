@@ -1,0 +1,55 @@
+.handle {
+  position: relative;
+  z-index: 3;
+  width: 12px;
+  min-width: 12px;
+  min-height: 40px;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+}
+
+.handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  background: var(--hairline);
+}
+
+.handle:focus-visible {
+  outline: 0;
+}
+
+.handle:is(:active, :focus-visible)::after {
+  width: 3px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.handle:focus-visible::after {
+  box-shadow: 0 0 0 3px oklch(0.65 0.11 185 / 0.32);
+}
+
+@media (hover: hover) {
+  .handle:hover::after {
+    width: 3px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--teal);
+  }
+}

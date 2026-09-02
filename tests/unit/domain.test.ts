@@ -24,7 +24,9 @@ import {
 import {
   appDataDir,
   appStatePath,
+  readUiLayoutPreferences,
   updateAppState,
+  updateUiLayoutPreferences,
   writeAppState
 } from "../../server/app-state.js";
 import {
@@ -414,6 +416,37 @@ describe("storage", () => {
     const state = await readAppState();
     equal(state.texPathOverride, "/tmp/latexmk");
     deepStrictEqual(state.recentWorkspacePaths, [workspacePathB]);
+  });
+
+  it("keeps normalized UI layout preferences outside the public app state", async () => {
+    await updateUiLayoutPreferences({
+      questionSidebarWidth: 999,
+      questionSidebarCollapsed: true,
+      moduleEditorPercent: 12,
+      heatmapPreviewWidth: 450,
+      heatmapPreviewCollapsed: true
+    });
+    await updateAppState((state) => ({
+      ...state,
+      texPathOverride: "/tmp/latexmk"
+    }));
+
+    expect(await readUiLayoutPreferences()).toEqual({
+      questionSidebarWidth: 360,
+      questionSidebarCollapsed: true,
+      moduleEditorPercent: 35,
+      heatmapPreviewWidth: 450,
+      heatmapPreviewCollapsed: true
+    });
+    expect(await readAppState()).not.toHaveProperty("uiLayout");
+    expect(JSON.parse(await readFile(appStatePath, "utf8"))).toMatchObject({
+      texPathOverride: "/tmp/latexmk",
+      uiLayout: {
+        questionSidebarWidth: 360,
+        moduleEditorPercent: 35,
+        heatmapPreviewWidth: 450
+      }
+    });
   });
 
   it("falls back to the previous app-state backup when the primary JSON is damaged", async () => {

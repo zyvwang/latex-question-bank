@@ -19,7 +19,6 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--panel);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.1);
 }
 
 .historyList {
@@ -64,7 +63,7 @@
 }
 .historyList button:active { transform: scale(0.96); }
 
-.historyDetail { min-width: 0; padding: 18px; }
+.historyDetail { min-width: 0; padding: 16px 18px 18px; }
 .historyDetail > header {
   display: flex;
   align-items: start;
@@ -102,7 +101,8 @@
 .definitionGroups {
   display: grid;
   gap: 12px;
-  padding: 15px 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline);
 }
 .definitionGroups section {
   display: grid;
@@ -131,7 +131,6 @@
 
 .stateTable {
   overflow: auto;
-  border-top: 1px solid var(--hairline);
 }
 .stateHeader,
 .stateRow {

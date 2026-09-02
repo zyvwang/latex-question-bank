@@ -1,6 +1,6 @@
 .modulePanel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .modulePanel > header {
-  min-height: 52px;
+  min-height: 46px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -17,8 +17,14 @@
   line-height: 1.1;
 }
 .miniStatus { color: var(--muted); font-size: 13px; }
-.moduleGrid { min-height: 0; display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); }
-.editorPane { min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--hairline); }
+.moduleGrid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, var(--module-editor-percent)) 12px minmax(300px, 1fr);
+}
+.editorRegion,
+.previewRegion { min-width: 0; min-height: 0; overflow: hidden; }
+.editorPane { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
 .editorFallback { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
 .editorPane > :global([class^="cm-theme"]),
 .editorPane :global(.cm-editor) { height: 100%; min-height: 0; }
@@ -34,5 +40,6 @@
 
 @media (max-width: 1040px) {
   .moduleGrid { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) minmax(300px, 1fr); }
-  .editorPane { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .moduleGrid > [role="separator"] { display: none; }
+  .editorRegion { border-bottom: 1px solid var(--hairline); }
 }

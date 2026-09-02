@@ -31,6 +31,7 @@ The application interface currently uses Simplified Chinese. This README provide
 ## Features
 
 - Write LaTeX in separate question, solution, and note modules.
+- Resize the source/preview split, question sidebar, and heatmap preview; keyboard-adjust or collapse the side panes.
 - Preview formulas with MathJax and insert PNG or JPEG images.
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, source IDs, and multiple tags, and record mastery and error reasons.
@@ -46,7 +47,7 @@ The application interface currently uses Simplified Chinese. This README provide
 
 Review mastery and error reasons by chapter. Color, patterns, and corner marks convey status together, while the selected question remains visible in the preview.
 
-![Combined-mode heatmap in LaTeX Question Bank](docs/screenshots/heatmap.png)
+![Mastery-mode heatmap in LaTeX Question Bank](docs/screenshots/heatmap.png)
 
 ### Daily mastery history
 
@@ -174,7 +175,7 @@ A complete bank save request is supported up to 64 MiB. Oversized banks remain p
 
 Existing `version: 1` banks open directly. Legacy chapter text is converted to formal chapters in memory, while ratings are intentionally not mapped to mastery. Read-only use does not rewrite the file. Before the first real edit is saved as v2, the original v1 content is retained in `bank.json.bak` and the session recovery snapshot.
 
-The app keeps only recent workspace paths and a custom TeX path in local application data. Workspaces remain ordinary folders under your control: “Remove from list” only clears the recent entry, and the app never deletes the folder or its `bank.json`. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
+The app keeps only recent workspace paths, a custom TeX path, and UI layout preferences in local application data. Workspaces remain ordinary folders under your control: “Remove from list” only clears the recent entry, and the app never deletes the folder or its `bank.json`. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
 
 ## Local development
 
@@ -198,6 +199,12 @@ Start the Electron development build:
 
 ```bash
 npm run desktop:dev
+```
+
+Regenerate the real README interface screenshots with the deterministic synthetic bank:
+
+```bash
+npm run screenshots:readme
 ```
 
 Build installers:

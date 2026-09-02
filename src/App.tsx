@@ -4,11 +4,11 @@ import { AppNavigation } from "./components/AppNavigation.js";
 import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
 import { SetupScreen } from "./components/SetupScreen.js";
-import { Sidebar } from "./components/Sidebar.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
 import { HeatmapScreen } from "./components/HeatmapScreen.js";
-import { WorkspaceView } from "./components/WorkspaceView.js";
+import { EditorLayout } from "./components/EditorLayout.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
+import { LayoutPreferencesProvider } from "./context/LayoutPreferencesContext.js";
 import { useBeforeCloseFlush } from "./hooks/useBeforeCloseFlush.js";
 import {
   useLifecycle,
@@ -38,10 +38,7 @@ function AppContent() {
       <main className={styles.appShell}>
         <AppNavigation />
         {appView.activeView === "editor" ? (
-          <div className={styles.editorLayout}>
-            <Sidebar />
-            <WorkspaceView />
-          </div>
+          <EditorLayout />
         ) : appView.activeView === "heatmap" ? (
           <HeatmapScreen />
         ) : (
@@ -57,9 +54,11 @@ export default function App() {
   // 边界包在 Provider 外面:updateBank 的 updater 在 Provider 的 render 阶段执行。
   return (
     <AppErrorBoundary>
-      <QuestionBankProvider>
-        <AppContent />
-      </QuestionBankProvider>
+      <LayoutPreferencesProvider>
+        <QuestionBankProvider>
+          <AppContent />
+        </QuestionBankProvider>
+      </LayoutPreferencesProvider>
     </AppErrorBoundary>
   );
 }

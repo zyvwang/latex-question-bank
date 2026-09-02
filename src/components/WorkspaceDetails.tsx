@@ -5,6 +5,7 @@ import {
   useSelection
 } from "../context/questionBankContexts.js";
 import { ChapterCombobox } from "./ChapterCombobox.js";
+import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import { TagEditor } from "./TagEditor.js";
 import styles from "./WorkspaceView.module.css";
 
@@ -22,8 +23,34 @@ export function WorkspaceDetails() {
         </label>
         <TagsField />
       </div>
-      <ReviewFields />
+      <details className={styles.attributesPanel}>
+        <summary>
+          <span>题目属性</span>
+          <AttributeSummary />
+        </summary>
+        <ReviewFields />
+      </details>
     </section>
+  );
+}
+
+function AttributeSummary() {
+  const questions = useQuestions();
+  const review = useReview();
+  const item = questions.activeItem;
+  if (!item) return null;
+  const mastery = item.masteryOptionId
+    ? (review.masteryOptions.find((option) => option.id === item.masteryOptionId) ?? null)
+    : null;
+  const errorIds = new Set(item.errorReasonOptionIds);
+  const errors = review.errorReasonOptions.filter((option) => errorIds.has(option.id));
+  return (
+    <small>
+      <ReviewStateMarks mastery={mastery} errors={errors} />
+      <span>
+        {mastery?.name ?? "掌握未设置"} · {errors.length ? `${errors.length} 个错误原因` : "错误原因未设置"}
+      </span>
+    </small>
   );
 }
 

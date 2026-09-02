@@ -84,6 +84,29 @@ describe("heatmap UI", () => {
     expect(within(first).getByText("+1")).toBeInTheDocument();
     expect(screen.getByText("颜色同时配合图案、角标和文字说明。"))
       .toBeInTheDocument();
+
+    const legend = screen.getByText("查看图例").closest("summary");
+    expect(legend).not.toBeNull();
+    await user.click(legend!);
+    expect(screen.getByRole("region", { name: "热力图图例" })).toBeInTheDocument();
+
+    const previewSeparator = screen.getByRole("separator", {
+      name: "调整热力图题目预览宽度"
+    });
+    expect(previewSeparator).toHaveAttribute("aria-valuemin", "380");
+    expect(previewSeparator).toHaveAttribute("aria-valuemax", "520");
+    expect(previewSeparator).toHaveAttribute("aria-valuenow", "420");
+    previewSeparator.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(previewSeparator).toHaveAttribute("aria-valuenow", "430");
+
+    await user.click(screen.getByRole("button", { name: "收起热力图题目预览" }));
+    const expandPreview = screen.getByRole("button", { name: "展开热力图题目预览" });
+    expect(expandPreview).toBeInTheDocument();
+    await user.click(expandPreview);
+    expect(screen.getByRole("separator", {
+      name: "调整热力图题目预览宽度"
+    })).toHaveAttribute("aria-valuenow", "430");
   });
 
   it("updates one preview only after a stable 200ms target and resets its module", async () => {

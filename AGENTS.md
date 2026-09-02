@@ -27,6 +27,7 @@ React UI
 - 仅 API：`npm run dev:api`
 - 仅 Vite Web：`npm run dev:web`
 - Electron 开发版：`npm run desktop:dev`
+- 重新生成 README 实际界面截图：`npm run screenshots:readme`
 - 类型检查：`npm run typecheck`
 - Lint：`npm run lint`
 - 单元测试：`npm run test:unit`
@@ -125,6 +126,13 @@ React UI
 
 设计系统基调见 `docs/design-system.md`：桌面优先的纸面编辑台、暖纸色表面、克制青绿色行动色、数学内容偏宋体。避免装饰性渐变、玻璃拟态、混乱圆角体系，以及给每个区域套泛用卡片。
 
+### README 截图约定
+
+- README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
+- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换 `docs/screenshots/main.png`、`heatmap.png`、`history.png`。
+- 三张图固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度；热力图使用 13、4、19、7、15、11 的不等长章节和掌握程度模式，三档掌握状态只用纯色色块；历史页保留五份记录和左右双栏。
+- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查三张图。除非用户明确修改截图方向，不要改回等长章节、组合模式、纹理掌握色块或低密度两题样例。
+
 ## 后端与 Electron 约定
 
 - `server/index.ts` 只做装配；业务逻辑放到 route、service 或 storage 模块。
@@ -179,7 +187,7 @@ React UI
 完成后：
 
 - 运行与改动范围匹配的测试或说明未运行原因。
-- 如果改了用户可见行为，同步 README 或 docs；布局变化还要重新截取 README 实际引用的界面图片。
+- 如果改了用户可见行为，同步 README 或 docs；布局变化还要运行 `npm run screenshots:readme`，并检查 README 实际引用的三张界面图片。
 - 如果改了 schema 或示例数据，同步迁移脚本、样例和测试。
 - 如果改了导出或编译，确认失败时不会破坏上一次成功输出。
 - 不要提交用户 workspace 内容、生成产物、覆盖率结果或本地应用数据。

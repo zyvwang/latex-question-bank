@@ -173,6 +173,18 @@ function registerIpcHandlers() {
     return true;
   });
 
+  ipcMain.handle("ui-layout:read", async (event) => {
+    assertTrustedSender(event);
+    const { readUiLayoutPreferences } = await import("../server/app-state.js");
+    return readUiLayoutPreferences();
+  });
+
+  ipcMain.handle("ui-layout:write", async (event, preferences: unknown) => {
+    assertTrustedSender(event);
+    const { updateUiLayoutPreferences } = await import("../server/app-state.js");
+    return updateUiLayoutPreferences(preferences);
+  });
+
   ipcMain.on("app:close-response", (event, result: { ok: boolean; error?: string }) => {
     try {
       assertTrustedSender(event);

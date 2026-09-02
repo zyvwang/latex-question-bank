@@ -47,52 +47,32 @@ export function ReviewOptionSettings({
               : "题目可同时选择多个错误原因。"}
           </p>
         </div>
-        <div className={styles.optionCreateRow}>
-          <input
-            aria-label={`新建${title}名称`}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") createOption();
-            }}
-            placeholder="新选项"
-          />
-          <input
-            aria-label={`新建${title}颜色`}
-            className={styles.colorInput}
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-            maxLength={7}
-          />
-          <select
-            aria-label={`新建${title}图案`}
-            value={pattern}
-            onChange={(event) => setPattern(event.target.value as ReviewPattern)}
-          >
-            {Object.entries(patternLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          <button
-            className={controls.secondaryAction}
-            onClick={createOption}
-            disabled={!name.trim()}
-          >
-            <Plus size={16} />新建
-          </button>
-        </div>
       </header>
-      <div className={styles.rows}>
-        <div className={`${styles.row} ${styles.systemRow}`}>
-          <span
-            className={styles.swatch}
-            style={{
-              backgroundColor: UNSET_REVIEW_COLOR,
-              color: bestTextColor(UNSET_REVIEW_COLOR)
-            }}
-          >—</span>
-          <strong>未设置</strong>
-          <small>系统状态，不可编辑、排序或删除</small>
+      <div className={styles.optionTable} role="table" aria-label={`${title}选项`}>
+        <div className={styles.optionHeader} role="row">
+          <span role="columnheader">排序</span>
+          <span role="columnheader">名称</span>
+          <span role="columnheader">颜色</span>
+          <span role="columnheader">纹理</span>
+          <span role="columnheader">操作</span>
+        </div>
+        <div className={`${styles.optionRow} ${styles.optionSystemRow}`} role="row">
+          <span className={styles.optionOrderCell} role="cell">
+            <span
+              className={styles.swatch}
+              style={{
+                backgroundColor: UNSET_REVIEW_COLOR,
+                color: bestTextColor(UNSET_REVIEW_COLOR)
+              }}
+            >—</span>
+          </span>
+          <strong role="cell">未设置</strong>
+          <span className={styles.systemColor} role="cell">
+            <i style={{ backgroundColor: UNSET_REVIEW_COLOR }} aria-hidden="true" />
+            {UNSET_REVIEW_COLOR}
+          </span>
+          <span role="cell">圆点</span>
+          <small role="cell">系统状态，不可编辑</small>
         </div>
         {options.map((option, index) => (
           <ReviewOptionRow
@@ -105,6 +85,51 @@ export function ReviewOptionSettings({
             setDraggedId={setDraggedId}
           />
         ))}
+        <div className={`${styles.optionRow} ${styles.optionCreateRow}`} role="row">
+          <span className={styles.optionOrderCell} role="cell">
+            <span className={styles.addOrderMark}><Plus size={16} /></span>
+          </span>
+          <div className={styles.optionInputCell} role="cell">
+            <input
+              aria-label={`新建${title}名称`}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") createOption();
+              }}
+              placeholder="新增一行"
+            />
+          </div>
+          <div className={styles.optionInputCell} role="cell">
+            <input
+              aria-label={`新建${title}颜色`}
+              className={styles.colorInput}
+              value={color}
+              onChange={(event) => setColor(event.target.value)}
+              maxLength={7}
+            />
+          </div>
+          <div className={styles.optionInputCell} role="cell">
+            <select
+              aria-label={`新建${title}图案`}
+              value={pattern}
+              onChange={(event) => setPattern(event.target.value as ReviewPattern)}
+            >
+              {Object.entries(patternLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.optionCreateAction} role="cell">
+            <button
+              className={controls.secondaryAction}
+              onClick={createOption}
+              disabled={!name.trim()}
+            >
+              <Plus size={16} />新建
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -148,7 +173,8 @@ function ReviewOptionRow({
 
   return (
     <div
-      className={`${styles.row} ${draggedId === option.id ? styles.dragging : ""}`}
+      className={`${styles.optionRow} ${draggedId === option.id ? styles.dragging : ""}`}
+      role="row"
       draggable
       onDragStart={() => setDraggedId(option.id)}
       onDragEnd={() => setDraggedId(null)}
@@ -160,25 +186,29 @@ function ReviewOptionRow({
         setDraggedId(null);
       }}
     >
-      <span className={styles.dragHandle} title="拖拽排序"><GripVertical size={16} /></span>
-      <span
-        className={styles.swatch}
-        style={{ backgroundColor: option.color, color: bestTextColor(option.color) }}
-      >{index + 1}</span>
-      <input
-        aria-label={`选项名称 ${option.name}`}
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        onBlur={commitName}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.currentTarget.blur();
-          if (event.key === "Escape") {
-            setName(option.name);
-            event.currentTarget.blur();
-          }
-        }}
-      />
-      <div className={styles.colorField}>
+      <span className={styles.optionOrderCell} role="cell">
+        <span className={styles.dragHandle} title="拖拽排序"><GripVertical size={16} /></span>
+        <span
+          className={styles.swatch}
+          style={{ backgroundColor: option.color, color: bestTextColor(option.color) }}
+        >{index + 1}</span>
+      </span>
+      <div className={styles.optionInputCell} role="cell">
+        <input
+          aria-label={`选项名称 ${option.name}`}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onBlur={commitName}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") {
+              setName(option.name);
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </div>
+      <div className={`${styles.optionInputCell} ${styles.colorField}`} role="cell">
         <input
           aria-label={`${option.name}颜色`}
           value={color}
@@ -197,20 +227,22 @@ function ReviewOptionRow({
           <small title="与纸面背景的对比度低">低对比度</small>
         )}
       </div>
-      <select
-        aria-label={`${option.name}图案`}
-        value={option.pattern}
-        onChange={(event) =>
-          review.updateReviewOption(kind, option.id, {
-            pattern: event.target.value as ReviewPattern
-          })
-        }
-      >
-        {Object.entries(patternLabels).map(([value, label]) => (
-          <option key={value} value={value}>{label}</option>
-        ))}
-      </select>
-      <div className={styles.rowActions}>
+      <div className={styles.optionInputCell} role="cell">
+        <select
+          aria-label={`${option.name}图案`}
+          value={option.pattern}
+          onChange={(event) =>
+            review.updateReviewOption(kind, option.id, {
+              pattern: event.target.value as ReviewPattern
+            })
+          }
+        >
+          {Object.entries(patternLabels).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+      </div>
+      <div className={styles.rowActions} role="cell">
         <button
           className={controls.iconButton}
           onClick={() => review.moveReviewOption(kind, option.id, -1)}

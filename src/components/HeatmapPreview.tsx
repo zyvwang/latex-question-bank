@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from "react";
+import { PanelRightClose } from "lucide-react";
 import type { Bank, ModuleKind, QuestionItem } from "../../shared/types.js";
 import { MODULE_KINDS, moduleLabels } from "../constants.js";
 import type { HeatmapGroup } from "../heatmap.js";
@@ -10,17 +11,28 @@ export function HeatmapPreview({
   item,
   group,
   module,
-  onModuleChange
+  onModuleChange,
+  onCollapse
 }: {
   bank: Bank;
   item: QuestionItem | null;
   group: HeatmapGroup | null;
   module: ModuleKind;
   onModuleChange: (module: ModuleKind) => void;
+  onCollapse: () => void;
 }) {
   if (!item || !group) {
     return (
-      <aside className={styles.preview} aria-label="题目预览">
+      <aside className={styles.preview} id="heatmap-preview" aria-label="题目预览">
+        <button
+          className={styles.previewCollapseButton}
+          type="button"
+          onClick={onCollapse}
+          aria-label="收起热力图题目预览"
+          title="收起题目预览"
+        >
+          <PanelRightClose size={18} />
+        </button>
         <p className={styles.emptyPreview}>当前题库还没有可预览的题目。</p>
       </aside>
     );
@@ -51,10 +63,21 @@ export function HeatmapPreview({
   }
 
   return (
-    <aside className={styles.preview} aria-label="题目预览">
+    <aside className={styles.preview} id="heatmap-preview" aria-label="题目预览">
       <header className={styles.previewHeader}>
-        <span>{group.numeral ? `${group.numeral}、${group.name}` : group.name}</span>
-        <h2>{item.sourceNumber?.trim() || `章内第 ${item.chapterOrder} 题`}</h2>
+        <div>
+          <span>{group.numeral ? `${group.numeral}、${group.name}` : group.name}</span>
+          <h2>{item.sourceNumber?.trim() || `章内第 ${item.chapterOrder} 题`}</h2>
+        </div>
+        <button
+          className={styles.previewCollapseButton}
+          type="button"
+          onClick={onCollapse}
+          aria-label="收起热力图题目预览"
+          title="收起题目预览"
+        >
+          <PanelRightClose size={18} />
+        </button>
         <p>第 {item.chapterOrder} 题 · {mastery} · {errors.length ? errors.join(" / ") : "错误原因未设置"}</p>
       </header>
       <div className={styles.previewTabs} role="tablist" aria-label="预览模块">

@@ -35,11 +35,8 @@
 }
 
 .section h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 21px; }
-.createRow,
-.optionCreateRow { display: flex; align-items: center; gap: 7px; }
-.createRow input,
-.optionCreateRow input,
-.optionCreateRow select {
+.createRow { display: flex; align-items: center; gap: 7px; }
+.createRow input {
   min-height: 40px;
   padding: 0 10px;
   border: 1px solid var(--hairline);
@@ -47,8 +44,6 @@
   background: var(--panel);
   color: var(--ink);
 }
-.optionCreateRow input:first-child { width: 150px; }
-.optionCreateRow .colorInput { width: 92px; font-family: "SFMono-Regular", Consolas, monospace; }
 
 .rows { display: grid; gap: 7px; }
 .row {
@@ -102,6 +97,70 @@
 .colorField { min-width: 124px; display: flex; align-items: center; gap: 6px; }
 .colorField input { width: 92px; font-family: "SFMono-Regular", Consolas, monospace; }
 .colorField small { color: var(--amber); white-space: nowrap; }
+
+.optionTable {
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.optionHeader,
+.optionRow {
+  min-width: 760px;
+  display: grid;
+  grid-template-columns: 108px minmax(180px, 1.2fr) minmax(160px, 0.85fr) minmax(126px, 0.65fr) 142px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+}
+.optionHeader {
+  min-height: 38px;
+  padding-block: 0;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--muted);
+  background: var(--canvas, var(--paper));
+  font-size: 11px;
+  font-weight: 700;
+}
+.optionRow {
+  min-height: 54px;
+  border-bottom: 1px solid rgb(43 61 54 / 0.09);
+}
+.optionRow:last-child { border-bottom: 0; }
+.optionOrderCell { min-width: 0; display: flex; align-items: center; gap: 5px; }
+.optionInputCell { min-width: 0; display: flex; align-items: center; gap: 6px; }
+.optionInputCell input,
+.optionInputCell select {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--field);
+}
+.optionInputCell input:focus,
+.optionInputCell select:focus { border-color: var(--teal); }
+.optionInputCell.colorField { min-width: 0; }
+.optionInputCell.colorField input { width: 100%; }
+.optionSystemRow { color: var(--muted); background: rgb(255 255 255 / 0.42); }
+.optionSystemRow strong { color: var(--ink); }
+.optionSystemRow small { color: var(--muted); }
+.systemColor { display: inline-flex; align-items: center; gap: 7px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+.systemColor i { width: 14px; height: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14); }
+.optionCreateRow { background: oklch(0.975 0.01 100); }
+.addOrderMark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed oklch(0.72 0.04 170);
+  border-radius: var(--radius-sm);
+  color: var(--teal-strong);
+}
+.optionCreateAction { display: flex; justify-content: flex-end; }
+.optionCreateAction button { width: 100%; }
 
 .latexGrid {
   display: grid;
@@ -157,7 +216,6 @@
 
 @media (max-width: 900px) {
   .section > header, .pageHeader { align-items: stretch; flex-direction: column; }
-  .optionCreateRow { flex-wrap: wrap; }
   .row { grid-template-columns: 28px 36px minmax(140px, 1fr) 112px; }
   .row > select, .rowActions { grid-column: auto; }
   .latexGrid { grid-template-columns: 1fr; }
@@ -165,9 +223,7 @@
 }
 
 @media (max-width: 620px) {
-  .createRow, .optionCreateRow { display: grid; grid-template-columns: 1fr; }
-  .optionCreateRow input:first-child,
-  .optionCreateRow .colorInput { width: 100%; }
+  .createRow { display: grid; grid-template-columns: 1fr; }
   .row { grid-template-columns: 28px 36px minmax(0, 1fr); }
   .colorField, .row > select, .rowActions { grid-column: 3; }
   .systemRow { grid-template-columns: 38px 1fr; }

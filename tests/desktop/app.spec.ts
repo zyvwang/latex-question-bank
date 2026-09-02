@@ -178,6 +178,91 @@ test("persists an edited item in the packaged desktop runtime", async () => {
   }
 });
 
+test("restores adjusted and collapsed panes after a desktop restart", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-layout-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-layout-app-data");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  await writeFile(
+    path.join(workspacePath, "bank.json"),
+    `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+    "utf8"
+  );
+
+  const launchOptions = {
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_APP_DATA_DIR: appDataPath
+    }
+  };
+  const electronApp = await electron.launch(launchOptions);
+  try {
+    const page = await electronApp.firstWindow();
+    const sidebarSeparator = page.getByRole("separator", {
+      name: "调整题目侧栏宽度"
+    });
+    await expect(sidebarSeparator).toBeVisible();
+    await sidebarSeparator.press("End");
+    await page.getByRole("separator", { name: "调整代码与预览比例" }).press("Home");
+
+    await page.getByRole("button", { name: "热力图" }).click();
+    const previewSeparator = page.getByRole("separator", {
+      name: "调整热力图题目预览宽度"
+    });
+    await previewSeparator.press("End");
+    await page.getByRole("button", { name: "收起热力图题目预览" }).click();
+
+    await expect.poll(async () => {
+      try {
+        const state = JSON.parse(
+          await readFile(path.join(appDataPath, "app-state.json"), "utf8")
+        ) as { uiLayout?: Record<string, unknown> };
+        return state.uiLayout;
+      } catch (error) {
+        if (isMissingFile(error)) return null;
+        throw error;
+      }
+    }).toMatchObject({
+      questionSidebarWidth: 360,
+      moduleEditorPercent: 35,
+      heatmapPreviewWidth: 520,
+      heatmapPreviewCollapsed: true
+    });
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+
+  const restartedApp = await electron.launch(launchOptions);
+  try {
+    const page = await restartedApp.firstWindow();
+    await expect(page.getByRole("separator", {
+      name: "调整题目侧栏宽度"
+    })).toHaveAttribute("aria-valuenow", "360");
+    await expect(page.getByRole("separator", {
+      name: "调整代码与预览比例"
+    })).toHaveAttribute("aria-valuenow", "35");
+
+    await page.getByRole("button", { name: "热力图" }).click();
+    await expect(page.getByRole("button", {
+      name: "展开热力图题目预览"
+    })).toBeVisible();
+    await page.getByRole("button", { name: "展开热力图题目预览" }).click();
+    await expect(page.getByRole("separator", {
+      name: "调整热力图题目预览宽度"
+    })).toHaveAttribute("aria-valuenow", "520");
+  } finally {
+    await restartedApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+});
+
+function isMissingFile(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error &&
+    error.code === "ENOENT";
+}
+
 test("pauses on a real disk conflict and blocks close without overwriting either version", async () => {
   const workspacePath = path.resolve(
     ".tmp/playwright-save-conflict-workspace"

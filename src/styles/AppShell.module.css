@@ -6,12 +6,6 @@
   background: var(--paper);
 }
 
-.editorLayout {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(312px, 336px) minmax(0, 1fr);
-}
-
 .skipLink {
   position: fixed;
   z-index: 200;
@@ -27,11 +21,6 @@
 
 .skipLink:focus { transform: translateY(0); }
 
-@media (max-width: 1180px) and (min-width: 761px) {
-  .editorLayout { grid-template-columns: 300px minmax(0, 1fr); }
-}
-
 @media (max-width: 760px) {
   .appShell { height: auto; min-height: 100vh; display: block; }
-  .editorLayout { display: block; }
 }

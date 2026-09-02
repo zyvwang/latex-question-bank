@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App.js";
 import type { AppInfo, Bank } from "../../shared/types.js";
+import type { UiLayoutPreferences } from "../../shared/ui-layout-preferences.js";
 
 vi.mock("../../src/components/LatexEditor.js", () => ({
   default: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
@@ -144,6 +145,97 @@ describe("App UI", () => {
     await user.type(screen.getByPlaceholderText("搜索"), "矩阵");
     expect(screen.queryByText("2024-1")).not.toBeInTheDocument();
     expect(screen.getByText("2024-2")).toBeInTheDocument();
+  });
+
+  it("restores, adjusts, and collapses editor panes with the keyboard", async () => {
+    const saveUiLayoutPreferences = vi.fn().mockResolvedValue(undefined);
+    window.lqb = {
+      platform: "darwin",
+      selectWorkspaceDirectory: vi.fn().mockResolvedValue(null),
+      openPath: vi.fn().mockResolvedValue(""),
+      revealExportFolder: vi.fn().mockResolvedValue(true),
+      openExternal: vi.fn().mockResolvedValue(true),
+      onBeforeClose: vi.fn(() => () => undefined),
+      readUiLayoutPreferences: vi.fn().mockResolvedValue({
+        questionSidebarWidth: 320,
+        questionSidebarCollapsed: false,
+        moduleEditorPercent: 58,
+        heatmapPreviewWidth: 460,
+        heatmapPreviewCollapsed: false
+      }),
+      saveUiLayoutPreferences
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    const sidebarSeparator = screen.getByRole("separator", {
+      name: "调整题目侧栏宽度"
+    });
+    await waitFor(() => expect(sidebarSeparator).toHaveAttribute("aria-valuenow", "320"));
+    expect(sidebarSeparator).toHaveAttribute("aria-valuemin", "240");
+    expect(sidebarSeparator).toHaveAttribute("aria-valuemax", "360");
+    sidebarSeparator.focus();
+    await user.keyboard("{ArrowRight}");
+    await waitFor(() => expect(sidebarSeparator).toHaveAttribute("aria-valuenow", "328"));
+
+    await user.click(screen.getByRole("button", { name: "收起题目侧栏" }));
+    expect(screen.getByRole("button", { name: "展开题目侧栏" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "展开题目侧栏" }));
+
+    const moduleSeparator = screen.getByRole("separator", {
+      name: "调整代码与预览比例"
+    });
+    expect(moduleSeparator).toHaveAttribute("aria-valuenow", "58");
+    moduleSeparator.focus();
+    await user.keyboard("{Home}");
+    expect(moduleSeparator).toHaveAttribute("aria-valuenow", "35");
+
+    await waitFor(() => expect(saveUiLayoutPreferences).toHaveBeenCalled());
+    expect(saveUiLayoutPreferences).toHaveBeenLastCalledWith(expect.objectContaining({
+      questionSidebarWidth: 328,
+      questionSidebarCollapsed: false,
+      moduleEditorPercent: 35
+    }));
+  });
+
+  it("keeps an early pane adjustment while desktop preferences are still loading", async () => {
+    let resolvePreferences!: (preferences: UiLayoutPreferences) => void;
+    const saveUiLayoutPreferences = vi.fn().mockResolvedValue(undefined);
+    window.lqb = {
+      platform: "darwin",
+      selectWorkspaceDirectory: vi.fn().mockResolvedValue(null),
+      openPath: vi.fn().mockResolvedValue(""),
+      revealExportFolder: vi.fn().mockResolvedValue(true),
+      openExternal: vi.fn().mockResolvedValue(true),
+      onBeforeClose: vi.fn(() => () => undefined),
+      readUiLayoutPreferences: vi.fn(() => new Promise<UiLayoutPreferences>((resolve) => {
+        resolvePreferences = resolve;
+      })),
+      saveUiLayoutPreferences
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    const separator = screen.getByRole("separator", {
+      name: "调整题目侧栏宽度"
+    });
+    separator.focus();
+    await user.keyboard("{End}");
+    expect(separator).toHaveAttribute("aria-valuenow", "360");
+
+    resolvePreferences({
+      questionSidebarWidth: 240,
+      questionSidebarCollapsed: false,
+      moduleEditorPercent: 50,
+      heatmapPreviewWidth: 380,
+      heatmapPreviewCollapsed: false
+    });
+    await waitFor(() => expect(separator).toHaveAttribute("aria-valuenow", "360"));
+    await waitFor(() => expect(saveUiLayoutPreferences).toHaveBeenLastCalledWith(
+      expect.objectContaining({ questionSidebarWidth: 360 })
+    ));
   });
 
   it("shows complete review marks and separate chapter and tag tokens", async () => {
@@ -394,6 +486,13 @@ describe("App UI", () => {
     expect(screen.getByRole("heading", { name: "工作区" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "TeX 可用" })).toBeInTheDocument();
     expect(screen.queryByText("星级")).not.toBeInTheDocument();
+
+    const errorReasonTable = screen.getByRole("table", { name: "错误原因选项" });
+    expect(within(errorReasonTable).getAllByRole("columnheader").map((header) =>
+      header.textContent
+    )).toEqual(["排序", "名称", "颜色", "纹理", "操作"]);
+    expect(within(errorReasonTable).getByLabelText("新建错误原因名称"))
+      .toHaveAttribute("placeholder", "新增一行");
 
     const chapterName = screen.getByLabelText("章节名称 高等数学/极限");
     await user.clear(chapterName);

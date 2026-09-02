@@ -4,18 +4,38 @@
   height: 100%;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  border-right: 1px solid var(--hairline);
   background: var(--sidebar);
 }
 
+.collapsedSidebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 13px;
+}
+
 .brandBar {
-  min-height: 90px;
-  padding: 18px 16px 14px;
+  min-height: 78px;
+  padding: 13px 12px 11px 15px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
+
+.brandActions { display: flex; align-items: center; gap: 5px; }
+.collapseButton {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  background: transparent;
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+.collapseButton:active { transform: scale(0.96); }
 
 .brandIdentity {
   min-width: 0;
@@ -178,7 +198,7 @@
   font-size: 12px;
 }
 
-.questionList { min-height: 0; overflow: auto; padding: 0 10px 16px; }
+.questionList { min-height: 0; overflow: auto; padding: 0 9px 16px; }
 .emptyQuestionList {
   min-height: 120px;
   display: grid;
@@ -194,17 +214,17 @@
   grid-template-columns: 28px 28px minmax(0, 1fr);
   align-items: center;
   gap: 4px;
-  margin-bottom: 8px;
-  padding: 7px;
+  margin-bottom: 2px;
+  padding: 7px 6px;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: rgb(255 255 255 / 0.68);
+  border-bottom-color: rgb(43 61 54 / 0.09);
+  border-radius: var(--radius-sm);
+  background: transparent;
   transition: transform 140ms var(--ease-out), background-color 140ms ease, border-color 140ms ease;
 }
 .activeQuestion {
-  border-color: var(--teal);
-  background: var(--panel);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.11);
+  border-color: oklch(0.72 0.055 175);
+  background: var(--teal-soft);
 }
 .dragging { opacity: 0.55; }
 .questionMain {
@@ -266,7 +286,8 @@
 }
 
 @media (hover: hover) {
-  .questionListItem:hover { border-color: oklch(0.78 0.035 165); }
+  .questionListItem:not(.activeQuestion):hover { background: rgb(255 255 255 / 0.42); }
+  .collapseButton:hover { color: var(--teal-strong); background: var(--teal-soft); }
   .filterMenu > summary:hover,
   .listModeToggle:hover,
   .bulkSelectButton:hover { background: oklch(0.87 0.035 170); }

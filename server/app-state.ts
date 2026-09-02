@@ -1,6 +1,11 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { AppState } from "../shared/types.js";
+import {
+  DEFAULT_UI_LAYOUT_PREFERENCES,
+  normalizeUiLayoutPreferences,
+  type UiLayoutPreferences
+} from "../shared/ui-layout-preferences.js";
 import { writeJsonFileAtomic } from "./json-file.js";
 
 export const rootDir = path.resolve(process.env.LQB_ROOT_DIR ?? process.cwd());
@@ -9,7 +14,19 @@ export const appStatePath = path.join(appDataDir, "app-state.json");
 
 let updateQueue: Promise<unknown> = Promise.resolve();
 
+interface PersistedAppState extends AppState {
+  uiLayout: UiLayoutPreferences;
+}
+
 export async function readPersistedAppState(): Promise<AppState> {
+  return publicAppState(await readPersistedState());
+}
+
+export async function readUiLayoutPreferences(): Promise<UiLayoutPreferences> {
+  return (await readPersistedState()).uiLayout;
+}
+
+async function readPersistedState(): Promise<PersistedAppState> {
   await mkdir(appDataDir, { recursive: true });
   try {
     return await readStateFile(appStatePath);
@@ -30,15 +47,36 @@ export async function writeAppState(state: AppState): Promise<AppState> {
   await mkdir(appDataDir, { recursive: true });
   const normalized = normalizeAppState(state);
   await writeJsonFileAtomic(appStatePath, normalized);
-  return normalized;
+  return publicAppState(normalized);
 }
 
 export function updateAppState(
   updater: (state: AppState) => AppState | Promise<AppState>
 ): Promise<AppState> {
   const operation = updateQueue.then(async () => {
-    const current = await readPersistedAppState();
-    return writeAppState(await updater(current));
+    const current = await readPersistedState();
+    const next = normalizeAppState({
+      ...(await updater(publicAppState(current))),
+      uiLayout: current.uiLayout
+    });
+    await writeJsonFileAtomic(appStatePath, next);
+    return publicAppState(next);
+  });
+  updateQueue = operation.catch(() => undefined);
+  return operation;
+}
+
+export function updateUiLayoutPreferences(
+  preferences: unknown
+): Promise<UiLayoutPreferences> {
+  const operation = updateQueue.then(async () => {
+    const current = await readPersistedState();
+    const next = normalizeAppState({
+      ...current,
+      uiLayout: preferences
+    });
+    await writeJsonFileAtomic(appStatePath, next);
+    return next.uiLayout;
   });
   updateQueue = operation.catch(() => undefined);
   return operation;
@@ -64,8 +102,10 @@ export function normalizeRecent(paths: unknown[]): string[] {
   return recent.slice(0, 10);
 }
 
-function normalizeAppState(input: unknown): AppState {
-  const candidate = isRecord(input) ? (input as Partial<AppState>) : {};
+function normalizeAppState(input: unknown): PersistedAppState {
+  const candidate = isRecord(input)
+    ? (input as Partial<AppState> & { uiLayout?: unknown })
+    : {};
   const currentWorkspacePath = safeOptionalString(candidate.currentWorkspacePath);
   const recentWorkspacePaths = candidate.recentWorkspacePaths ?? [];
   const normalizedCurrentWorkspacePath = currentWorkspacePath
@@ -86,16 +126,30 @@ function normalizeAppState(input: unknown): AppState {
         ? [normalizedCurrentWorkspacePath, ...recentWorkspacePaths]
         : recentWorkspacePaths
     ),
-    texPathOverride: safeOptionalString(candidate.texPathOverride)
+    texPathOverride: safeOptionalString(candidate.texPathOverride),
+    uiLayout: normalizeUiLayoutPreferences(candidate.uiLayout)
   };
 }
 
-async function readStateFile(filePath: string): Promise<AppState> {
+async function readStateFile(filePath: string): Promise<PersistedAppState> {
   return normalizeAppState(JSON.parse(await readFile(filePath, "utf8")));
 }
 
-function emptyAppState(): AppState {
-  return { version: 1, recentWorkspacePaths: [] };
+function emptyAppState(): PersistedAppState {
+  return {
+    version: 1,
+    recentWorkspacePaths: [],
+    uiLayout: DEFAULT_UI_LAYOUT_PREFERENCES
+  };
+}
+
+function publicAppState(state: PersistedAppState): AppState {
+  return {
+    version: 1,
+    currentWorkspacePath: state.currentWorkspacePath,
+    recentWorkspacePaths: state.recentWorkspacePaths,
+    texPathOverride: state.texPathOverride
+  };
 }
 
 function safeOptionalString(value: unknown): string | undefined {

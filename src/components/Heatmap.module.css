@@ -2,29 +2,31 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   background: var(--paper);
 }
 
 .header {
-  min-height: 90px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 16px 22px 12px;
+  gap: 18px;
+  padding: 9px 18px;
   border-bottom: 1px solid var(--hairline);
 }
-.header > div:first-child { min-width: 0; }
+.titleBlock { min-width: 0; display: flex; align-items: center; gap: 13px; }
+.titleBlock > div { min-width: 0; }
 .header span { color: var(--teal-strong); font-size: 12px; font-weight: 700; }
 .header h1 {
-  margin: 2px 0 0;
+  margin: 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;
-  font-size: 28px;
+  font-size: 25px;
   line-height: 1.15;
 }
-.header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+.header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.headerActions { display: flex; align-items: center; gap: 8px; }
 
 .modeSwitch {
   flex: 0 0 auto;
@@ -49,15 +51,35 @@
 }
 .modeSwitch button:active { transform: scale(0.96); }
 
-.legend {
-  min-height: 52px;
+.legend { position: relative; flex: 0 0 auto; }
+.legend > summary {
+  min-height: 40px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 9px 18px;
-  padding: 8px 22px;
-  border-bottom: 1px solid var(--hairline);
-  background: oklch(0.975 0.01 100);
+  gap: 7px;
+  padding: 0 10px;
+  list-style: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  background: var(--panel);
+  cursor: pointer;
+}
+.legend > summary::-webkit-details-marker { display: none; }
+.legend[open] > summary { color: var(--teal-strong); background: var(--teal-soft); }
+.legendPopover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(620px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid oklch(0.82 0.025 160);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(23 33 29 / 0.16);
 }
 .legendGroup { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 11px; }
 .legendGroup > strong { color: var(--ink); font-size: 12px; }
@@ -69,7 +91,7 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.legend p { margin: 0 0 0 auto; color: var(--muted); font-size: 11px; }
+.legend p { margin: 0; color: var(--muted); font-size: 11px; }
 .legendSwatch {
   --stripe-color: var(--swatch-color);
   width: 14px;
@@ -83,15 +105,24 @@
 .content {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(320px, 34vw);
+  grid-template-columns: minmax(360px, 1fr) 12px var(--heatmap-preview-width);
+  background: var(--paper);
 }
+.compactContent {
+  height: min(430px, 100%);
+  align-self: start;
+  border-bottom: 1px solid var(--hairline);
+}
+.collapsedContent { grid-template-columns: minmax(360px, 1fr) 48px; }
 
 .gridPane {
   min-width: 0;
   min-height: 0;
+  height: fit-content;
+  max-height: 100%;
+  align-self: start;
   overflow: auto;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
   background: oklch(0.965 0.012 96);
 }
 .grid { min-width: 360px; padding: 18px; }
@@ -207,13 +238,37 @@
   background: var(--panel);
 }
 .previewHeader { padding: 17px 18px 13px; border-bottom: 1px solid var(--hairline); }
+.previewHeader { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; }
 .previewHeader > span { color: var(--teal-strong); font-size: 12px; font-weight: 700; }
+.previewHeader > div > span { color: var(--teal-strong); font-size: 12px; font-weight: 700; }
 .previewHeader h2 {
   margin: 3px 0 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;
   font-size: 22px;
 }
-.previewHeader p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.previewHeader p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.previewCollapseButton,
+.collapsedPreview button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  background: transparent;
+  transition: transform 140ms var(--ease-out), background-color 140ms ease;
+}
+.previewCollapseButton:active,
+.collapsedPreview button:active { transform: scale(0.96); }
+.collapsedPreview {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  border-left: 1px solid var(--hairline);
+  background: var(--panel);
+}
 .previewTabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -239,20 +294,25 @@
 @media (hover: hover) {
   .modeSwitch button:hover { background: var(--teal-soft); color: var(--teal-strong); }
   .cell:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--panel), 0 3px 8px rgb(23 33 29 / 0.18); }
+  .legend > summary:hover,
+  .previewCollapseButton:hover,
+  .collapsedPreview button:hover { color: var(--teal-strong); background: var(--teal-soft); }
 }
 
 @media (max-width: 1100px) {
-  .content { grid-template-columns: minmax(300px, 1fr) minmax(290px, 36vw); }
   .grid { padding: 14px; }
   .chapterRow { grid-template-columns: 72px minmax(0, 1fr); }
 }
 
 @media (max-width: 820px) {
   .screen { overflow: visible; }
-  .header { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .header { min-height: 0; align-items: stretch; flex-direction: column; gap: 8px; }
+  .headerActions { justify-content: space-between; }
   .content { display: block; }
+  .content > [role="separator"] { display: none; }
   .gridPane { min-height: 360px; max-height: 56vh; }
   .preview { min-height: 420px; border-top: 1px solid var(--hairline); border-left: 0; }
+  .collapsedPreview { min-height: 48px; padding: 4px 8px; justify-content: flex-end; border-top: 1px solid var(--hairline); border-left: 0; }
 }
 
 @media (max-width: 520px) {
@@ -260,8 +320,9 @@
   .header h1 { font-size: 25px; }
   .modeSwitch { width: 100%; }
   .modeSwitch button { min-width: 0; flex: 1; padding-inline: 8px; }
-  .legend { padding-inline: 16px; }
-  .legend p { width: 100%; margin-left: 0; }
+  .headerActions { align-items: stretch; flex-direction: column; }
+  .legend > summary { justify-content: center; }
+  .legendPopover { right: auto; left: 0; }
   .grid { min-width: 330px; padding: 10px; }
   .chapterRow { grid-template-columns: 52px minmax(0, 1fr); gap: 8px; }
   .rowLabel span { display: none; }

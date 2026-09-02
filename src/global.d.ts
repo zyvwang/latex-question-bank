@@ -1,5 +1,7 @@
 export {};
 
+import type { UiLayoutPreferences } from "../shared/ui-layout-preferences.js";
+
 declare global {
   interface Window {
     lqb?: {
@@ -8,6 +10,10 @@ declare global {
       openPath: (targetPath: string) => Promise<string>;
       revealExportFolder: (exportName: string) => Promise<boolean>;
       openExternal: (targetUrl: string) => Promise<boolean>;
+      readUiLayoutPreferences?: () => Promise<UiLayoutPreferences>;
+      saveUiLayoutPreferences?: (
+        preferences: UiLayoutPreferences
+      ) => Promise<UiLayoutPreferences>;
       onBeforeClose: (listener: () => Promise<void>) => () => void;
     };
     MathJax?: {

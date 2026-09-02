@@ -17,6 +17,8 @@ The grid has three modes:
 - Error reasons divide the cell into at most three patterned stripes. Additional reasons appear as `+N`.
 - Combined uses mastery for the background and up to three error-reason corner marks, with `+N` for additional reasons.
 
+The 72px toolbar keeps the title, count, mode switch, and a "View legend" disclosure together. The disclosed legend shows only the active mode's definitions; Combined shows both dimensions. Banks with twelve questions or fewer use a compact grid band so empty viewport height is not presented as part of the grid.
+
 Cell text automatically chooses dark ink or white from the rendered background. Color is never the only status signal. The visible legend, patterns, corner marks, overflow text, preview metadata, and accessible name repeat the meaning.
 
 ## Chapter and item order
@@ -32,6 +34,8 @@ The heatmap derives this order from `bank.json`; it does not persist a second or
 There is exactly one MathJax preview on the page. A hover or keyboard-focus target must remain stable for 200ms before it replaces the preview. This keeps rapid pointer and keyboard movement from repeatedly typesetting intermediate questions.
 
 The preview has Question, Solution, and Note tabs. Selecting another question resets the preview to Question. Clicking a cell or pressing Enter opens that question in the full editor. Returning to Heatmap restores the selected mode, grid scroll position, and roving-focus cell for the current workspace session.
+
+On desktop the preview defaults to 420px and stays within 380px to 520px. Its separator supports pointer drag, Arrow keys, Home, and End. The preview can collapse to a narrow rail and expand without losing its last width. This local UI state is stored outside the workspace.
 
 The preview owns both scroll axes. Horizontal trackpad or mouse-wheel deltas scroll wide MathJax content directly, Shift plus a vertical wheel maps to horizontal scrolling, and an overflowing preview shows a horizontal scrollbar.
 

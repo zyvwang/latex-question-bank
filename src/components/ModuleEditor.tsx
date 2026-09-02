@@ -1,8 +1,11 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState, type CSSProperties } from "react";
 import { ImagePlus } from "lucide-react";
 import { moduleLabels } from "../constants.js";
 import type { ModuleKind, QuestionItem } from "../../shared/types.js";
+import { UI_LAYOUT_LIMITS } from "../../shared/ui-layout-preferences.js";
+import { useLayoutPreferences } from "../context/layoutPreferences.js";
 import { LatexPreview } from "./LatexPreview.js";
+import { PaneResizeHandle } from "./PaneResizeHandle.js";
 import controls from "../styles/controls.module.css";
 import styles from "./ModuleEditor.module.css";
 
@@ -18,7 +21,9 @@ interface ModuleEditorProps {
 
 export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEditorProps) {
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { preferences, updatePreferences } = useLayoutPreferences();
 
   async function handleFile(file?: File) {
     if (!file) return;
@@ -60,11 +65,37 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
         />
         {isUploading && <span className={styles.miniStatus}>上传中</span>}
       </header>
-      <div className={styles.moduleGrid}>
-        <Suspense fallback={<div className={`${styles.editorPane} ${styles.editorFallback}`}>编辑器加载中</div>}>
-          <LatexEditor value={value} onChange={onChange} />
-        </Suspense>
-        <LatexPreview tex={value} assets={item.assets} />
+      <div
+        className={styles.moduleGrid}
+        ref={gridRef}
+        style={{
+          "--module-editor-percent": `${preferences.moduleEditorPercent}%`
+        } as CSSProperties}
+      >
+        <div className={styles.editorRegion} id={`module-editor-${kind}`}>
+          <Suspense fallback={<div className={`${styles.editorPane} ${styles.editorFallback}`}>编辑器加载中</div>}>
+            <LatexEditor value={value} onChange={onChange} />
+          </Suspense>
+        </div>
+        <PaneResizeHandle
+          value={preferences.moduleEditorPercent}
+          min={UI_LAYOUT_LIMITS.moduleEditorPercent.min}
+          max={UI_LAYOUT_LIMITS.moduleEditorPercent.max}
+          step={2}
+          pixelsPerUnit={() => (gridRef.current?.clientWidth ?? 100) / 100}
+          label="调整代码与预览比例"
+          controls={`module-editor-${kind} module-preview-${kind}`}
+          valueText={(value) => `代码 ${Math.round(value)}%，预览 ${100 - Math.round(value)}%`}
+          onPreview={(value) =>
+            gridRef.current?.style.setProperty("--module-editor-percent", `${value}%`)
+          }
+          onCommit={(moduleEditorPercent) =>
+            updatePreferences({ moduleEditorPercent })
+          }
+        />
+        <div className={styles.previewRegion} id={`module-preview-${kind}`}>
+          <LatexPreview tex={value} assets={item.assets} />
+        </div>
       </div>
     </article>
   );

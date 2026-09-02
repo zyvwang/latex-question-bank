@@ -17,6 +17,7 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 ## Frontend Boundaries
 
 - `src/App.tsx` is only the composition root and screen-state switch.
+- `src/context/LayoutPreferencesContext.tsx` owns renderer layout preferences. Desktop builds read and write the internal `uiLayout` block in local `app-state.json` through narrow preload methods; browser development falls back to `localStorage`. These preferences never enter a workspace or `bank.json`.
 - `src/context/QuestionBankProvider.tsx` exposes focused lifecycle, workspace, questions, selection, compile/export, workspace UI, app-view, and review contexts. Components consume only the domains they render.
 - `src/hooks/useQuestionBankModel.ts` composes workspace state, derived lists, persistence, selection, reordering, compile, and export actions. `useQuestionBankContextValues.ts` turns that model into memoized context values with stable action references.
 - `useSelectionFilters.ts` owns session-only export selection, multi-value filters, and current/selected list mode. `questionFilters.ts` applies OR within each filter field and AND across fields. The selected list derives only from `selectedIds`, so filters never mutate or constrain export selection.
@@ -28,7 +29,7 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `useReviewHistory.ts` routes review-state and review-option mutations through one daily history transaction, owns the five-record capacity decision, and exposes rename, delete, and restore actions. `src/review-history.ts` contains the pure daily capture and restore merge rules.
 - `useAppView.ts` owns top-level page selection plus the heatmap mode, scroll position, and roving-focus return target. Workspace changes reset the heatmap session state; a change started from Bank Settings keeps that top-level page active so consecutive workspace-management actions stay together.
 - `src/heatmap.ts` is the shared frontend domain layer for chapter rows, Chinese chapter numerals, accessible item descriptions, and keyboard target calculation.
-- `src/components/HeatmapScreen.tsx` composes the memoized chapter-row grid and one MathJax preview. Cells never create their own preview instances. Hover and focus targets must remain stable for 200ms before the preview changes.
+- `src/components/HeatmapScreen.tsx` composes the memoized chapter-row grid, a bounded resizable preview, and one MathJax preview. Cells never create their own preview instances. Hover and focus targets must remain stable for 200ms before the preview changes.
 - `HeatmapGrid.tsx` resolves option ids to names and colours once per render using its own lookup maps, then passes only scalars and resolved options into the memoized cell. Never pass `bank` or a `HeatmapGroup` into `HeatmapCell`: both change identity on every bank edit, which defeats the memo across the whole 1000-item grid. `describeHeatmapItem` in `src/heatmap.ts` takes already-resolved values for the same reason.
 - `src/components/` contains focused view components for setup, question navigation, workspace management in Bank Settings, the editor workspace, heatmap, module editors, preview, and overlays.
 - `LatexPreview.tsx` owns both axes of preview scrolling in the editor and heatmap. Native horizontal wheel deltas pass through, while Shift plus a vertical wheel maps to horizontal movement when no horizontal delta is already present.
@@ -41,7 +42,7 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `server/index.ts` only assembles middleware, routers, frontend serving, and server startup.
 - `server/routes/` groups workspace, bank/recovery, and document/export HTTP adapters. `server/http/` owns shared middleware and API error responses.
 - Mutating-origin checks run before body parsing. JSON parsers live on routers: bank PUT accepts 64 MiB, other JSON APIs accept 8 MiB, and image upload keeps its independent Multer limit.
-- `server/app-state.ts` owns pure app-state reads and serialized app-state updates.
+- `server/app-state.ts` owns pure app-state reads and serialized app-state updates. It also normalizes the internal UI layout preferences and preserves them across ordinary app-state updates, while projecting them out of the public AppInfo contract.
 - `server/bank-schema.ts` owns default and sample bank creation.
 - `server/json-file.ts` owns atomic JSON writes and immediate `.bak` files.
 - `shared/bank-validation.ts` owns persisted v1/v2 parsing and domain invariants, `shared/request-validation.ts` owns HTTP DTOs, and `shared/validation-primitives.ts` owns scalar/date/file-name parsing. `shared/validation.ts` is a compatibility barrel.
@@ -82,7 +83,7 @@ The heatmap is also renderer-only derived state. It does not filter or persist a
 
 ## Desktop Boundary
 
-Electron exposes only narrow preload capabilities for selecting a directory, revealing a known workspace path, opening trusted URLs, and registering the close-time flush callback. It does not expose `ipcRenderer` and has no workspace deletion IPC.
+Electron exposes only narrow preload capabilities for selecting a directory, revealing a known workspace path, opening trusted URLs, reading and writing local UI layout preferences, and registering the close-time flush callback. It does not expose `ipcRenderer` and has no workspace deletion IPC.
 
 Workspaces are user-managed ordinary directories. Removing one from the recent list never deletes or trashes its directory; if it was current, the server selects the next existing recent workspace or returns Setup.
 
