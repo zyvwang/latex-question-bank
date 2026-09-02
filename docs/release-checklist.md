@@ -4,18 +4,19 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 
 ## Local Verification
 
-1. Run `npm ci` on a clean checkout when possible.
-2. Run `npm run verify`.
-3. Run `npm run test:desktop` after `npm run build`.
-4. Confirm coverage remains at or above statements/lines/functions 75% and branches 65%.
-5. Confirm the Vite output keeps the main chunk separate from `LatexEditor`.
-6. If TeX is installed locally, confirm `scripts/verify-export.ts` compiles both `questions.pdf` and `full.pdf`.
-7. Validate schema migration with a disposable v1 workspace:
+1. Run `npm run audit:security`; treat registry or audit-service errors as failures rather than bypassing the gate.
+2. Run `npm ci` on a clean checkout when possible.
+3. Run `npm run verify`.
+4. Run `npm run test:desktop` after `npm run build`.
+5. Confirm coverage remains at or above statements/lines/functions 75% and branches 65%.
+6. Confirm the Vite output keeps the main chunk separate from `LatexEditor`.
+7. If TeX is installed locally, confirm `scripts/verify-export.ts` compiles both `questions.pdf` and `full.pdf`.
+8. Validate schema migration with a disposable v1 workspace:
    - opening returns an in-memory v2 bank while `bank.json` remains byte-for-byte v1
    - the returned revision hashes the original v1 content
    - the first real save writes v2 and preserves v1 in both `bank.json.bak` and the session recovery snapshot
    - duplicate legacy source numbers remain loadable, while new same-chapter conflicts are rejected
-8. Launch the desktop app with `npm run desktop:dev` and smoke-test:
+9. Launch the desktop app with `npm run desktop:dev` and smoke-test:
    - first workspace setup
    - editing followed immediately by app quit and restart
    - launching a second desktop instance exits the newcomer, restores/focuses the existing window, keeps one BrowserWindow/API server, and preserves pending edits through the normal close flush
@@ -51,12 +52,13 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 
 1. Push the release branch or tag.
 2. Run the **Build LaTeX Question Bank Installers** workflow.
-3. Confirm Linux verification and TeX Live export compilation pass.
-4. Confirm both Windows and macOS jobs pass `npm run verify`, the packaged Electron smoke test, and installer packaging.
-5. Download and test artifacts:
+3. Confirm the dependency security audit passes before any install or build job starts.
+4. Confirm Linux verification and TeX Live export compilation pass.
+5. Confirm both Windows and macOS jobs pass `npm run verify`, the packaged Electron smoke test, and installer packaging.
+6. Download and test artifacts:
    - Windows: `release/*.exe`
    - macOS: `release/*.dmg`
-6. For tag builds, review the draft GitHub Release notes before publishing.
+7. For tag builds, review the draft GitHub Release notes before publishing.
 
 ## Known Signing Limit
 

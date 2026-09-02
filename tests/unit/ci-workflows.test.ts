@@ -6,6 +6,13 @@ const realLatexWorkflowPaths = [
   ".github/workflows/ci.yml",
   ".github/workflows/release.yml"
 ];
+const securityGatedJobs = new Map([
+  [".github/workflows/ci.yml", ["verify", "latex-export", "desktop-smoke"]],
+  [
+    ".github/workflows/release.yml",
+    ["verify-latex", "build-windows", "build-macos"]
+  ]
+]);
 const immutableActionReference = /uses:\s+[^\s#]+@[0-9a-f]{40}(?:\s+#.*)?$/gm;
 const anyActionReference = /uses:\s+[^\s#]+@[^\s#]+(?:\s+#.*)?$/gm;
 
@@ -48,10 +55,32 @@ describe("GitHub Actions supply-chain boundaries", () => {
       "utf8"
     );
 
-    expect(workflow).toMatch(/^permissions:\n  contents: read$/m);
+    expect(workflow).toMatch(/^permissions:\n {2}contents: read$/m);
     expect(workflow.match(/contents:\s+write/g)).toHaveLength(1);
     expect(workflow).toMatch(
-      /publish-github-release:\n(?:.*\n)*?    permissions:\n      contents: write/m
+      /publish-github-release:\n(?:.*\n)*? {4}permissions:\n {6}contents: write/m
     );
   });
+
+  it.each(realLatexWorkflowPaths)(
+    "%s audits dependencies before installation jobs",
+    async (workflowPath) => {
+      const workflow = await readFile(path.resolve(workflowPath), "utf8");
+      const auditJobStart = workflow.indexOf("  security-audit:");
+      const firstInstall = workflow.indexOf("npm ci");
+
+      expect(auditJobStart).toBeGreaterThan(-1);
+      expect(workflow).toContain("run: npm run audit:security");
+      expect(auditJobStart).toBeLessThan(firstInstall);
+
+      for (const job of securityGatedJobs.get(workflowPath) ?? []) {
+        expect(workflow).toMatch(
+          new RegExp(
+            `^  ${job}:\\n(?:    name:.*\\n)?    needs: security-audit$`,
+            "m"
+          )
+        );
+      }
+    }
+  );
 });

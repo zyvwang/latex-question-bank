@@ -11,7 +11,20 @@ permissions:
   contents: read
 
 jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run audit:security
+
   verify:
+    needs: security-audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -27,6 +40,7 @@ jobs:
   # PR 上的 verify job 没有 TeX，scripts/verify-export.ts 会跳过真实编译并成功退出。
   # 这个 job 是「导出真的能编译出 PDF」的唯一凭据；放在 PR 之外跑，不拖慢代码评审。
   latex-export:
+    needs: security-audit
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -59,6 +73,7 @@ jobs:
         run: npx tsx scripts/verify-export.ts
 
   desktop-smoke:
+    needs: security-audit
     strategy:
       fail-fast: false
       matrix:

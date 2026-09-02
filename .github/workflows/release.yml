@@ -10,8 +10,27 @@ permissions:
   contents: read
 
 jobs:
+  security-audit:
+    name: Dependency security audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Audit dependencies
+        run: npm run audit:security
+
   verify-latex:
     name: Linux TeX export verification
+    needs: security-audit
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -42,6 +61,7 @@ jobs:
 
   build-windows:
     name: Windows NSIS
+    needs: security-audit
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -76,6 +96,7 @@ jobs:
 
   build-macos:
     name: macOS DMG
+    needs: security-audit
     runs-on: macos-latest
     steps:
       - name: Check out repository
