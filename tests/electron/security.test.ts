@@ -11,7 +11,8 @@ import {
   classifySender,
   createSecureWebPreferences,
   isCloseResponse,
-  navigationIsAllowed
+  navigationIsAllowed,
+  resolveDevelopmentUserDataDir
 } from "../../electron/security-policy.js";
 
 const workspacePath = path.resolve(".tmp/vitest-electron-workspace");
@@ -24,6 +25,16 @@ beforeEach(async () => {
 });
 
 describe("Electron shell path allowlist", () => {
+  it("keeps node-test app data inside the repository temp directory", () => {
+    expect(appDataDir).toBe(path.resolve(".tmp/vitest-app-data"));
+  });
+
+  it("keeps desktop development data separate from installed app data", () => {
+    expect(resolveDevelopmentUserDataDir("/repo/latex-question-bank")).toBe(
+      path.resolve("/repo/latex-question-bank/.tmp/electron-dev-app-data")
+    );
+  });
+
   it("allows only current or recent workspace roots", async () => {
     await createEmptyWorkspace(workspacePath);
     await expect(isKnownWorkspacePath(workspacePath)).resolves.toBe(true);

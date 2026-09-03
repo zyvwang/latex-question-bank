@@ -5,11 +5,35 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import type { CompileResult, TexStatus } from "../shared/types.js";
 import { readAppState } from "./workspace-storage.js";
+import {
+  BoundedOutput,
+  MAX_LATEX_LOG_BYTES,
+  MAX_LATEX_PROBE_BYTES
+} from "./bounded-output.js";
+import { withLatexExecutionSlot } from "./latex-execution.js";
+
+const TEX_DETECTION_CACHE_MS = 30_000;
+let cachedTexStatus:
+  | { key: string; expiresAt: number; value: TexStatus }
+  | undefined;
+let texDetectionInFlight:
+  | { key: string; promise: Promise<TexStatus> }
+  | undefined;
 
 export async function compileLatex(
   texPath: string,
   cwd: string,
   timeoutMs = 45_000
+): Promise<CompileResult> {
+  return withLatexExecutionSlot(() =>
+    compileLatexExclusive(texPath, cwd, timeoutMs)
+  );
+}
+
+async function compileLatexExclusive(
+  texPath: string,
+  cwd: string,
+  timeoutMs: number
 ): Promise<CompileResult> {
   const texFile = path.basename(texPath);
   const pdfPath = path.join(cwd, texFile.replace(/\.tex$/i, ".pdf"));
@@ -37,45 +61,106 @@ export async function compileLatex(
       env: createLatexProcessEnv(latexmkCommand),
       detached: process.platform !== "win32"
     });
-    let log = "";
+    const output = new BoundedOutput(MAX_LATEX_LOG_BYTES);
     let settled = false;
+    let timedOut = false;
+    let terminationFallback: NodeJS.Timeout | undefined;
+    const finish = (result: CompileResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (terminationFallback) clearTimeout(terminationFallback);
+      resolve(result);
+    };
     const timer = setTimeout(() => {
       if (!settled) {
+        timedOut = true;
         terminateProcessTree(child);
-        settled = true;
-        resolve({
-          ok: false,
-          texPath,
-          log: `${log}\nLaTeX compile timed out after ${timeoutMs}ms.`
-        });
+        terminationFallback = setTimeout(() => {
+          finish(timeoutResult(texPath, output, timeoutMs));
+        }, 2_000);
+        terminationFallback.unref();
       }
     }, timeoutMs);
 
     child.stdout.on("data", (chunk) => {
-      log += chunk.toString();
+      output.append(chunk);
     });
     child.stderr.on("data", (chunk) => {
-      log += chunk.toString();
+      output.append(chunk);
     });
     child.on("error", (error) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({ ok: false, texPath, log: `${log}\n${error.message}` });
+      if (timedOut) {
+        finish(timeoutResult(texPath, output, timeoutMs));
+        return;
+      }
+      finish({
+        ok: false,
+        texPath,
+        log: summarizeLog(`${output.toString()}\n${error.message}`)
+      });
     });
     child.on("close", async (code) => {
       if (settled) return;
+      // close 已在期限内触发时先取消计时器；不要让随后的 PDF 可读性检查
+      // 与超时回调竞争，把已经结束的进程误判成超时。
       clearTimeout(timer);
-      settled = true;
+      if (timedOut) {
+        finish(timeoutResult(texPath, output, timeoutMs));
+        return;
+      }
       const ok = code === 0 && (await fileExists(pdfPath));
-      resolve({ ok, texPath, pdfPath: ok ? pdfPath : undefined, log: summarizeLog(log) });
+      finish({
+        ok,
+        texPath,
+        pdfPath: ok ? pdfPath : undefined,
+        log: summarizeLog(output.toString())
+      });
     });
   });
 }
 
-export async function detectTexInstallation(): Promise<TexStatus> {
-  const state = await readAppState();
-  const override = state.texPathOverride ?? process.env.LQB_LATEXMK_PATH;
+export async function detectTexInstallation(
+  committedOverride?: string | null
+): Promise<TexStatus> {
+  const override = committedOverride === undefined
+    ? (await readAppState()).texPathOverride ?? process.env.LQB_LATEXMK_PATH
+    : committedOverride ?? process.env.LQB_LATEXMK_PATH;
+  const key = detectionCacheKey(override);
+  if (
+    cachedTexStatus?.key === key &&
+    cachedTexStatus.expiresAt > Date.now()
+  ) {
+    return cachedTexStatus.value;
+  }
+  if (texDetectionInFlight?.key === key) {
+    return texDetectionInFlight.promise;
+  }
+  if (texDetectionInFlight) {
+    await texDetectionInFlight.promise.catch(() => undefined);
+    return detectTexInstallation(committedOverride);
+  }
+
+  const promise = detectTexInstallationUncached(override);
+  texDetectionInFlight = { key, promise };
+  try {
+    const value = await promise;
+    cachedTexStatus = {
+      key,
+      expiresAt: Date.now() + TEX_DETECTION_CACHE_MS,
+      value
+    };
+    return value;
+  } finally {
+    if (texDetectionInFlight?.promise === promise) {
+      texDetectionInFlight = undefined;
+    }
+  }
+}
+
+async function detectTexInstallationUncached(
+  override: string | undefined
+): Promise<TexStatus> {
   const candidates: Array<{ command: string; source: TexStatus["source"] }> = [
     ...(override ? [{ command: override, source: "override" as const }] : []),
     { command: "latexmk", source: "path" },
@@ -146,7 +231,7 @@ function killUnixProcessTree(pid: number, signal: NodeJS.Signals) {
 function summarizeLog(log: string): string {
   const lines = log.split(/\r?\n/);
   const important = lines.filter((line) =>
-    /(^!|error|warning|undefined|missing|fatal|LaTeX)/i.test(line)
+    /(^!|error|warning|undefined|missing|fatal|LaTeX|truncated|timed out)/i.test(line)
   );
   const summary = important.slice(-60).join("\n").trim();
   return summary || lines.slice(-80).join("\n").trim();
@@ -184,7 +269,7 @@ function probeLatexmk(
 ): Promise<{ available: boolean; version?: string }> {
   return new Promise((resolve) => {
     const child = spawn(command, ["-version"], { env: createLatexProcessEnv(command) });
-    let output = "";
+    const output = new BoundedOutput(MAX_LATEX_PROBE_BYTES, 8 * 1024);
     let settled = false;
     const timer = setTimeout(() => {
       if (!settled) {
@@ -194,10 +279,10 @@ function probeLatexmk(
       }
     }, timeoutMs);
     child.stdout.on("data", (chunk) => {
-      output += chunk.toString();
+      output.append(chunk);
     });
     child.stderr.on("data", (chunk) => {
-      output += chunk.toString();
+      output.append(chunk);
     });
     child.on("error", () => {
       if (settled) return;
@@ -209,9 +294,36 @@ function probeLatexmk(
       if (settled) return;
       clearTimeout(timer);
       settled = true;
-      resolve({ available: code === 0, version: output.split(/\r?\n/).find(Boolean) });
+      resolve({
+        available: code === 0,
+        version: output.toString().split(/\r?\n/).find(Boolean)
+      });
     });
   });
+}
+
+function timeoutResult(
+  texPath: string,
+  output: BoundedOutput,
+  timeoutMs: number
+): CompileResult {
+  return {
+    ok: false,
+    texPath,
+    log: summarizeLog(
+      `${output.toString()}\nLaTeX compile timed out after ${timeoutMs}ms.`
+    )
+  };
+}
+
+function detectionCacheKey(override: string | undefined): string {
+  const pathKey = getPathEnvKey(process.env);
+  return [
+    process.platform,
+    override ?? "",
+    process.env.LQB_LATEXMK_PATH ?? "",
+    process.env[pathKey] ?? ""
+  ].join("\u0000");
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

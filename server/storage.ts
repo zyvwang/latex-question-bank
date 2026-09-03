@@ -23,6 +23,7 @@ export {
   moveWorkspace,
   openExistingWorkspace,
   readAppState,
+  relocateWorkspace,
   removeWorkspace,
   switchWorkspace,
   workspaceExists,

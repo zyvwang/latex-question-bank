@@ -47,9 +47,10 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `server/json-file.ts` owns atomic JSON writes and immediate `.bak` files.
 - `shared/bank-validation.ts` owns persisted v1/v2 parsing and domain invariants, `shared/request-validation.ts` owns HTTP DTOs, and `shared/validation-primitives.ts` owns scalar/date/file-name parsing. `shared/validation.ts` is a compatibility barrel.
 - `server/storage.ts` is a compatibility facade. Workspace lifecycle, revision-checked bank saves, and recovery/history are implemented by separate storage modules.
+- Workspace-changing routes parse the target `bank.json` before committing app state and return `AppInfo` plus the matching `BankSnapshot` in one response. The renderer never follows a successful workspace change with a second bank request. Relocation validates the replacement and updates current/recent state in one serialized app-state operation.
 - `server/asset-service.ts` validates image extension, MIME, and signature before generating a safe server-side filename.
-- `server/export-service.ts` stages and compiles exports before atomically replacing the final directory.
-- `server/latex.ts` is a compatibility facade. Pure rendering, workspace file preparation, and TeX process management live in separate modules.
+- `server/export-service.ts` stages and compiles exports before handing directory replacement to `server/export-transaction.ts`. The transaction module journals the two-rename commit, restores interrupted replacements, and is the only owner allowed to delete `previous-export-*` directories.
+- `server/latex.ts` is a compatibility facade. Pure rendering, workspace file preparation, and TeX process management live in separate modules. Compile output uses a one-MiB head/tail buffer, formal compilations have a single fail-fast execution slot, and installation probes are deduplicated and cached briefly.
 
 ## Data Safety
 
@@ -59,7 +60,15 @@ The backup takes the same temp-file rename path as the main file: the previous c
 
 Conflict overwrite never bypasses revision checks. The renderer reads `/api/bank/head` immediately before the overwrite attempt and performs one ordinary conditional save; a second external change produces another conflict instead of destroying it. The head endpoint hashes raw `bank.json`, so a valid local version can replace externally corrupted JSON while the atomic backup still preserves the corrupted disk content.
 
+Explicit workspace transitions are server-side validation-and-commit operations. The target bank is read, validated, and migrated in memory before `currentWorkspacePath` changes; the committed AppState and matching snapshot are returned together. Invalid targets leave both server and renderer on the prior workspace. Startup is intentionally different: if the already-current workspace becomes damaged between sessions, the normal recovery screen remains available.
+
+Startup failures distinguish an unavailable workspace from a damaged bank. A missing `bank.json` keeps the stale recent entry available for relocation and offers explicit switching/removal actions; malformed JSON continues to expose `.bak` and `.history` recovery candidates. The application never silently changes the current workspace. Electron development stores `userData` under the repository `.tmp/` tree, while packaged builds use Electron's normal application data directory; Vitest refuses to initialize storage outside the repository `.tmp/` tree.
+
 Save-as builds a complete v2 workspace in a same-parent staging directory, copies only assets referenced by `QuestionItem.assets`, writes `bank.json`, and commits the directory before switching app state. The destination must be absent or empty. Missing, non-regular, or symlinked referenced assets fail the operation; exports, recovery history, and unreferenced assets are not copied. A failed pre-commit save-as leaves the original workspace and current app state unchanged.
+
+Successful exports use a recoverable directory transaction. Before moving anything, the server writes a versioned record under `.tmp/export-transactions/`; it then moves the previous target aside, installs the complete staging directory, and removes the backup and record. Recovery prefers the previous complete export whenever the target is missing and a previous directory exists. Ambiguous states are preserved and block another export with `EXPORT_RECOVERY_REQUIRED`. Generic temporary cleanup never removes transaction records, previous exports, or staging protected by a pending transaction.
+
+TeX remains a trusted-content boundary rather than a complete filesystem sandbox. Shell escape is disabled, compile processes have 45/60-second timeouts, process trees are terminated on timeout, only one formal compile may run at once, and stdout/stderr retention is capped. The renderer asks once per workspace and application session before the first real compile or export. A cross-platform restricted HOME/minimal-environment or platform sandbox would require a separate compatibility design.
 
 The complete save request is limited to 64 MiB on both client and server. Oversized requests return `413 BANK_PAYLOAD_TOO_LARGE`, never reach storage, retain the renderer's pending bank, and can be retried after the content is reduced. Other JSON endpoints remain limited to 8 MiB.
 
@@ -89,7 +98,7 @@ Electron exposes only narrow preload capabilities for selecting a directory, rev
 
 The main process acquires Electron's single-instance lock before starting the local API, registering IPC, or creating a window. A second launch exits immediately and asks the primary process to restore, show, and focus its existing window; concurrent activation and second-instance events share one window-creation promise.
 
-Workspaces are user-managed ordinary directories. Removing one from the recent list never deletes or trashes its directory; if it was current, the server selects the next existing recent workspace or returns Setup.
+Workspaces are user-managed ordinary directories. Removing one from the recent list never deletes or trashes its directory; if it was current, the server selects the next recent workspace whose bank validates or returns Setup.
 
 Every IPC entry validates its sender. Main-window navigation is locked to the application origin, new Electron windows are denied, and trusted HTTPS or local PDF links are delegated to the system browser. App quit and window close both wait for the renderer save queue; failures offer either returning to edit or explicitly discarding unsaved changes.
 

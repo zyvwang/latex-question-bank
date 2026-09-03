@@ -4,18 +4,23 @@ import {
   createSampleWorkspace as createSampleWorkspaceRequest,
   moveWorkspace,
   openExistingWorkspace,
+  relocateWorkspace as relocateWorkspaceRequest,
   removeWorkspace,
   saveTexPath,
   switchWorkspace as switchWorkspaceRequest
 } from "../api/client.js";
-import type { AppInfo, Bank } from "../../shared/types.js";
+import type {
+  AppInfo,
+  Bank,
+  WorkspaceTransitionResponse
+} from "../../shared/types.js";
 import type { Notice } from "./controllerTypes.js";
 
 interface WorkspaceActionsOptions {
   appInfo: AppInfo | null;
   bank: Bank | null;
   persistBank: (bank: Bank) => Promise<void>;
-  reloadWorkspace: (appInfo: AppInfo) => Promise<void>;
+  applyWorkspaceTransition: (response: WorkspaceTransitionResponse) => void;
   setAppInfo: (appInfo: AppInfo) => void;
   setNotice: (notice: Notice | null) => void;
 }
@@ -24,7 +29,7 @@ export function useWorkspaceActions({
   appInfo,
   bank,
   persistBank,
-  reloadWorkspace,
+  applyWorkspaceTransition,
   setAppInfo,
   setNotice
 }: WorkspaceActionsOptions) {
@@ -144,9 +149,12 @@ export function useWorkspaceActions({
     if (!workspacePath?.trim()) return;
     setIsChangingWorkspace(true);
     try {
-      const nextAppInfo = await createSampleWorkspaceRequest(workspacePath);
-      await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: `已创建示例工作区：${nextAppInfo.currentWorkspaceName}` });
+      const response = await createSampleWorkspaceRequest(workspacePath);
+      applyWorkspaceTransition(response);
+      setNotice({
+        type: "ok",
+        text: `已创建示例工作区：${response.appInfo.currentWorkspaceName}`
+      });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "创建示例工作区失败。" });
     } finally {
@@ -163,9 +171,12 @@ export function useWorkspaceActions({
     setIsChangingWorkspace(true);
     try {
       await saveBeforeWorkspaceChange();
-      const nextAppInfo = await createEmptyWorkspace(workspacePath);
-      await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: `已创建工作区：${nextAppInfo.currentWorkspaceName}` });
+      const response = await createEmptyWorkspace(workspacePath);
+      applyWorkspaceTransition(response);
+      setNotice({
+        type: "ok",
+        text: `已创建工作区：${response.appInfo.currentWorkspaceName}`
+      });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "创建工作区失败。" });
     } finally {
@@ -183,9 +194,12 @@ export function useWorkspaceActions({
     setIsChangingWorkspace(true);
     try {
       await saveBeforeWorkspaceChange();
-      const nextAppInfo = await openExistingWorkspace(workspacePath);
-      await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: `已打开工作区：${nextAppInfo.currentWorkspaceName}` });
+      const response = await openExistingWorkspace(workspacePath);
+      applyWorkspaceTransition(response);
+      setNotice({
+        type: "ok",
+        text: `已打开工作区：${response.appInfo.currentWorkspaceName}`
+      });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "打开工作区失败。" });
     } finally {
@@ -198,9 +212,12 @@ export function useWorkspaceActions({
     setIsChangingWorkspace(true);
     try {
       await saveBeforeWorkspaceChange();
-      const nextAppInfo = await switchWorkspaceRequest(workspacePath);
-      await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: `已切换至：${nextAppInfo.currentWorkspaceName}` });
+      const response = await switchWorkspaceRequest(workspacePath);
+      applyWorkspaceTransition(response);
+      setNotice({
+        type: "ok",
+        text: `已切换至：${response.appInfo.currentWorkspaceName}`
+      });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
     } finally {
@@ -217,10 +234,15 @@ export function useWorkspaceActions({
     setIsChangingWorkspace(true);
     try {
       await saveBeforeWorkspaceChange();
-      await openExistingWorkspace(replacementPath);
-      const nextAppInfo = await removeWorkspace(workspacePath);
-      await reloadWorkspace(nextAppInfo);
-      setNotice({ type: "ok", text: `已重新定位至：${nextAppInfo.currentWorkspaceName}` });
+      const response = await relocateWorkspaceRequest(
+        workspacePath,
+        replacementPath
+      );
+      applyWorkspaceTransition(response);
+      setNotice({
+        type: "ok",
+        text: `已重新定位至：${response.appInfo.currentWorkspaceName}`
+      });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "重新定位工作区失败。" });
     } finally {
@@ -249,8 +271,8 @@ export function useWorkspaceActions({
       if (workspacePath === appInfo?.currentWorkspacePath) {
         await saveBeforeWorkspaceChange();
       }
-      const nextAppInfo = await removeWorkspace(workspacePath);
-      await reloadWorkspace(nextAppInfo);
+      const response = await removeWorkspace(workspacePath);
+      applyWorkspaceTransition(response);
       setNotice({ type: "ok", text: `已从列表移除工作区：${name}；磁盘文件保持不变。` });
     } catch (error) {
       setNotice({ type: "error", text: error instanceof Error ? error.message : "移除工作区记录失败。" });

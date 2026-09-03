@@ -8,7 +8,8 @@ export {
   validateSaveBankRequest,
   validateTexPathRequest,
   validateWorkspaceMoveRequest,
-  validateWorkspacePathRequest
+  validateWorkspacePathRequest,
+  validateWorkspaceRelocateRequest
 } from "./request-validation.js";
 export {
   isRecord,

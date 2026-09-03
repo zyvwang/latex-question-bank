@@ -44,6 +44,73 @@ test("starts in Setup, creates a workspace, and removes only its recent-list ent
   }
 });
 
+test("switches away from a missing current workspace without changing disk data", async () => {
+  const missingWorkspacePath = path.resolve(
+    ".tmp/playwright-missing-workspace"
+  );
+  const availableWorkspacePath = path.resolve(
+    ".tmp/playwright-available-workspace"
+  );
+  const appDataPath = path.resolve(
+    ".tmp/playwright-missing-workspace-app-data"
+  );
+  await Promise.all([
+    rm(missingWorkspacePath, { recursive: true, force: true }),
+    rm(availableWorkspacePath, { recursive: true, force: true }),
+    rm(appDataPath, { recursive: true, force: true })
+  ]);
+  await Promise.all([
+    mkdir(availableWorkspacePath, { recursive: true }),
+    mkdir(appDataPath, { recursive: true })
+  ]);
+  await writeFile(
+    path.join(availableWorkspacePath, "bank.json"),
+    `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(appDataPath, "app-state.json"),
+    `${JSON.stringify({
+      version: 1,
+      currentWorkspacePath: missingWorkspacePath,
+      recentWorkspacePaths: [
+        missingWorkspacePath,
+        availableWorkspacePath
+      ]
+    }, null, 2)}\n`,
+    "utf8"
+  );
+
+  const electronApp = await electron.launch({
+    args: ["."],
+    env: {
+      ...process.env,
+      LQB_APP_DATA_DIR: appDataPath,
+      LQB_WORKSPACE_DIR: ""
+    }
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await expect(page.getByText("原题库位置已失效")).toBeVisible();
+    await page.getByRole("button", {
+      name: `切换到 ${path.basename(availableWorkspacePath)}`
+    }).click();
+    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
+    await expect.poll(async () => {
+      const state = JSON.parse(
+        await readFile(path.join(appDataPath, "app-state.json"), "utf8")
+      ) as { currentWorkspacePath?: string };
+      return state.currentWorkspacePath;
+    }).toBe(availableWorkspacePath);
+    await expect(
+      page.getByText("原题库位置已失效")
+    ).not.toBeVisible();
+  } finally {
+    await electronApp.close();
+  }
+});
+
 test("opens v1, saves the first edit as v2 on close, and restarts from v2", async () => {
   const workspacePath = path.resolve(".tmp/playwright-v1-workspace");
   const appDataPath = path.resolve(".tmp/playwright-v1-app-data");

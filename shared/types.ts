@@ -125,6 +125,11 @@ export interface SaveBankAsRequest {
   bank: Bank;
 }
 
+export interface WorkspaceRelocateRequest {
+  workspacePath: string;
+  replacementPath: string;
+}
+
 export interface AppState {
   version: 1;
   currentWorkspacePath?: string;
@@ -156,8 +161,12 @@ export interface AppInfo {
   setupRequired: boolean;
 }
 
-export interface SaveBankAsResponse {
+export interface WorkspaceTransitionResponse {
   appInfo: AppInfo;
+  snapshot: BankSnapshot | null;
+}
+
+export interface SaveBankAsResponse extends WorkspaceTransitionResponse {
   snapshot: BankSnapshot;
 }
 

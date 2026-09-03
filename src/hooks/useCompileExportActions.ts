@@ -58,6 +58,7 @@ export function useCompileExportActions({
   const exportNameRef = useRef("");
   const compileGenerationRef = useRef(0);
   const workspacePathRef = useRef(workspacePath);
+  const trustedWorkspacePathsRef = useRef(new Set<string>());
 
   const currentContentVersion = useMemo(
     () => activeItem && bank ? compileContentVersion(activeItem, bank.settings) : null,
@@ -175,6 +176,7 @@ export function useCompileExportActions({
 
   async function compileCurrentItem() {
     if (!activeItem || !bank) return;
+    if (!confirmTrustedWorkspace()) return;
     const item = activeItem;
     const settings = bank.settings;
     const target = {
@@ -202,6 +204,7 @@ export function useCompileExportActions({
       setNotice({ type: "error", text: "请至少勾选一道题目。" });
       return;
     }
+    if (!confirmTrustedWorkspace()) return;
     setIsExporting(true);
     setExportFailureResult(null);
     setNotice({ type: "info", text: "正在导出四份文件。" });
@@ -258,6 +261,16 @@ export function useCompileExportActions({
     } finally {
       setIsExporting(false);
     }
+  }
+
+  function confirmTrustedWorkspace(): boolean {
+    if (!workspacePath) return false;
+    if (trustedWorkspacePathsRef.current.has(workspacePath)) return true;
+    const confirmed = window.confirm(
+      "LaTeX 编译会在本机运行 TeX 引擎。请仅编译或导出你信任的工作区内容。\n\n是否继续？"
+    );
+    if (confirmed) trustedWorkspacePathsRef.current.add(workspacePath);
+    return confirmed;
   }
 
   return {

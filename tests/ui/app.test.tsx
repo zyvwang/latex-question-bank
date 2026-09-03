@@ -404,6 +404,24 @@ describe("App UI", () => {
     expect(within(staleText.parentElement!).queryByRole("button", { name: "打开" })).not.toBeInTheDocument();
   });
 
+  it("does not invoke TeX when the workspace trust prompt is declined", async () => {
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    await user.click(screen.getByRole("button", { name: "检查当前题" }));
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining("请仅编译或导出你信任的工作区内容")
+    );
+    expect(
+      vi.mocked(fetch).mock.calls.some(
+        ([url]) => String(url) === "/api/compile-item"
+      )
+    ).toBe(false);
+  });
+
   it("marks an in-flight compile stale when content changes", async () => {
     const user = userEvent.setup();
     let resolveCompile: ((response: Response) => void) | undefined;
@@ -977,6 +995,9 @@ describe("App UI", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
+    const bankReadsBeforeSwitch = vi.mocked(fetch).mock.calls.filter(
+      ([url, init]) => String(url) === "/api/bank" && !init
+    ).length;
 
     await user.click(screen.getByRole("button", { name: "题库设置" }));
     await user.click(screen.getByRole("button", { name: /other-bank/ }));
@@ -991,6 +1012,11 @@ describe("App UI", () => {
         ([url, init]) => String(url) === "/api/bank" && init?.method === "PUT"
       )
     ).toBe(false);
+    expect(
+      vi.mocked(fetch).mock.calls.filter(
+        ([url, init]) => String(url) === "/api/bank" && !init
+      )
+    ).toHaveLength(bankReadsBeforeSwitch);
   });
 
   it("serializes saves and coalesces edits made during an in-flight request", async () => {
@@ -1358,6 +1384,47 @@ describe("App UI", () => {
     await user.click(await screen.findByRole("button", { name: /最近一次保存前的备份/ }));
     expect(await screen.findByText("2024-1")).toBeInTheDocument();
   });
+
+  it("offers valid recent workspaces when the current workspace is missing", async () => {
+    const missingAppInfo: AppInfo = {
+      ...appInfo,
+      appState: {
+        ...appInfo.appState,
+        currentWorkspacePath: "/tmp/missing-bank",
+        recentWorkspacePaths: ["/tmp/missing-bank", "/tmp/other-bank"]
+      },
+      currentWorkspaceName: "missing-bank",
+      currentWorkspacePath: "/tmp/missing-bank",
+      recentWorkspaces: [
+        { name: "missing-bank", path: "/tmp/missing-bank", exists: false },
+        { name: "other-bank", path: "/tmp/other-bank", exists: true }
+      ]
+    };
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/app") return json(missingAppInfo);
+      if (url === "/api/bank" && !init) {
+        return json(
+          { error: "当前工作区缺少 bank.json。", code: "WORKSPACE_MISSING" },
+          404
+        );
+      }
+      if (url === "/api/recovery" && !init) {
+        return json({ candidates: [] });
+      }
+      return handleFetch(input, init);
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByText("原题库位置已失效")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新定位" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选择其他工作区" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "移除失效记录" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /切换到 other-bank/ }));
+    expect(await screen.findByText("2024-1")).toBeInTheDocument();
+  });
 });
 
 async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -1377,13 +1444,21 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
     return json({ workspacePath: request.workspacePath, revision: crypto.randomUUID(), bank: request.bank });
   }
   if (url === "/api/workspaces/switch") {
-    return json({
+    const nextAppInfo = {
       ...appInfo,
       currentWorkspaceName: "other-bank",
       currentWorkspacePath: "/tmp/other-bank",
       appState: {
         ...appInfo.appState,
         currentWorkspacePath: "/tmp/other-bank"
+      }
+    };
+    return json({
+      appInfo: nextAppInfo,
+      snapshot: {
+        workspacePath: "/tmp/other-bank",
+        revision: "other-revision",
+        bank
       }
     });
   }
@@ -1397,7 +1472,7 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
     };
     const currentWorkspaceName =
       request.workspacePath.split("/").filter(Boolean).at(-1) ?? "bank";
-    return json({
+    const nextAppInfo = {
       ...appInfo,
       currentWorkspaceName,
       currentWorkspacePath: request.workspacePath,
@@ -1417,6 +1492,14 @@ async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promis
         },
         ...appInfo.recentWorkspaces
       ]
+    };
+    return json({
+      appInfo: nextAppInfo,
+      snapshot: {
+        workspacePath: request.workspacePath,
+        revision: "workspace-transition-revision",
+        bank
+      }
     });
   }
   if (url === "/api/tex-path") {

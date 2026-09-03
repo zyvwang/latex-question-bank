@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
 
 export default defineConfig({
   test: {
@@ -6,6 +7,10 @@ export default defineConfig({
     globals: true,
     restoreMocks: true,
     fileParallelism: false,
+    env: {
+      LQB_APP_DATA_DIR: path.resolve(".tmp/vitest-app-data"),
+      LQB_WORKSPACE_DIR: ""
+    },
     setupFiles: ["tests/setup/node.ts"],
     include: [
       "tests/unit/**/*.test.ts",

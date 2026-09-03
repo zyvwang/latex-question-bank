@@ -49,6 +49,96 @@ describe("API validation", () => {
     );
   });
 
+  it("validates a workspace before changing the current app state", async () => {
+    const app = createApiApp();
+    const created = await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    expect(created.body.appInfo.currentWorkspacePath).toBe(workspacePath);
+    expect(created.body.snapshot.workspacePath).toBe(workspacePath);
+
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      "{ damaged",
+      "utf8"
+    );
+
+    for (const route of ["open", "switch"]) {
+      const invalidResponse = await request(app)
+        .post(`/api/workspaces/${route}`)
+        .send({ workspacePath: saveAsWorkspacePath });
+      expect(
+        invalidResponse.status,
+        `${route}: ${JSON.stringify(invalidResponse.body)}`
+      ).toBe(400);
+      expect(invalidResponse.body.code).toBe("BANK_JSON_INVALID");
+    }
+
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
+    await request(app)
+      .put("/api/bank")
+      .send({
+        workspacePath,
+        baseRevision: created.body.snapshot.revision,
+        bank: created.body.snapshot.bank
+      })
+      .expect(200);
+  });
+
+  it("relocates a recent workspace in one validated transition", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+      "utf8"
+    );
+
+    const response = await request(app)
+      .post("/api/workspaces/relocate")
+      .send({ workspacePath, replacementPath: saveAsWorkspacePath })
+      .expect(200);
+
+    expect(response.body.appInfo.currentWorkspacePath).toBe(
+      saveAsWorkspacePath
+    );
+    expect(response.body.snapshot.workspacePath).toBe(saveAsWorkspacePath);
+    expect(response.body.appInfo.appState.recentWorkspacePaths).not.toContain(
+      workspacePath
+    );
+  });
+
+  it("does not remove the old recent path when relocation validation fails", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      "{ damaged",
+      "utf8"
+    );
+
+    await request(app)
+      .post("/api/workspaces/relocate")
+      .send({ workspacePath, replacementPath: saveAsWorkspacePath })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("BANK_JSON_INVALID"));
+
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
+    expect(info.body.appState.recentWorkspacePaths).toContain(workspacePath);
+  });
+
   it("answers unknown API routes with JSON instead of the SPA shell", async () => {
     // 落到 SPA 兜底会返回 200 text/html,客户端 response.json() 抛 SyntaxError,
     // 而只检查 response.ok 的调用方会把 HTML 当成成功。

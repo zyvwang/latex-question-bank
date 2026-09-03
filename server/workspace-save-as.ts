@@ -24,12 +24,13 @@ import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import {
   getWorkspaceDirs,
   readAppState,
-  switchWorkspace
+  switchWorkspace,
+  type WorkspaceTransition
 } from "./workspace-storage.js";
 
 export async function saveBankAsWorkspace(
   request: SaveBankAsRequest
-): Promise<BankSnapshot> {
+): Promise<WorkspaceTransition & { snapshot: BankSnapshot }> {
   const sourceWorkspacePath = path.resolve(request.sourceWorkspacePath);
   const targetWorkspacePath = path.resolve(request.targetWorkspacePath);
   if (sourceWorkspacePath === targetWorkspacePath) {
@@ -77,12 +78,14 @@ export async function saveBankAsWorkspace(
       }
       await rename(stagingPath, targetWorkspacePath);
       committed = true;
-      await switchWorkspace(targetWorkspacePath);
-      const content = serializeJson(bank);
+      const transition = await switchWorkspace(targetWorkspacePath);
       return {
-        workspacePath: targetWorkspacePath,
-        revision: revisionForContent(content),
-        bank
+        ...transition,
+        snapshot: {
+          workspacePath: targetWorkspacePath,
+          revision: revisionForContent(serializeJson(bank)),
+          bank
+        }
       };
     } catch (error) {
       if (!committed) {

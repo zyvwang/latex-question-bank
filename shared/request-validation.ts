@@ -13,7 +13,8 @@ import type {
   SaveBankRequest,
   TexPathRequest,
   WorkspaceMoveRequest,
-  WorkspacePathRequest
+  WorkspacePathRequest,
+  WorkspaceRelocateRequest
 } from "./types.js";
 import {
   getOptionalStringField,
@@ -108,6 +109,24 @@ export function validateWorkspaceMoveRequest(
     ok: true,
     value: { workspacePath: pathResult.value.workspacePath, direction }
   };
+}
+
+export function validateWorkspaceRelocateRequest(
+  value: unknown
+): ValidationResult<WorkspaceRelocateRequest> {
+  try {
+    if (!isRecord(value)) throw new ValidationError("请求体必须是对象。");
+    return {
+      ok: true,
+      value: {
+        workspacePath: requiredNonEmptyString(value, "workspacePath"),
+        replacementPath: requiredNonEmptyString(value, "replacementPath")
+      }
+    };
+  } catch (error) {
+    if (error instanceof ValidationError) return invalid(error.message);
+    throw error;
+  }
 }
 
 export function validateTexPathRequest(

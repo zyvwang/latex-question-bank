@@ -12,7 +12,8 @@ import type {
   Bank,
   BankSnapshot,
   ModuleKind,
-  QuestionItem
+  QuestionItem,
+  WorkspaceTransitionResponse
 } from "../../shared/types.js";
 import {
   findSourceNumberConflict,
@@ -279,24 +280,39 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       setNotice
     ]
   );
-  const reloadWorkspace = useCallback(
-    async (nextAppInfo: AppInfo) => {
-      if (nextAppInfo.setupRequired) {
-        applySetupState(nextAppInfo);
+  const applyWorkspaceTransition = useCallback(
+    (response: WorkspaceTransitionResponse) => {
+      if (response.appInfo.setupRequired) {
+        applySetupState(response.appInfo);
         return;
+      }
+      if (!response.snapshot) {
+        if (
+          response.appInfo.currentWorkspacePath ===
+          appInfo?.currentWorkspacePath
+        ) {
+          setAppInfo(response.appInfo);
+          return;
+        }
+        throw new Error("工作区响应缺少题库快照，请重试。");
       }
       const nextActiveView =
         appView.activeView === "settings" ? "settings" : "editor";
-      applyBankSnapshot(nextAppInfo, await fetchBank(), nextActiveView);
+      applyBankSnapshot(response.appInfo, response.snapshot, nextActiveView);
     },
-    [appView.activeView, applyBankSnapshot, applySetupState]
+    [
+      appInfo?.currentWorkspacePath,
+      appView.activeView,
+      applyBankSnapshot,
+      applySetupState
+    ]
   );
 
   const workspace = useWorkspaceActions({
     appInfo,
     bank,
     persistBank,
-    reloadWorkspace,
+    applyWorkspaceTransition,
     setAppInfo,
     setNotice
   });

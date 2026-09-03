@@ -10,6 +10,7 @@ import {
   createSecureWebPreferences,
   isCloseResponse,
   navigationIsAllowed,
+  resolveDevelopmentUserDataDir,
   type RendererCloseResponse
 } from "./security-policy.js";
 
@@ -27,8 +28,14 @@ if (configuredAppDataDir) {
   app.setPath("userData", appDataDir);
   app.setPath("sessionData", sessionDataDir);
 } else if (isDevelopment) {
-  const sessionDataDir = path.join(app.getPath("temp"), "latex-question-bank-electron-session");
+  // 开发版绝不能复用已安装应用的 userData；否则临时工作区会写进正式
+  // app-state.json，并在测试目录清理后把正式应用困在恢复页。
+  const developmentUserDataDir = resolveDevelopmentUserDataDir(
+    app.getAppPath()
+  );
+  const sessionDataDir = path.join(developmentUserDataDir, "session");
   mkdirSync(sessionDataDir, { recursive: true });
+  app.setPath("userData", developmentUserDataDir);
   app.setPath("sessionData", sessionDataDir);
 }
 

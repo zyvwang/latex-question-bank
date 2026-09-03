@@ -1,4 +1,4 @@
-import type { AppInfo } from "../shared/types.js";
+import type { AppInfo, AppState } from "../shared/types.js";
 import { detectTexInstallation } from "./latex-runtime.js";
 import {
   listRecentWorkspaces,
@@ -6,8 +6,8 @@ import {
   workspaceNameFromPath
 } from "./workspace-storage.js";
 
-export async function buildAppInfo(): Promise<AppInfo> {
-  const appState = await readAppState();
+export async function buildAppInfo(committedState?: AppState): Promise<AppInfo> {
+  const appState = committedState ?? (await readAppState());
   const currentWorkspacePath = appState.currentWorkspacePath ?? "";
   return {
     appState,
@@ -15,8 +15,8 @@ export async function buildAppInfo(): Promise<AppInfo> {
       ? workspaceNameFromPath(currentWorkspacePath)
       : "未设置",
     currentWorkspacePath,
-    recentWorkspaces: await listRecentWorkspaces(),
-    texStatus: await detectTexInstallation(),
+    recentWorkspaces: await listRecentWorkspaces(appState),
+    texStatus: await detectTexInstallation(appState.texPathOverride ?? null),
     isDesktop: process.env.LQB_DESKTOP === "1",
     setupRequired: !currentWorkspacePath
   };

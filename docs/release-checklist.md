@@ -24,11 +24,15 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - generic save failure pauses automatic requests and retries only once on demand
    - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
    - conflict save-as copies referenced images only and rejects non-empty or symlinked targets without changing the current workspace
+   - opening, switching, or relocating to malformed `bank.json` leaves the prior workspace active and still saveable; successful transitions make no follow-up bank request
+   - a missing current workspace offers retry, relocation, explicit switching to an available recent workspace, and removal without silently changing workspaces
+   - `desktop:dev`, Vitest, and packaged desktop runs use separate application-data roots
    - missing recent workspace relocation/removal
    - damaged `bank.json` recovery from `.bak` or `.history/`
    - PNG/JPEG upload and disguised-file rejection
-   - current-item compile
-   - successful same-name export replacement and failed replacement preservation
+   - the per-workspace TeX trust prompt cancels without spawning a compile, and accepting it covers later compile/export actions in that application session
+   - current-item compile, including a concurrent request receiving `LATEX_BUSY` without interrupting the active compile
+   - successful same-name export replacement, failed replacement preservation, and startup recovery from an interrupted two-rename transaction
    - chapter creation/rename/reorder/delete and chapter-local question reorder
    - review-option edit/reorder/delete, reference cleanup, and multi-tag comma input
    - multi-value chapter/tag/mastery/error-reason filtering with OR within fields and AND across fields

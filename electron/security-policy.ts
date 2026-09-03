@@ -1,4 +1,5 @@
 import type { WebPreferences } from "electron";
+import path from "node:path";
 
 export interface RendererCloseResponse {
   ok: boolean;
@@ -7,6 +8,14 @@ export interface RendererCloseResponse {
 
 export type SenderTrust = "trusted" | "wrong-window" | "wrong-origin";
 export type ExternalUrlPolicy = "local" | "external" | "blocked";
+
+export function resolveDevelopmentUserDataDir(appPath: string): string {
+  return path.join(
+    path.resolve(appPath),
+    ".tmp",
+    "electron-dev-app-data"
+  );
+}
 
 export function createSecureWebPreferences(preload: string): WebPreferences {
   return {

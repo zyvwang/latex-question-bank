@@ -12,6 +12,12 @@ export const rootDir = path.resolve(process.env.LQB_ROOT_DIR ?? process.cwd());
 export const appDataDir = path.resolve(process.env.LQB_APP_DATA_DIR ?? path.join(rootDir, ".app-data"));
 export const appStatePath = path.join(appDataDir, "app-state.json");
 
+if (process.env.VITEST && !isPathInside(path.join(rootDir, ".tmp"), appDataDir)) {
+  throw new Error(
+    "Refusing to run Vitest with application data outside the repository .tmp directory."
+  );
+}
+
 let updateQueue: Promise<unknown> = Promise.resolve();
 
 interface PersistedAppState extends AppState {
@@ -162,4 +168,14 @@ function isNotFound(error: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPathInside(parentPath: string, candidatePath: string): boolean {
+  const relative = path.relative(path.resolve(parentPath), path.resolve(candidatePath));
+  return Boolean(
+    relative &&
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }

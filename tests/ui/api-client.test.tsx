@@ -3,6 +3,7 @@ import { createSampleBank } from "../../server/bank-schema.js";
 import { BANK_SAVE_BODY_LIMIT_BYTES } from "../../shared/api-limits.js";
 import {
   ApiRequestError,
+  compileItem,
   fetchAppInfo,
   saveBank,
   saveBankAs
@@ -101,5 +102,25 @@ describe("non-JSON responses", () => {
     expect(error).toBeInstanceOf(ApiRequestError);
     expect(error).not.toBeInstanceOf(SyntaxError);
     expect(error).toMatchObject({ status: 200, code: "RESPONSE_NOT_JSON" });
+  });
+
+  it("throws infrastructure errors instead of treating them as compile results", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        error: "已有 LaTeX 编译正在运行，请稍后重试。",
+        code: "LATEX_BUSY"
+      }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+    const sample = createSampleBank();
+
+    await expect(
+      compileItem(sample.items[0], sample.settings)
+    ).rejects.toMatchObject({
+      status: 503,
+      code: "LATEX_BUSY"
+    });
   });
 });

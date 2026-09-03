@@ -1,7 +1,11 @@
 import { mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { AppState, WorkspaceSummary } from "../shared/types.js";
+import type {
+  AppState,
+  BankSnapshot,
+  WorkspaceSummary
+} from "../shared/types.js";
 import {
   appDataDir,
   appStatePath,
@@ -17,6 +21,8 @@ import { resetSessionHistory } from "./storage-session.js";
 import { cleanupTempDirectory } from "./temp-directory-cleanup.js";
 import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { fileExists, safeOptionalString } from "./storage-utils.js";
+import { readBankSnapshotAt } from "./bank-reader.js";
+import { recoverExportTransactions } from "./export-transaction.js";
 
 const forcedWorkspacePath = process.env.LQB_WORKSPACE_DIR
   ? path.resolve(process.env.LQB_WORKSPACE_DIR)
@@ -29,7 +35,9 @@ export async function ensureProjectDirs() {
   }
   const state = await readAppState();
   if (state.currentWorkspacePath && (await workspaceExists(state.currentWorkspacePath))) {
-    await cleanupTempDirectory(getWorkspaceDirs(state.currentWorkspacePath).tempDir);
+    const dirs = getWorkspaceDirs(state.currentWorkspacePath);
+    await recoverExportTransactions(dirs.exportDir, dirs.tempDir);
+    await cleanupTempDirectory(dirs.tempDir);
   }
 }
 
@@ -49,15 +57,27 @@ export async function readAppState(): Promise<AppState> {
   return readPersistedAppState();
 }
 
-export async function createEmptyWorkspace(workspacePath: string): Promise<AppState> {
+export interface WorkspaceTransition {
+  appState: AppState;
+  snapshot: BankSnapshot | null;
+}
+
+export async function createEmptyWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransition> {
   return createWorkspace(workspacePath, false);
 }
 
-export async function createSampleWorkspace(workspacePath: string): Promise<AppState> {
+export async function createSampleWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransition> {
   return createWorkspace(workspacePath, true);
 }
 
-async function createWorkspace(workspacePath: string, sample: boolean): Promise<AppState> {
+async function createWorkspace(
+  workspacePath: string,
+  sample: boolean
+): Promise<WorkspaceTransition> {
   const resolvedPath = path.resolve(workspacePath);
   if (await workspaceExists(resolvedPath)) {
     throw new StorageError(
@@ -71,51 +91,109 @@ async function createWorkspace(workspacePath: string, sample: boolean): Promise<
   return switchWorkspace(resolvedPath);
 }
 
-export async function openExistingWorkspace(workspacePath: string): Promise<AppState> {
-  const resolvedPath = path.resolve(workspacePath);
-  if (!(await workspaceExists(resolvedPath))) {
-    throw new StorageError(
-      "这个文件夹不是题库工作区：缺少 bank.json。请使用“新建”创建空工作区。",
-      "WORKSPACE_MISSING"
-    );
-  }
-  return switchWorkspace(resolvedPath);
+export async function openExistingWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransition> {
+  return switchWorkspace(workspacePath);
 }
 
-export async function switchWorkspace(workspacePath: string): Promise<AppState> {
+export async function switchWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransition> {
   const resolvedPath = path.resolve(workspacePath);
-  if (!(await workspaceExists(resolvedPath))) {
+  let snapshot: BankSnapshot | null = null;
+  const appState = await updateAppState(async (state) => {
+    // 验证必须发生在 app-state 提交前。这样损坏的目标不会让服务端与渲染端
+    // 分别停留在两个工作区，后续旧题库保存也不会误报 WORKSPACE_CHANGED。
+    snapshot = await readBankSnapshotAt(resolvedPath);
+    // git 或 zip 分发的工作区常常只带 bank.json；解析成功后再补齐并校验子目录。
+    await ensureWorkspace(resolvedPath, { sample: false });
+    return {
+      ...state,
+      currentWorkspacePath: resolvedPath,
+      recentWorkspacePaths: normalizeRecent([
+        resolvedPath,
+        ...state.recentWorkspacePaths
+      ])
+    };
+  });
+  if (!snapshot) {
     throw new StorageError(
-      "这个文件夹不是题库工作区：缺少 bank.json。请使用“新建”创建空工作区。",
-      "WORKSPACE_MISSING"
+      "工作区切换没有返回题库快照。",
+      "WORKSPACE_TRANSITION_INVALID",
+      500
     );
   }
-  // 打开/切换也要走一遍:git 或 zip 分发的工作区常常只带 bank.json,缺少的子目录要补建,
-  // 子目录是符号链接时要在这里就拒绝,而不是等到导出或上传时逐个报错。
-  await ensureWorkspace(resolvedPath, { sample: false });
-  return updateAppState((state) => ({
-    ...state,
-    currentWorkspacePath: resolvedPath,
-    recentWorkspacePaths: normalizeRecent([resolvedPath, ...state.recentWorkspacePaths])
-  }));
+  return { appState, snapshot };
 }
 
-export async function removeWorkspace(workspacePath: string): Promise<AppState> {
+export async function relocateWorkspace(
+  workspacePath: string,
+  replacementPath: string
+): Promise<WorkspaceTransition> {
   const resolvedPath = path.resolve(workspacePath);
-  return updateAppState(async (state) => {
-    const recentWorkspacePaths = state.recentWorkspacePaths.filter((item) => item !== resolvedPath);
+  const resolvedReplacement = path.resolve(replacementPath);
+  if (resolvedPath === resolvedReplacement) {
+    throw new StorageError(
+      "重新定位路径不能与原路径相同。",
+      "WORKSPACE_RELOCATE_SAME_PATH"
+    );
+  }
+  let snapshot: BankSnapshot | null = null;
+  const appState = await updateAppState(async (state) => {
+    snapshot = await readBankSnapshotAt(resolvedReplacement);
+    await ensureWorkspace(resolvedReplacement, { sample: false });
+    return {
+      ...state,
+      currentWorkspacePath: resolvedReplacement,
+      recentWorkspacePaths: normalizeRecent([
+        resolvedReplacement,
+        ...state.recentWorkspacePaths.filter(
+          (item) => path.resolve(item) !== resolvedPath
+        )
+      ])
+    };
+  });
+  if (!snapshot) {
+    throw new StorageError(
+      "工作区重新定位没有返回题库快照。",
+      "WORKSPACE_TRANSITION_INVALID",
+      500
+    );
+  }
+  return { appState, snapshot };
+}
+
+export async function removeWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransition> {
+  const resolvedPath = path.resolve(workspacePath);
+  let snapshot: BankSnapshot | null = null;
+  const appState = await updateAppState(async (state) => {
+    const recentWorkspacePaths = state.recentWorkspacePaths.filter(
+      (item) => path.resolve(item) !== resolvedPath
+    );
     let currentWorkspacePath = state.currentWorkspacePath;
-    if (state.currentWorkspacePath === resolvedPath) {
-      const existence = await Promise.all(
-        recentWorkspacePaths.map(async (candidate) => ({
-          candidate,
-          exists: await workspaceExists(candidate)
-        }))
-      );
-      currentWorkspacePath = existence.find((entry) => entry.exists)?.candidate;
+    if (
+      state.currentWorkspacePath &&
+      path.resolve(state.currentWorkspacePath) === resolvedPath
+    ) {
+      currentWorkspacePath = undefined;
+      for (const candidate of recentWorkspacePaths) {
+        try {
+          snapshot = await readBankSnapshotAt(candidate);
+          await ensureWorkspace(candidate, { sample: false });
+          currentWorkspacePath = candidate;
+          break;
+        } catch (error) {
+          snapshot = null;
+          console.warn(`跳过不可用的最近工作区：${candidate}`, error);
+        }
+      }
     }
     return { ...state, currentWorkspacePath, recentWorkspacePaths };
   });
+  return { appState, snapshot };
 }
 
 export async function moveWorkspace(workspacePath: string, direction: -1 | 1): Promise<AppState> {
@@ -133,8 +211,10 @@ export async function moveWorkspace(workspacePath: string, direction: -1 | 1): P
   });
 }
 
-export async function listRecentWorkspaces(): Promise<WorkspaceSummary[]> {
-  const state = await readAppState();
+export async function listRecentWorkspaces(
+  appState?: AppState
+): Promise<WorkspaceSummary[]> {
+  const state = appState ?? (await readAppState());
   return Promise.all(
     state.recentWorkspacePaths.map(async (workspacePath) => ({
       name: workspaceNameFromPath(workspacePath),
@@ -183,6 +263,7 @@ export async function ensureWorkspace(
     mkdir(dirs.exportDir, { recursive: true }),
     mkdir(dirs.tempDir, { recursive: true })
   ]);
+  await recoverExportTransactions(dirs.exportDir, dirs.tempDir);
   if (!(await fileExists(dirs.bankPath))) {
     resetSessionHistory(dirs.workspaceDir);
     const bank = options.sample ? createSampleBank() : createEmptyBank();

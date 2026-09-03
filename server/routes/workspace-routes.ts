@@ -3,7 +3,8 @@ import {
   validateSaveBankAsRequest,
   validateTexPathRequest,
   validateWorkspaceMoveRequest,
-  validateWorkspacePathRequest
+  validateWorkspacePathRequest,
+  validateWorkspaceRelocateRequest
 } from "../../shared/validation.js";
 import { updateTexPathOverride } from "../app-state.js";
 import { buildAppInfo } from "../app-info.js";
@@ -14,8 +15,10 @@ import {
   createSampleWorkspace,
   moveWorkspace,
   openExistingWorkspace,
+  relocateWorkspace,
   removeWorkspace,
-  switchWorkspace
+  switchWorkspace,
+  type WorkspaceTransition
 } from "../workspace-storage.js";
 
 export function createWorkspaceRouter(options: {
@@ -34,14 +37,12 @@ export function createWorkspaceRouter(options: {
     }
   });
 
-  registerWorkspacePathRoute(
+  registerWorkspaceTransitionRoute(
     router,
     parseJson,
     "/workspaces/create-sample",
     "缺少示例工作区路径。",
-    async (path) => {
-      await createSampleWorkspace(path);
-    }
+    createSampleWorkspace
   );
 
   router.post(
@@ -59,50 +60,68 @@ export function createWorkspaceRouter(options: {
           );
           return;
         }
-        const snapshot = await saveBankAsWorkspace(validation.value);
+        const transition = await saveBankAsWorkspace(validation.value);
         response.json({
-          appInfo: await buildAppInfo(),
-          snapshot
+          appInfo: await buildAppInfo(transition.appState),
+          snapshot: transition.snapshot
         });
       } catch (error) {
         next(error);
       }
     }
   );
-  registerWorkspacePathRoute(
+  registerWorkspaceTransitionRoute(
     router,
     parseJson,
     "/workspaces/create-empty",
     "缺少新工作区路径。",
-    async (path) => {
-      await createEmptyWorkspace(path);
-    }
+    createEmptyWorkspace
   );
-  registerWorkspacePathRoute(
+  registerWorkspaceTransitionRoute(
     router,
     parseJson,
     "/workspaces/open",
     undefined,
-    async (path) => {
-      await openExistingWorkspace(path);
-    }
+    openExistingWorkspace
   );
-  registerWorkspacePathRoute(
+  registerWorkspaceTransitionRoute(
     router,
     parseJson,
     "/workspaces/remove",
     undefined,
-    async (path) => {
-      await removeWorkspace(path);
-    }
+    removeWorkspace
   );
-  registerWorkspacePathRoute(
+  registerWorkspaceTransitionRoute(
     router,
     parseJson,
     "/workspaces/switch",
     undefined,
-    async (path) => {
-      await switchWorkspace(path);
+    switchWorkspace
+  );
+
+  router.post(
+    "/workspaces/relocate",
+    parseJson,
+    async (request, response, next) => {
+      try {
+        const validation = validateWorkspaceRelocateRequest(request.body);
+        if (!validation.ok || !validation.value) {
+          sendApiError(
+            response,
+            400,
+            validation.error,
+            "WORKSPACE_RELOCATE_INVALID"
+          );
+          return;
+        }
+        const transition = await relocateWorkspace(
+          validation.value.workspacePath,
+          validation.value.replacementPath
+        );
+        response.json(await buildWorkspaceTransitionResponse(transition));
+      } catch (error) {
+        next(error);
+      }
     }
   );
 
@@ -140,12 +159,12 @@ export function createWorkspaceRouter(options: {
   return router;
 }
 
-function registerWorkspacePathRoute(
+function registerWorkspaceTransitionRoute(
   router: Router,
   parseJson: RequestHandler,
   route: string,
   missingMessage: string | undefined,
-  operation: (workspacePath: string) => Promise<void>
+  operation: (workspacePath: string) => Promise<WorkspaceTransition>
 ) {
   router.post(route, parseJson, async (request, response, next) => {
     try {
@@ -154,10 +173,19 @@ function registerWorkspacePathRoute(
         sendApiError(response, 400, validation.error, "WORKSPACE_PATH_INVALID");
         return;
       }
-      await operation(validation.value.workspacePath);
-      response.json(await buildAppInfo());
+      const transition = await operation(validation.value.workspacePath);
+      response.json(await buildWorkspaceTransitionResponse(transition));
     } catch (error) {
       next(error);
     }
   });
+}
+
+async function buildWorkspaceTransitionResponse(
+  transition: WorkspaceTransition
+) {
+  return {
+    appInfo: await buildAppInfo(transition.appState),
+    snapshot: transition.snapshot
+  };
 }
