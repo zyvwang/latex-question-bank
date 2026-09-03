@@ -67,6 +67,42 @@ describe("question filters", () => {
       })
     ).toEqual(["u"]);
   });
+
+  it("does not read LaTeX modules when search is empty", () => {
+    const candidate = item("lazy", "chapter-a", ["极限"], "easy", []);
+    makeTexUnreadable(candidate);
+
+    expect(
+      matchesQuestionFilters(candidate, emptyFilters(), chapterById)
+    ).toBe(true);
+  });
+
+  it("does not read LaTeX modules after a structured filter rejects the item", () => {
+    const candidate = item("lazy", "chapter-a", ["极限"], "easy", []);
+    makeTexUnreadable(candidate);
+
+    expect(
+      matchesQuestionFilters(candidate, {
+        ...emptyFilters(),
+        chapterFilters: ["chapter-b"],
+        search: "不会执行的全文搜索"
+      }, chapterById)
+    ).toBe(false);
+  });
+
+  it("matches normalized search terms across metadata and LaTeX modules", () => {
+    const candidate = item("search", "chapter-a", ["极限"], "easy", []);
+    candidate.modules.solution.tex = "Use L'Hôpital";
+
+    expect(matchesQuestionFilters(candidate, {
+      ...emptyFilters(),
+      search: "  L'HÔPITAL  "
+    }, chapterById)).toBe(true);
+    expect(matchesQuestionFilters(candidate, {
+      ...emptyFilters(),
+      search: "第一章"
+    }, chapterById)).toBe(true);
+  });
 });
 
 function matchingIds(filters: QuestionFilters): string[] {
@@ -111,4 +147,14 @@ function item(
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z"
   };
+}
+
+function makeTexUnreadable(candidate: QuestionItem): void {
+  Object.values(candidate.modules).forEach((module) => {
+    Object.defineProperty(module, "tex", {
+      get() {
+        throw new Error("LaTeX 正文不应被读取");
+      }
+    });
+  });
 }

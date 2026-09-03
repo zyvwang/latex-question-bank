@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createEmptyWorkspace,
   createSampleWorkspace as createSampleWorkspaceRequest,
@@ -29,16 +29,111 @@ export function useWorkspaceActions({
   setNotice
 }: WorkspaceActionsOptions) {
   const [isChangingWorkspace, setIsChangingWorkspace] = useState(false);
-  const [texPathDraft, setTexPathDraft] = useState("");
+  const initialTexPath = appInfo?.appState.texPathOverride ?? "";
+  const [texPathDraft, setTexPathDraftState] = useState(initialTexPath);
+  const texPathDraftRef = useRef(initialTexPath);
+  const persistedTexPathRef = useRef(initialTexPath);
+  const pendingTexPathRef = useRef<string | null>(null);
+  const inFlightTexPathRef = useRef<string | null>(null);
+  const texPathSavePromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
-    setTexPathDraft(appInfo?.appState.texPathOverride ?? "");
+    const persisted = appInfo?.appState.texPathOverride ?? "";
+    persistedTexPathRef.current = persisted;
+    if (!texPathSavePromiseRef.current && pendingTexPathRef.current === null) {
+      texPathDraftRef.current = persisted;
+      setTexPathDraftState(persisted);
+    }
   }, [appInfo?.appState.texPathOverride]);
 
-  async function saveBeforeWorkspaceChange() {
-    if (bank && appInfo?.currentWorkspacePath) {
-      await persistBank(bank);
+  const setTexPathDraft = useCallback((value: string) => {
+    texPathDraftRef.current = value;
+    setTexPathDraftState(value);
+  }, []);
+
+  const drainTexPathSaves = useCallback((): Promise<void> => {
+    if (texPathSavePromiseRef.current) return texPathSavePromiseRef.current;
+
+    const operation = (async () => {
+      while (pendingTexPathRef.current !== null) {
+        const value = pendingTexPathRef.current;
+        pendingTexPathRef.current = null;
+        if (value === persistedTexPathRef.current) continue;
+
+        inFlightTexPathRef.current = value;
+        try {
+          const nextAppInfo = await saveTexPath(value);
+          persistedTexPathRef.current =
+            nextAppInfo.appState.texPathOverride ?? "";
+          if (texPathDraftRef.current.trim() === value) {
+            texPathDraftRef.current = persistedTexPathRef.current;
+            setTexPathDraftState(persistedTexPathRef.current);
+          }
+          setAppInfo(nextAppInfo);
+          setNotice({
+            type: nextAppInfo.texStatus.available ? "ok" : "error",
+            text: nextAppInfo.texStatus.message
+          });
+        } catch (error) {
+          if (
+            pendingTexPathRef.current !== null &&
+            pendingTexPathRef.current !== value
+          ) {
+            continue;
+          }
+          const message =
+            error instanceof Error ? error.message : "保存 LaTeX 路径失败。";
+          setNotice({ type: "error", text: message });
+          throw error instanceof Error ? error : new Error(message);
+        } finally {
+          inFlightTexPathRef.current = null;
+        }
+      }
+    })();
+
+    const trackedOperation = operation.finally(() => {
+      if (texPathSavePromiseRef.current === trackedOperation) {
+        texPathSavePromiseRef.current = null;
+      }
+    });
+    texPathSavePromiseRef.current = trackedOperation;
+    return trackedOperation;
+  }, [setAppInfo, setNotice]);
+
+  const queueTexPathSave = useCallback(
+    (value: string): Promise<void> => {
+      if (
+        value === persistedTexPathRef.current &&
+        !texPathSavePromiseRef.current &&
+        inFlightTexPathRef.current === null
+      ) {
+        pendingTexPathRef.current = null;
+        return Promise.resolve();
+      }
+      pendingTexPathRef.current = value;
+      return drainTexPathSaves();
+    },
+    [drainTexPathSaves]
+  );
+
+  const saveTexPathOverride = useCallback(() => {
+    return queueTexPathSave(texPathDraftRef.current.trim());
+  }, [queueTexPathSave]);
+
+  const flushPendingSettings = useCallback(async () => {
+    await queueTexPathSave(texPathDraftRef.current.trim());
+    while (texPathSavePromiseRef.current) {
+      await texPathSavePromiseRef.current;
     }
+  }, [queueTexPathSave]);
+
+  async function saveBeforeWorkspaceChange() {
+    await Promise.all([
+      flushPendingSettings(),
+      bank && appInfo?.currentWorkspacePath
+        ? persistBank(bank)
+        : Promise.resolve()
+    ]);
   }
 
   async function createSampleWorkspace() {
@@ -164,19 +259,6 @@ export function useWorkspaceActions({
     }
   }
 
-  async function saveTexPathOverride() {
-    try {
-      const nextAppInfo = await saveTexPath(texPathDraft);
-      setAppInfo(nextAppInfo);
-      setNotice({
-        type: nextAppInfo.texStatus.available ? "ok" : "error",
-        text: nextAppInfo.texStatus.message
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "保存 LaTeX 路径失败。" });
-    }
-  }
-
   function openCurrentWorkspaceFolder() {
     if (!appInfo?.currentWorkspacePath) return;
     if (window.lqb?.openPath) {
@@ -198,6 +280,7 @@ export function useWorkspaceActions({
     moveWorkspaceInList,
     removeWorkspaceFromList,
     saveTexPathOverride,
+    flushPendingSettings,
     openCurrentWorkspaceFolder
   };
 }

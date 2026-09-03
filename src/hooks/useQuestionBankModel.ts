@@ -300,6 +300,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setAppInfo,
     setNotice
   });
+  const { flushPendingSettings } = workspace;
   const bankSettings = useBankSettingsActions({
     bank,
     updateBank,
@@ -354,8 +355,13 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     [resetAutosave, selectAllItems, setNotice]
   );
   const flushPendingChanges = useCallback(async () => {
-    if (bank && appInfo?.currentWorkspacePath) await persistBank(bank);
-  }, [appInfo?.currentWorkspacePath, bank, persistBank]);
+    await Promise.all([
+      bank && appInfo?.currentWorkspacePath
+        ? persistBank(bank)
+        : Promise.resolve(),
+      flushPendingSettings()
+    ]);
+  }, [appInfo?.currentWorkspacePath, bank, flushPendingSettings, persistBank]);
   const useDiskVersion = useCallback(async () => {
     if (
       saveIssue?.kind !== "conflict" ||

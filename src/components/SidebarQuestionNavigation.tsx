@@ -11,6 +11,14 @@ import {
   Tags
 } from "lucide-react";
 import {
+  memo,
+  useMemo,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent
+} from "react";
+import type { QuestionItem, ReviewOption } from "../../shared/types.js";
+import type { DropPosition } from "../itemOrder.js";
+import {
   useQuestions,
   useReview,
   useSelection,
@@ -218,6 +226,18 @@ function QuestionList() {
   const questions = useQuestions();
   const selection = useSelection();
   const ui = useWorkspaceUi();
+  const chapterById = useMemo(
+    () => new Map(questions.bank?.chapters.map((chapter) => [chapter.id, chapter.name]) ?? []),
+    [questions.bank?.chapters]
+  );
+  const masteryById = useMemo(
+    () => new Map(questions.bank?.masteryOptions.map((option) => [option.id, option]) ?? []),
+    [questions.bank?.masteryOptions]
+  );
+  const errorReasonById = useMemo(
+    () => new Map(questions.bank?.errorReasonOptions.map((option) => [option.id, option]) ?? []),
+    [questions.bank?.errorReasonOptions]
+  );
 
   if (selection.listItems.length === 0) {
     return (
@@ -231,79 +251,123 @@ function QuestionList() {
 
   return (
     <div className={styles.questionList} aria-label="题目列表">
-      {selection.listItems.map((item) => {
-        const chapterName = item.chapterId
-          ? (questions.bank?.chapters.find((chapter) => chapter.id === item.chapterId)?.name
-            ?? "未分类")
-          : "未分类";
-        const mastery = item.masteryOptionId
-          ? (questions.bank?.masteryOptions.find(
-            (option) => option.id === item.masteryOptionId
-          ) ?? null)
-          : null;
-        const selectedErrorIds = new Set(item.errorReasonOptionIds);
-        const errors = questions.bank?.errorReasonOptions.filter((option) =>
-          selectedErrorIds.has(option.id)
-        ) ?? [];
-        return (
-          <div
-            key={item.id}
-            className={[
-              styles.questionListItem,
-              questions.activeItem?.id === item.id ? styles.activeQuestion : "",
-              ui.draggingId === item.id ? styles.dragging : "",
-              ui.dropTarget?.id === item.id
-                ? ui.dropTarget.position === "before" ? styles.dropBefore : styles.dropAfter
-                : ""
-            ].filter(Boolean).join(" ")}
-            data-question-id={item.id}
-            onContextMenu={(event) => ui.openReorderMenu(event, item.id)}
-          >
-            <label className={styles.checkHit}>
-              <input
-                type="checkbox"
-                checked={selection.selectedIds.has(item.id)}
-                onChange={() => selection.toggleSelected(item.id)}
-                aria-label={`选择导出 ${item.sourceNumber || chapterName || "未命名题目"}`}
-              />
-            </label>
-            <span
-              className={styles.dragHandle}
-              title="拖拽排序"
-              onMouseDown={(event) => ui.startMouseDrag(event, item.id)}
-              onPointerDown={(event) => ui.startPointerDrag(event, item.id)}
-            >
-              <GripVertical size={16} />
-            </span>
-            <button
-              id={`question-nav-${item.id}`}
-              className={styles.questionMain}
-              onClick={() => questions.setActiveId(item.id)}
-            >
-              <span className={styles.questionIndex}>{questions.numberById.get(item.id)}</span>
-              <span className={styles.questionMeta}>
-                <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
-                <ReviewStateMarks mastery={mastery} errors={errors} />
-                <span className={metadataStyles.flow}>
-                  <span
-                    className={`${metadataStyles.token} ${metadataStyles.chapter}`}
-                  >
-                    {chapterName}
-                  </span>
-                  {item.tags.map((tag) => (
-                    <span
-                      className={`${metadataStyles.token} ${metadataStyles.tag}`}
-                      key={tag}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </span>
-              </span>
-            </button>
-          </div>
-        );
-      })}
+      {selection.listItems.map((item) => (
+        <QuestionListRow
+          key={item.id}
+          item={item}
+          chapterById={chapterById}
+          masteryById={masteryById}
+          errorReasonById={errorReasonById}
+          questionNumber={questions.numberById.get(item.id)}
+          active={questions.activeItem?.id === item.id}
+          selected={selection.selectedIds.has(item.id)}
+          dragging={ui.draggingId === item.id}
+          dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
+          onToggleSelected={selection.toggleSelected}
+          onActivate={questions.setActiveId}
+          onOpenReorderMenu={ui.openReorderMenu}
+          onStartMouseDrag={ui.startMouseDrag}
+          onStartPointerDrag={ui.startPointerDrag}
+        />
+      ))}
     </div>
   );
 }
+
+const QuestionListRow = memo(function QuestionListRow({
+  item,
+  chapterById,
+  masteryById,
+  errorReasonById,
+  questionNumber,
+  active,
+  selected,
+  dragging,
+  dropPosition,
+  onToggleSelected,
+  onActivate,
+  onOpenReorderMenu,
+  onStartMouseDrag,
+  onStartPointerDrag
+}: {
+  item: QuestionItem;
+  chapterById: Map<string, string>;
+  masteryById: Map<string, ReviewOption>;
+  errorReasonById: Map<string, ReviewOption>;
+  questionNumber: number | undefined;
+  active: boolean;
+  selected: boolean;
+  dragging: boolean;
+  dropPosition: DropPosition | null;
+  onToggleSelected: (id: string) => void;
+  onActivate: (id: string) => void;
+  onOpenReorderMenu: (event: ReactMouseEvent<HTMLElement>, id: string) => void;
+  onStartMouseDrag: (event: ReactMouseEvent<HTMLSpanElement>, id: string) => void;
+  onStartPointerDrag: (event: ReactPointerEvent<HTMLSpanElement>, id: string) => void;
+}) {
+  const chapterName = item.chapterId
+    ? (chapterById.get(item.chapterId) ?? "未分类")
+    : "未分类";
+  const mastery = item.masteryOptionId
+    ? (masteryById.get(item.masteryOptionId) ?? null)
+    : null;
+  const errors = item.errorReasonOptionIds.flatMap((id) => {
+    const option = errorReasonById.get(id);
+    return option ? [option] : [];
+  });
+
+  return (
+    <div
+      className={[
+        styles.questionListItem,
+        active ? styles.activeQuestion : "",
+        dragging ? styles.dragging : "",
+        dropPosition === "before" ? styles.dropBefore : "",
+        dropPosition === "after" ? styles.dropAfter : ""
+      ].filter(Boolean).join(" ")}
+      data-question-id={item.id}
+      onContextMenu={(event) => onOpenReorderMenu(event, item.id)}
+    >
+      <label className={styles.checkHit}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelected(item.id)}
+          aria-label={`选择导出 ${item.sourceNumber || chapterName || "未命名题目"}`}
+        />
+      </label>
+      <span
+        className={styles.dragHandle}
+        title="拖拽排序"
+        onMouseDown={(event) => onStartMouseDrag(event, item.id)}
+        onPointerDown={(event) => onStartPointerDrag(event, item.id)}
+      >
+        <GripVertical size={16} />
+      </span>
+      <button
+        id={`question-nav-${item.id}`}
+        className={styles.questionMain}
+        onClick={() => onActivate(item.id)}
+      >
+        <span className={styles.questionIndex}>{questionNumber}</span>
+        <span className={styles.questionMeta}>
+          <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
+          <ReviewStateMarks mastery={mastery} errors={errors} />
+          <span className={metadataStyles.flow}>
+            <span className={`${metadataStyles.token} ${metadataStyles.chapter}`}>
+              {chapterName}
+            </span>
+            {item.tags.map((tag) => (
+              <span
+                className={`${metadataStyles.token} ${metadataStyles.tag}`}
+                key={tag}
+              >
+                {tag}
+              </span>
+            ))}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+});

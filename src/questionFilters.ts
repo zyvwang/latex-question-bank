@@ -11,13 +11,37 @@ export interface QuestionFilters {
   search: string;
 }
 
+export interface QuestionFilterRuntime {
+  searchTerm: string;
+  getSearchText: (item: QuestionItem, chapterName: string) => string;
+}
+
+export function normalizeQuestionSearch(search: string): string {
+  return search.trim().toLocaleLowerCase();
+}
+
+export function buildQuestionSearchText(
+  item: QuestionItem,
+  chapterName: string
+): string {
+  return [
+    item.sourceNumber,
+    chapterName,
+    item.tags.join(" "),
+    item.modules.question.tex,
+    item.modules.solution.tex,
+    item.modules.note.tex
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+}
+
 export function matchesQuestionFilters(
   item: QuestionItem,
   filters: QuestionFilters,
-  chapterById: Map<string, Chapter>
+  chapterById: Map<string, Chapter>,
+  runtime?: QuestionFilterRuntime
 ): boolean {
-  const chapterName =
-    item.chapterId === null ? "未分类" : (chapterById.get(item.chapterId)?.name ?? "");
   const matchesChapter =
     filters.chapterFilters.length === 0 ||
     filters.chapterFilters.some((filter) =>
@@ -42,23 +66,24 @@ export function matchesQuestionFilters(
         ? item.errorReasonOptionIds.length === 0
         : item.errorReasonOptionIds.includes(filter)
     );
-  const term = filters.search.trim().toLocaleLowerCase();
-  const haystack = [
-    item.sourceNumber,
-    chapterName,
-    item.tags.join(" "),
-    item.modules.question.tex,
-    item.modules.solution.tex,
-    item.modules.note.tex
-  ]
-    .join(" ")
-    .toLocaleLowerCase();
+  if (
+    !matchesChapter ||
+    !matchesTag ||
+    !matchesMastery ||
+    !matchesErrorReason
+  ) {
+    return false;
+  }
 
-  return (
-    matchesChapter &&
-    matchesTag &&
-    matchesMastery &&
-    matchesErrorReason &&
-    (!term || haystack.includes(term))
-  );
+  const term = runtime?.searchTerm ?? normalizeQuestionSearch(filters.search);
+  if (!term) return true;
+
+  const chapterName =
+    item.chapterId === null
+      ? "未分类"
+      : (chapterById.get(item.chapterId)?.name ?? "");
+  const haystack = runtime
+    ? runtime.getSearchText(item, chapterName)
+    : buildQuestionSearchText(item, chapterName);
+  return haystack.includes(term);
 }

@@ -19,6 +19,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 9. Launch the desktop app with `npm run desktop:dev` and smoke-test:
    - first workspace setup
    - editing followed immediately by app quit and restart
+   - editing the latexmk override followed immediately by app quit and restart, without manually blurring the field
    - launching a second desktop instance exits the newcomer, restores/focuses the existing window, keeps one BrowserWindow/API server, and preserves pending edits through the normal close flush
    - generic save failure pauses automatic requests and retries only once on demand
    - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
@@ -36,10 +37,11 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - normal export order follows chapter order and chapter-local order
    - Heatmap mastery, error-reason, and combined modes, including patterns, three-stripe limit, `+N`, and the visible legend
    - 200ms heatmap preview switching across Question, Solution, and Note with only one MathJax preview instance
+   - rapid repeated edits to numbered or labelled equations, confirming one MathJax typeset at a time, stable final numbering, and no duplicate preview nodes
    - two-pane heatmap layout without a chapter index, with chapter labels retained on each row
    - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in both editor and heatmap previews
    - Heatmap Arrow keys, Home, End, Enter, screen-reader names, visible focus, and editor-return restoration
-   - a production build with the 1000-item fixture, checking entry, mode switching, scrolling, and preview response without noticeable input blocking
+   - a production build with the 1000-item fixture, typing continuously in the active question before checking heatmap entry, mode switching, scrolling, and preview response without noticeable input blocking
    - same-day mastery-history merging, cross-day creation, unique rename validation, detail viewing, deletion, and restore
    - restoration keeps bodies, chapters, order, assets, and newer questions while recreating missing review options
    - the sixth-history chooser defaults to the oldest record; canceling keeps all records and abandons the triggering review edit

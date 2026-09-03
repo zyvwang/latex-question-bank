@@ -1,7 +1,7 @@
 import { _electron as electron, expect, test } from "@playwright/test";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createSampleBank } from "../../server/bank-schema.js";
+import { createEmptyBank, createSampleBank } from "../../server/bank-schema.js";
 import type { Bank, LegacyBank } from "../../shared/types.js";
 
 test("starts in Setup, creates a workspace, and removes only its recent-list entry", async () => {
@@ -109,12 +109,31 @@ test("persists an edited item in the packaged desktop runtime", async () => {
   const appDataPath = path.resolve(".tmp/playwright-app-data");
   await rm(workspacePath, { recursive: true, force: true });
   await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(path.join(workspacePath, ".tmp"), { recursive: true });
+  await mkdir(path.join(workspacePath, ".history"), { recursive: true });
+  await mkdir(path.join(workspacePath, "assets"), { recursive: true });
+  await mkdir(path.join(workspacePath, "exports"), { recursive: true });
+  await mkdir(appDataPath, { recursive: true });
+  await writeFile(
+    path.join(workspacePath, "bank.json"),
+    `${JSON.stringify(createEmptyBank(), null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(appDataPath, "app-state.json"),
+    `${JSON.stringify({
+      version: 1,
+      currentWorkspacePath: workspacePath,
+      recentWorkspacePaths: [workspacePath]
+    }, null, 2)}\n`,
+    "utf8"
+  );
 
   const launchOptions = {
     args: ["."],
     env: {
       ...process.env,
-      LQB_WORKSPACE_DIR: workspacePath,
+      LQB_WORKSPACE_DIR: "",
       LQB_APP_DATA_DIR: appDataPath
     }
   };
@@ -152,6 +171,8 @@ test("persists an edited item in the packaged desktop runtime", async () => {
     });
     await page.getByText("新增题目", { exact: true }).click();
     await page.getByLabel("原编号").fill("desktop-close-save");
+    await page.getByRole("button", { name: "题库设置" }).click();
+    await page.getByLabel("latexmk 路径").fill("desktop-latexmk-close-flush");
     const exitPromise = new Promise<void>((resolve) => {
       electronApp.process().once("exit", () => resolve());
     });
@@ -173,6 +194,9 @@ test("persists an edited item in the packaged desktop runtime", async () => {
   try {
     const restartedPage = await restartedApp.firstWindow();
     await expect(restartedPage.getByLabel("原编号")).toHaveValue("desktop-close-save");
+    await restartedPage.getByRole("button", { name: "题库设置" }).click();
+    await expect(restartedPage.getByLabel("latexmk 路径"))
+      .toHaveValue("desktop-latexmk-close-flush");
   } finally {
     await restartedApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }
@@ -397,6 +421,66 @@ test("keeps MathJax previews working in the editor and heatmap", async () => {
       }))
       .toBeGreaterThan(0);
 
+    const mathJaxStats = await page.evaluate(() => {
+      const mathJax = window.MathJax;
+      if (!mathJax?.typesetPromise) throw new Error("MathJax 尚未加载");
+      const stats = { active: 0, maxActive: 0, calls: 0, clears: 0 };
+      const originalTypeset = mathJax.typesetPromise.bind(mathJax);
+      const originalClear = mathJax.typesetClear?.bind(mathJax);
+      mathJax.typesetPromise = async (elements) => {
+        stats.active += 1;
+        stats.maxActive = Math.max(stats.maxActive, stats.active);
+        stats.calls += 1;
+        try {
+          await originalTypeset(elements);
+        } finally {
+          stats.active -= 1;
+        }
+      };
+      mathJax.typesetClear = (elements) => {
+        stats.clears += 1;
+        originalClear?.(elements);
+      };
+      const testWindow = window as Window & {
+        __mathJaxTypesetStats?: typeof stats;
+      };
+      testWindow.__mathJaxTypesetStats = stats;
+      return true;
+    });
+    expect(mathJaxStats).toBe(true);
+    const editor = page.locator(".cm-content[contenteditable='true']");
+    const wideEquation = Array.from(
+      { length: 48 },
+      (_, index) => `x_{${index + 1}}`
+    ).join(" + ");
+    for (let index = 1; index <= 12; index += 1) {
+      await editor.fill(
+        `\\begin{equation}\\label{eq:stable}${wideEquation}=${index}\\end{equation}`
+      );
+    }
+    await expect.poll(() => page.evaluate(() => {
+      const testWindow = window as Window & {
+        __mathJaxTypesetStats?: { active: number; calls: number };
+      };
+      const stats = testWindow.__mathJaxTypesetStats;
+      return Boolean(stats && stats.calls > 0 && stats.active === 0);
+    })).toBe(true);
+    await expect
+      .poll(() => page.locator('[role="tabpanel"] mjx-container').count())
+      .toBe(1);
+    const finalStats = await page.evaluate(() => {
+      const testWindow = window as Window & {
+        __mathJaxTypesetStats?: {
+          maxActive: number;
+          calls: number;
+          clears: number;
+        };
+      };
+      return testWindow.__mathJaxTypesetStats;
+    });
+    expect(finalStats?.maxActive).toBe(1);
+    expect(finalStats?.clears).toBeGreaterThan(0);
+
     await page.getByText("示例 2", { exact: true }).click();
     await expect(page.getByLabel("原编号")).toHaveValue("示例 2");
     await expect
@@ -470,6 +554,13 @@ test("keeps a 1000-item production heatmap responsive without virtualization", a
 
   try {
     const page = await electronApp.firstWindow();
+    const editor = page.locator(".cm-content[contenteditable='true']");
+    await editor.click();
+    const typedAt = Date.now();
+    await editor.pressSequentially("x".repeat(50));
+    expect(Date.now() - typedAt).toBeLessThan(5000);
+    await expect(editor).toContainText("x".repeat(50));
+
     const enteredAt = Date.now();
     await page.getByRole("button", { name: "热力图" }).click();
     await expect(page.locator("[data-heatmap-cell]")).toHaveCount(1000);

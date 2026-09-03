@@ -21,6 +21,8 @@ declare global {
       tex?: unknown;
       options?: unknown;
       startup?: { promise?: Promise<void> };
+      texReset?: (startNumber?: number) => void;
+      typesetClear?: (elements?: HTMLElement[]) => void;
       typesetPromise?: (elements?: HTMLElement[]) => Promise<void>;
     };
   }

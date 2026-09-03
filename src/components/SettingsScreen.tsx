@@ -105,7 +105,9 @@ function LatexSettings() {
           <input
             value={workspace.texPathDraft}
             onChange={(event) => workspace.setTexPathDraft(event.target.value)}
-            onBlur={() => void workspace.saveTexPathOverride()}
+            onBlur={() => {
+              void workspace.saveTexPathOverride().catch(() => undefined);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") event.currentTarget.blur();
             }}

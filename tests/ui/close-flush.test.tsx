@@ -37,6 +37,9 @@ const appInfo: AppInfo = {
 let currentBank: Bank;
 let savedBanks: Bank[];
 let forceSaveConflict: boolean;
+let texPathResponse: Promise<Response> | null;
+let texPathResponses: Array<Promise<Response>>;
+let savedTexPaths: string[];
 /** useBeforeCloseFlush 注册进来的关闭监听器,等同于主进程发 app:before-close。 */
 let closeListener: (() => Promise<void>) | null;
 
@@ -44,6 +47,9 @@ beforeEach(() => {
   currentBank = sameChapterBank();
   savedBanks = [];
   forceSaveConflict = false;
+  texPathResponse = null;
+  texPathResponses = [];
+  savedTexPaths = [];
   closeListener = null;
   vi.stubGlobal("fetch", vi.fn(handleFetch));
   window.lqb = {
@@ -142,6 +148,87 @@ describe("close boundary commits focused drafts", () => {
     );
     expect(savedBanks).toEqual([]);
   });
+
+  it("waits for a focused latexmk path to finish saving before close", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred<Response>();
+    texPathResponse = deferred.promise;
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+    const input = screen.getByLabelText("latexmk 路径");
+
+    await user.type(input, "/opt/custom/latexmk");
+    expect(document.activeElement).toBe(input);
+
+    let closed = false;
+    const closePromise = closeListener!().then(() => {
+      closed = true;
+    });
+    await waitFor(() => expect(savedTexPaths).toEqual(["/opt/custom/latexmk"]));
+    expect(closed).toBe(false);
+
+    deferred.resolve(json(appInfoWithTexPath("/opt/custom/latexmk")));
+    await expect(closePromise).resolves.toBeUndefined();
+    expect(closed).toBe(true);
+  });
+
+  it("rejects close when the focused latexmk path cannot be saved", async () => {
+    const user = userEvent.setup();
+    texPathResponse = Promise.resolve(
+      json({ error: "LaTeX 路径写入失败。" }, 500)
+    );
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+    const input = screen.getByLabelText("latexmk 路径");
+
+    await user.type(input, "/broken/latexmk");
+
+    await expect(closeListener!()).rejects.toThrow("LaTeX 路径写入失败。");
+    expect(await screen.findByText("LaTeX 路径写入失败。")).toBeInTheDocument();
+  });
+
+  it("does not write an unchanged latexmk path", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+    const input = screen.getByLabelText("latexmk 路径");
+
+    await user.click(input);
+    await user.tab();
+    await closeListener!();
+
+    expect(savedTexPaths).toEqual([]);
+  });
+
+  it("serializes latexmk saves and persists the latest blurred value", async () => {
+    const user = userEvent.setup();
+    const first = createDeferred<Response>();
+    texPathResponses = [
+      first.promise,
+      Promise.resolve(json(appInfoWithTexPath("/second/latexmk")))
+    ];
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "题库设置" }));
+    const input = screen.getByLabelText("latexmk 路径");
+
+    await user.type(input, "/first/latexmk");
+    await user.tab();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, "/second/latexmk");
+    await user.tab();
+    expect(savedTexPaths).toEqual(["/first/latexmk"]);
+
+    first.resolve(json(appInfoWithTexPath("/first/latexmk")));
+    await waitFor(() => expect(savedTexPaths).toEqual([
+      "/first/latexmk",
+      "/second/latexmk"
+    ]));
+    await closeListener!();
+
+    expect(savedTexPaths).toHaveLength(2);
+    expect(input).toHaveValue("/second/latexmk");
+  });
 });
 
 /**
@@ -190,10 +277,43 @@ async function handleFetch(
       bank: request.bank
     });
   }
+  if (url === "/api/tex-path" && init?.method === "POST") {
+    const request = JSON.parse(String(init.body)) as { texPath: string };
+    savedTexPaths.push(request.texPath);
+    return texPathResponses.shift()
+      ?? texPathResponse
+      ?? json(appInfoWithTexPath(request.texPath));
+  }
   if (url === "/api/exports/default-name") {
     return json({ exportName: "questions-close-flush" });
   }
   return json({ error: `Unhandled ${url}` }, 404);
+}
+
+function appInfoWithTexPath(texPath: string): AppInfo {
+  return {
+    ...appInfo,
+    appState: {
+      ...appInfo.appState,
+      texPathOverride: texPath
+    },
+    texStatus: {
+      available: true,
+      command: texPath,
+      source: "override",
+      message: `已检测到 LaTeX：${texPath}`
+    }
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 function json(value: unknown, status = 200): Response {
