@@ -6,7 +6,7 @@ import type {
   BankSnapshot,
   CompileResponse,
   ExportDefaultNameResponse,
-  ExportOrderMode,
+  ExportRequest,
   ExportResponse,
   QuestionItem,
   RecoveryCandidate,
@@ -143,23 +143,18 @@ export async function uploadQuestionAsset(file: File): Promise<AssetUploadRespon
   return readJsonResponse<AssetUploadResponse>(response);
 }
 
-export async function compileItem(item: QuestionItem, settings: Bank["settings"]): Promise<CompileResponse> {
+export async function compileItem(item: QuestionItem, settings: Bank["settings"], workspacePath: string): Promise<CompileResponse> {
   const response = await fetch("/api/compile-item", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ item, settings })
+    body: JSON.stringify({ item, settings, workspacePath })
   });
   return readJsonResponse<CompileResponse>(response, {
     allowedErrorStatuses: [422]
   });
 }
 
-export async function exportItems(input: {
-  itemIds: string[];
-  fileName: string;
-  orderMode: ExportOrderMode;
-  randomSeed?: string;
-}): Promise<ExportResponse> {
+export async function exportItems(input: ExportRequest): Promise<ExportResponse> {
   const response = await fetch("/api/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

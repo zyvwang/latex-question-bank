@@ -9,6 +9,7 @@ import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMode, Notice } from "./controllerTypes.js";
 
 interface QuestionItemActionsOptions {
+  bank: Bank | null;
   activeItem: QuestionItem | null;
   orderedItems: QuestionItem[];
   setActiveId: Dispatch<SetStateAction<string | null>>;
@@ -21,6 +22,7 @@ interface QuestionItemActionsOptions {
 }
 
 export function useQuestionItemActions({
+  bank,
   activeItem,
   orderedItems,
   setActiveId,
@@ -132,8 +134,15 @@ export function useQuestionItemActions({
   }
 
   function undoDelete() {
-    if (!deletedItem) return;
-    updateBank((current) => restoreDeletedItem(current, deletedItem));
+    if (!deletedItem || !bank) return;
+    let restored: Bank;
+    try {
+      restored = restoreDeletedItem(bank, deletedItem);
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "无法撤销删除。" });
+      return;
+    }
+    updateBank(() => restored);
     setSelectedIds((current) => new Set([...current, deletedItem.id]));
     setActiveId(deletedItem.id);
     clearDeletedUndo();

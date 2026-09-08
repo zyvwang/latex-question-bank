@@ -26,7 +26,7 @@ import {
 export async function exportBank(
   bank: Bank,
   workspacePath: string,
-  request: ExportRequest
+  request: Omit<ExportRequest, "workspacePath" | "baseRevision">
 ): Promise<ExportResponse> {
   const fileName = sanitizeFileName(request.fileName);
   const items = selectedItems(bank, request.itemIds, {

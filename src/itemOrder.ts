@@ -1,5 +1,6 @@
 import type { Bank, QuestionItem } from "../shared/types.js";
 import {
+  findSourceNumberConflict,
   itemsInChapter,
   moveItemWithinChapter,
   normalizeChapterItemOrders,
@@ -52,6 +53,10 @@ export function restoreDeletedItem(
   const chapterStillExists =
     deletedItem.chapterId !== null &&
     bank.chapters.some((chapter) => chapter.id === deletedItem.chapterId);
+  const targetChapterId = chapterStillExists ? deletedItem.chapterId : null;
+  if (findSourceNumberConflict(bank.items, deletedItem.id, targetChapterId, deletedItem.sourceNumber ?? "")) {
+    throw new Error(`无法撤销：原编号“${deletedItem.sourceNumber?.trim()}”已被目标章节中的其他题目使用。`);
+  }
   const validErrorReasonIds = new Set(
     bank.errorReasonOptions.map((option) => option.id)
   );

@@ -231,11 +231,14 @@ export interface TexPathRequest {
 }
 
 export interface CompileItemRequest {
+  workspacePath: string;
   item: QuestionItem;
   settings: LatexSettings;
 }
 
 export interface ExportRequest {
+  workspacePath: string;
+  baseRevision: string;
   itemIds: string[];
   fileName: string;
   orderMode?: ExportOrderMode;

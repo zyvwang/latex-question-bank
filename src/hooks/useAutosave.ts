@@ -7,6 +7,11 @@ import {
 import type { Bank, BankSnapshot } from "../../shared/types.js";
 import type { Notice, SaveIssue, SaveState } from "./controllerTypes.js";
 
+export interface SaveSession {
+  readonly workspacePath: string;
+  readonly generation: number;
+}
+
 export function useAutosave(
   bank: Bank | null,
   setNotice: (notice: Notice | null) => void
@@ -23,6 +28,16 @@ export function useAutosave(
   const lastSavedBankRef = useRef<Bank | null>(null);
   const saveIssueRef = useRef<SaveIssue | null>(null);
   const generationRef = useRef(0);
+  const latestBankRef = useRef(bank);
+  latestBankRef.current = bank;
+
+  const captureSaveSession = useCallback((): SaveSession => ({
+    workspacePath: workspacePathRef.current,
+    generation: generationRef.current
+  }), []);
+  const isSaveSessionCurrent = useCallback((session: SaveSession) =>
+    session.workspacePath === workspacePathRef.current &&
+    session.generation === generationRef.current, []);
 
   const setSaveIssue = useCallback((issue: SaveIssue | null) => {
     saveIssueRef.current = issue;
@@ -180,9 +195,28 @@ export function useAutosave(
     [clearTimer, drainQueue, queueLatestBank]
   );
 
+  const flushSession = useCallback(async (session: SaveSession): Promise<BankSnapshot> => {
+    const assertSession = () => {
+      if (!session.workspacePath || !isSaveSessionCurrent(session)) {
+        throw new Error("工作区会话已变化，旧操作已取消。");
+      }
+    };
+    assertSession();
+    // 在身份校验后取最新编辑，不能让等待前的 bank 覆盖保存队列。
+    await flush(latestBankRef.current ?? undefined);
+    assertSession();
+    if (!lastSavedBankRef.current) throw new Error("没有可导出的题库。");
+    return {
+      workspacePath: session.workspacePath,
+      revision: revisionRef.current,
+      bank: lastSavedBankRef.current
+    };
+  }, [flush, isSaveSessionCurrent]);
+
   const resetAutosave = useCallback(
     (snapshot: BankSnapshot | null) => {
       generationRef.current += 1;
+      latestBankRef.current = snapshot?.bank ?? null;
       clearTimer();
       pendingBankRef.current = null;
       inFlightRef.current = null;
@@ -243,6 +277,9 @@ export function useAutosave(
     saveState,
     saveIssue,
     persistBank: flush,
+    captureSaveSession,
+    isSaveSessionCurrent,
+    flushSession,
     flush,
     resetAutosave,
     retrySave,

@@ -38,6 +38,7 @@ No remote font dependency is required.
 
 ## Interaction
 
+- Undoing a question deletion checks source-number availability in the destination chapter. A conflict shows an error and preserves the undo until its original ten-second deadline; resolving the conflict allows a retry without overwriting another question.
 - Chapter and review-option names and review colors commit on Enter or blur after validation. Destructive chapter and option deletion requires confirmation.
 - Review metadata combines text with color swatches; “unset” remains a fixed system state and is never represented as a removable option.
 - Sidebar filters use compact multi-select menus. Counts expose active filters without expanding the control labels, and review filters pair color swatches with text.

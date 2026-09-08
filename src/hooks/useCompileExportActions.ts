@@ -7,6 +7,7 @@ import {
 } from "../api/client.js";
 import type {
   Bank,
+  BankSnapshot,
   CompileResponse,
   ExportOrderMode,
   ExportResponse,
@@ -16,13 +17,16 @@ import type {
 import { compileContentVersion } from "../utils/compileVersion.js";
 import { appendTex } from "../utils/form.js";
 import type { Notice } from "./controllerTypes.js";
+import type { SaveSession } from "./useAutosave.js";
 
 interface CompileExportOptions {
   activeItem: QuestionItem | null;
   bank: Bank | null;
   workspacePath: string;
   selectedIds: Set<string>;
-  persistBank: (bank: Bank) => Promise<void>;
+  captureSaveSession: () => SaveSession;
+  isSaveSessionCurrent: (session: SaveSession) => boolean;
+  flushSession: (session: SaveSession) => Promise<BankSnapshot>;
   setNotice: (notice: Notice | null) => void;
   updateBank: (updater: (current: Bank) => Bank) => void;
 }
@@ -41,7 +45,9 @@ export function useCompileExportActions({
   bank,
   workspacePath,
   selectedIds,
-  persistBank,
+  captureSaveSession,
+  isSaveSessionCurrent,
+  flushSession,
   setNotice,
   updateBank
 }: CompileExportOptions) {
@@ -57,8 +63,11 @@ export function useCompileExportActions({
   const exportNameManualRef = useRef(false);
   const exportNameRef = useRef("");
   const compileGenerationRef = useRef(0);
+  const exportGenerationRef = useRef(0);
+  const exportingRef = useRef(false);
   const workspacePathRef = useRef(workspacePath);
   const trustedWorkspacePathsRef = useRef(new Set<string>());
+  const workspaceGeneration = captureSaveSession().generation;
 
   const currentContentVersion = useMemo(
     () => activeItem && bank ? compileContentVersion(activeItem, bank.settings) : null,
@@ -92,23 +101,24 @@ export function useCompileExportActions({
   useEffect(() => {
     exportNameManualRef.current = false;
     setAutomaticExportName("");
-    if (!workspacePath) return;
+    const session = captureSaveSession();
+    if (!workspacePath || session.workspacePath !== workspacePath) return;
     let cancelled = false;
     void fetchDefaultExportName()
       .then((name) => {
-        if (!cancelled && !exportNameManualRef.current) setAutomaticExportName(name);
+        if (!cancelled && isSaveSessionCurrent(session) && !exportNameManualRef.current) setAutomaticExportName(name);
       })
       // 服务端不可达时才用本地日期名兜底:字段留空会让 exportSelected 带 fileName: ""
       // 打过去,被 sanitizeFileName 兜成 export-<date>,比 questions-<date>-1 更难认。
       .catch(() => {
-        if (!cancelled && !exportNameManualRef.current) {
+        if (!cancelled && isSaveSessionCurrent(session) && !exportNameManualRef.current) {
           setAutomaticExportName(defaultExportName());
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [workspacePath]);
+  }, [captureSaveSession, isSaveSessionCurrent, workspacePath, workspaceGeneration]);
 
   function setExportName(value: string) {
     exportNameManualRef.current = true;
@@ -123,6 +133,9 @@ export function useCompileExportActions({
 
   const resetCompileState = useCallback(() => {
     compileGenerationRef.current += 1;
+    exportGenerationRef.current += 1;
+    exportingRef.current = false;
+    setIsExporting(false);
     setCompileTarget(null);
     setCompileRecord(null);
     setExportFailureResult(null);
@@ -183,28 +196,33 @@ export function useCompileExportActions({
       itemId: item.id,
       contentVersion: compileContentVersion(item, settings)
     };
+    const session = captureSaveSession();
     const generation = ++compileGenerationRef.current;
     setCompileRecord(null);
     setCompileTarget(target);
     try {
-      const result = await compileItem(item, settings);
-      if (compileGenerationRef.current !== generation) return;
+      const result = await compileItem(item, settings, session.workspacePath);
+      if (compileGenerationRef.current !== generation || !isSaveSessionCurrent(session)) return;
       setCompileRecord({ ...target, result });
     } catch (error) {
-      if (compileGenerationRef.current !== generation) return;
+      if (compileGenerationRef.current !== generation || !isSaveSessionCurrent(session)) return;
       setNotice({ type: "error", text: error instanceof Error ? error.message : "当前题编译失败。" });
     } finally {
-      if (compileGenerationRef.current === generation) setCompileTarget(null);
+      if (compileGenerationRef.current === generation && isSaveSessionCurrent(session)) setCompileTarget(null);
     }
   }
 
   async function exportSelected() {
-    if (!bank) return;
+    if (!bank || exportingRef.current) return;
     if (selectedIds.size === 0) {
       setNotice({ type: "error", text: "请至少勾选一道题目。" });
       return;
     }
     if (!confirmTrustedWorkspace()) return;
+    const session = captureSaveSession();
+    const generation = ++exportGenerationRef.current;
+    const isCurrent = () => isSaveSessionCurrent(session) && generation === exportGenerationRef.current;
+    exportingRef.current = true;
     setIsExporting(true);
     setExportFailureResult(null);
     setNotice({ type: "info", text: "正在导出四份文件。" });
@@ -213,6 +231,7 @@ export function useCompileExportActions({
       let requestedName = exportNameRef.current;
       if (automaticName) {
         const freshName = await fetchDefaultExportName();
+        if (!isCurrent()) return;
         if (exportNameManualRef.current) {
           automaticName = false;
           requestedName = exportNameRef.current;
@@ -221,15 +240,20 @@ export function useCompileExportActions({
           setAutomaticExportName(freshName);
         }
       }
-      await persistBank(bank);
+      if (!isCurrent()) return;
+      const snapshot = await flushSession(session);
+      if (!isCurrent()) return;
       const effectiveRandomSeed =
         exportOrderMode === "random" ? randomSeed.trim() || requestedName : undefined;
       const data = (await exportItems({
+        workspacePath: snapshot.workspacePath,
+        baseRevision: snapshot.revision,
         itemIds: [...selectedIds],
         fileName: requestedName,
         orderMode: exportOrderMode,
         randomSeed: effectiveRandomSeed
       })) as ExportResponse & { error?: string };
+      if (!isCurrent()) return;
       if (!data.ok) {
         const failedResult = data.results?.questions.ok ? data.results.full : data.results?.questions;
         setNotice({
@@ -254,12 +278,15 @@ export function useCompileExportActions({
       if (automaticName && !exportNameManualRef.current) {
         const nextName = await fetchDefaultExportName()
           .catch(() => incrementAutomaticExportName(requestedName));
-        setAutomaticExportName(nextName);
+        if (isCurrent()) setAutomaticExportName(nextName);
       }
     } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "导出失败。" });
+      if (isCurrent()) setNotice({ type: "error", text: error instanceof Error ? error.message : "导出失败。" });
     } finally {
-      setIsExporting(false);
+      if (isCurrent()) {
+        exportingRef.current = false;
+        setIsExporting(false);
+      }
     }
   }
 

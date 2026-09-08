@@ -16,6 +16,7 @@ import { exportBank } from "../export-service.js";
 import { sendApiError } from "../http/api-response.js";
 import { writeCurrentItemCheck } from "../latex-files.js";
 import { compileLatex } from "../latex-runtime.js";
+import { StorageError } from "../storage-types.js";
 import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
 
 const upload = multer({
@@ -56,15 +57,17 @@ export function createDocumentRouter(options: {
         sendApiError(response, 400, validation.error, "COMPILE_REQUEST_INVALID");
         return;
       }
+      const { workspaceDir, tempDir } = await requireCurrentWorkspace(validation.value.workspacePath);
       const texPath = await writeCurrentItemCheck(
         validation.value.item,
-        validation.value.settings
+        validation.value.settings,
+        workspaceDir
       );
       const result = await compileLatex(texPath, path.dirname(texPath));
       response.status(result.ok ? 200 : 422).json({
         ...result,
-        texUrl: await toPublicTempUrl(result.texPath),
-        pdfUrl: result.pdfPath ? await toPublicTempUrl(result.pdfPath) : undefined
+        texUrl: toPublicTempUrl(result.texPath, tempDir),
+        pdfUrl: result.pdfPath ? toPublicTempUrl(result.pdfPath, tempDir) : undefined
       });
     } catch (error) {
       next(error);
@@ -79,6 +82,12 @@ export function createDocumentRouter(options: {
         return;
       }
       const snapshot = await readBankSnapshot();
+      if (snapshot.workspacePath !== path.resolve(validation.value.workspacePath)) {
+        throw new StorageError("导出目标已不是当前工作区。", "WORKSPACE_CHANGED", 409);
+      }
+      if (snapshot.revision !== validation.value.baseRevision) {
+        throw new StorageError("题库内容已变化，请重新导出。", "BANK_CONFLICT", 409);
+      }
       const result = await exportBank(
         snapshot.bank,
         snapshot.workspacePath,
@@ -115,8 +124,15 @@ export function createDocumentRouter(options: {
   return router;
 }
 
-async function toPublicTempUrl(filePath: string): Promise<string> {
-  const { tempDir } = await getCurrentWorkspaceDirs();
+async function requireCurrentWorkspace(workspacePath: string) {
+  const dirs = await getCurrentWorkspaceDirs();
+  if (dirs.workspaceDir !== path.resolve(workspacePath)) {
+    throw new StorageError("编译目标已不是当前工作区。", "WORKSPACE_CHANGED", 409);
+  }
+  return dirs;
+}
+
+function toPublicTempUrl(filePath: string, tempDir: string): string {
   const relative = path
     .relative(tempDir, filePath)
     .split(path.sep)

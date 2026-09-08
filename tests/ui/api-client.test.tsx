@@ -117,7 +117,7 @@ describe("non-JSON responses", () => {
     const sample = createSampleBank();
 
     await expect(
-      compileItem(sample.items[0], sample.settings)
+      compileItem(sample.items[0], sample.settings, "/synthetic/A")
     ).rejects.toMatchObject({
       status: 503,
       code: "LATEX_BUSY"

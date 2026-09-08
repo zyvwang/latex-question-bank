@@ -717,6 +717,8 @@ describe("API validation", () => {
       .send({
         itemIds: [bank.items[0].id],
         fileName: "same-name",
+        workspacePath,
+        baseRevision: saved.body.revision,
         orderMode: "normal"
       })
       .expect(422);

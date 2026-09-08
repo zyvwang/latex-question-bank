@@ -18,9 +18,10 @@ import {
 
 export async function writeCurrentItemCheck(
   item: QuestionItem,
-  settings: LatexSettings
+  settings: LatexSettings,
+  workspacePath: string
 ): Promise<string> {
-  const { tempDir } = await getCurrentWorkspaceDirs();
+  const { tempDir } = getWorkspaceDirs(workspacePath);
   // 显式校验放在修剪之前:符号链接的 .tmp 必须让本次请求 403,而不是被修剪的 warn 吞掉。
   await assertRealWorkspaceSubdir(tempDir);
   // 产物要留给渲染端的「打开 PDF」按钮,不能用完即删;保留最近两份加本次共三份。
@@ -29,7 +30,7 @@ export async function writeCurrentItemCheck(
   ]);
   const workDir = path.join(tempDir, `${COMPILE_TEMP_PREFIX}${crypto.randomUUID()}`);
   await mkdir(workDir, { recursive: true });
-  await copyAssetsForItems([item], workDir);
+  await copyAssetsForItems([item], workDir, workspacePath);
   const texPath = path.join(workDir, "current-item.tex");
   await writeFile(texPath, buildFullLatex([item], settings), "utf8");
   return texPath;

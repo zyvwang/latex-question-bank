@@ -136,6 +136,8 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .send({
         itemIds: [createSampleBank().items[0].id],
         fileName: "out",
+        workspacePath,
+        baseRevision: (await request(app).get("/api/bank")).body.revision,
         orderMode: "normal"
       })
       .expect(403)
@@ -237,12 +239,12 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
     await request(app)
       .post("/api/compile-item")
-      .send({ item, settings: bank.settings })
+      .send({ item, settings: bank.settings, workspacePath })
       .expect(403)
       .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
     await request(app)
       .post("/api/export")
-      .send({ itemIds: [item.id], fileName: "linked-export", orderMode: "normal" })
+      .send({ itemIds: [item.id], fileName: "linked-export", orderMode: "normal", workspacePath, baseRevision: (await request(app).get("/api/bank")).body.revision })
       .expect(403)
       .expect(({ body }) => expect(body.code).toBe("WORKSPACE_ENTRY_SYMLINK"));
 

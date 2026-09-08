@@ -48,13 +48,13 @@ describe("shared validation", () => {
     expect(validateRecoverBankRequest({ candidateId: "bank.json.bak" }).ok).toBe(true);
 
     expect(validateExportRequest(null).ok).toBe(false);
-    expect(validateExportRequest({ itemIds: [3], fileName: "x" }).ok).toBe(false);
-    expect(validateExportRequest({ itemIds: [], fileName: 3 }).ok).toBe(false);
-    expect(validateExportRequest({ itemIds: [], fileName: "x", orderMode: "sideways" }).ok).toBe(false);
-    expect(validateExportRequest({ itemIds: [], fileName: "x", randomSeed: 3 }).ok).toBe(false);
-    expect(validateExportRequest({ itemIds: [], fileName: "x", orderMode: "normal" }).ok).toBe(true);
+    expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [3], fileName: "x" }).ok).toBe(false);
+    expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [], fileName: 3 }).ok).toBe(false);
+    expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [], fileName: "x", orderMode: "sideways" }).ok).toBe(false);
+    expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [], fileName: "x", randomSeed: 3 }).ok).toBe(false);
+    expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [], fileName: "x", orderMode: "normal" }).ok).toBe(true);
     expect(
-      validateExportRequest({ itemIds: [], fileName: "x", orderMode: "random", randomSeed: " seed " })
+      validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [], fileName: "x", orderMode: "random", randomSeed: " seed " })
         .value?.randomSeed
     ).toBe("seed");
   });
@@ -285,7 +285,7 @@ describe("shared validation", () => {
   it("validates compile requests independently", () => {
     const bank = createSampleBank();
     expect(validateCompileItemRequest(null).ok).toBe(false);
-    expect(validateCompileItemRequest({ item: {}, settings: {} }).ok).toBe(false);
-    expect(validateCompileItemRequest({ item: bank.items[0], settings: bank.settings }).ok).toBe(true);
+    expect(validateCompileItemRequest({ workspacePath: "/tmp/bank", item: {}, settings: {} }).ok).toBe(false);
+    expect(validateCompileItemRequest({ workspacePath: "/tmp/bank", item: bank.items[0], settings: bank.settings }).ok).toBe(true);
   });
 });

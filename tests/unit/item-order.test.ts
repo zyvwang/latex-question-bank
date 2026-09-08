@@ -38,6 +38,25 @@ function makeBank(overrides: Partial<Bank> = {}): Bank {
 }
 
 describe("restoreDeletedItem", () => {
+  it("checks uncategorized conflicts when the original chapter was deleted", () => {
+    const bank = makeBank({ chapters: [], items: [makeItem({ id: "other", chapterId: null, sourceNumber: "42" })] });
+    expect(() => restoreDeletedItem(bank, makeItem({ sourceNumber: "42" }), NOW)).toThrow("42");
+  });
+
+  it("allows matching numbers in another chapter and empty numbers", () => {
+    const bank = makeBank({ items: [makeItem({ id: "other", chapterId: null, sourceNumber: "42" })] });
+    expect(restoreDeletedItem(bank, makeItem({ sourceNumber: "42" }), NOW).items).toHaveLength(2);
+    const blank = makeBank({ items: [makeItem({ id: "other", sourceNumber: "" })] });
+    expect(restoreDeletedItem(blank, makeItem({ sourceNumber: "" }), NOW).items).toHaveLength(2);
+  });
+
+  it("rejects an undo when another item reused the source number", () => {
+    const deleted = makeItem({ sourceNumber: "42" });
+    const bank = makeBank({ items: [makeItem({ id: "replacement", sourceNumber: "42" })] });
+    expect(() => restoreDeletedItem(bank, deleted, NOW)).toThrow("42");
+    expect(bank.items).toHaveLength(1);
+  });
+
   it("restores an item unchanged when its chapter and options still exist", () => {
     const result = restoreDeletedItem(makeBank(), makeItem(), NOW);
     const restored = result.items.find((item) => item.id === "q-deleted");

@@ -210,7 +210,9 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     bank,
     workspacePath: appInfo?.currentWorkspacePath ?? "",
     selectedIds: selection.selectedIds,
-    persistBank,
+    captureSaveSession: autosave.captureSaveSession,
+    isSaveSessionCurrent: autosave.isSaveSessionCurrent,
+    flushSession: autosave.flushSession,
     setNotice,
     updateBank
   });
@@ -324,6 +326,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setNotice
   });
   const reorder = useQuestionReorder({
+    bank,
     activeItem: derived.activeItem,
     numberById: derived.numberById,
     orderedItems: derived.orderedItems,

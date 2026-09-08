@@ -146,6 +146,7 @@ export function validateCompileItemRequest(
     return {
       ok: true,
       value: {
+        workspacePath: requiredNonEmptyString(value, "workspacePath"),
         item: parseQuestionItem(value.item),
         settings: parseLatexSettings(value.settings)
       }
@@ -169,7 +170,11 @@ export function validateExportRequest(
   const fileName = getStringField(value, "fileName");
   if (fileName === undefined) return invalid("fileName 必须是字符串。");
   let orderMode: ExportOrderMode | undefined;
+  let workspacePath: string;
+  let baseRevision: string;
   try {
+    workspacePath = requiredNonEmptyString(value, "workspacePath");
+    baseRevision = requiredRevision(value, "baseRevision");
     orderMode = optionalExportOrderMode(value.orderMode);
   } catch (error) {
     if (error instanceof ValidationError) return invalid(error.message);
@@ -180,6 +185,8 @@ export function validateExportRequest(
   return {
     ok: true,
     value: {
+      workspacePath,
+      baseRevision,
       itemIds: value.itemIds,
       fileName,
       orderMode,
