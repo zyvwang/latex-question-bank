@@ -3,6 +3,7 @@ import path from "node:path";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiApp } from "../../server/index.js";
+import * as assetService from "../../server/asset-service.js";
 import { appDataDir } from "../../server/app-state.js";
 import { createSampleBank } from "../../server/bank-schema.js";
 import { compileLatex } from "../../server/latex-runtime.js";
@@ -104,4 +105,40 @@ describe("document workspace boundaries", () => {
     expect(exportBank).toHaveBeenCalledWith(snapshot.bank, a, expect.objectContaining({ baseRevision: snapshot.revision }));
     expect(await readFile(path.join(b, "bank.json"), "utf8")).toBe(bBefore);
   });
+});
+
+
+it("rejects missing and stale upload targets before writing assets", async () => {
+  const { app } = await setup();
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  await request(app).post("/api/workspaces/switch").send({ workspacePath: b }).expect(200);
+  await request(app).post("/api/assets").attach("file", png, "image.png").expect(400);
+  await request(app).post("/api/assets").field("workspacePath", a).attach("file", png, "image.png")
+    .expect(409).expect(({ body }) => expect(body.code).toBe("WORKSPACE_CHANGED"));
+  expect(await readdir(path.join(a, "assets"))).toEqual([]);
+  expect(await readdir(path.join(b, "assets"))).toEqual([]);
+  await request(app).post("/api/assets").field("workspacePath", b).attach("file", png, "image.png").expect(200);
+  expect(await readdir(path.join(b, "assets"))).toHaveLength(1);
+});
+
+
+it("writes an accepted upload only to its captured workspace after a switch", async () => {
+  const { app } = await setup();
+  const entered = deferred<void>();
+  const resume = deferred<void>();
+  const save = assetService.saveQuestionAsset;
+  vi.spyOn(assetService, "saveQuestionAsset").mockImplementation(async (file, assetDir) => {
+    entered.resolve();
+    await resume.promise;
+    return save(file, assetDir);
+  });
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const pending = request(app).post("/api/assets").field("workspacePath", a)
+    .attach("file", png, "image.png").then((value) => value);
+  await entered.promise;
+  await request(app).post("/api/workspaces/switch").send({ workspacePath: b }).expect(200);
+  resume.resolve();
+  expect((await pending).status).toBe(200);
+  expect(await readdir(path.join(a, "assets"))).toHaveLength(1);
+  expect(await readdir(path.join(b, "assets"))).toEqual([]);
 });

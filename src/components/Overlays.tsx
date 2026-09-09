@@ -175,6 +175,7 @@ function SaveConflictDialog() {
         <div className={styles.conflictActions}>
           <button
             type="button"
+            disabled={lifecycle.isSavingConflictAs}
             className={controls.secondaryAction}
             onClick={() => void lifecycle.refreshSaveConflict()}
           >
@@ -183,6 +184,7 @@ function SaveConflictDialog() {
           </button>
           <button
             type="button"
+            disabled={lifecycle.isSavingConflictAs}
             className={controls.secondaryAction}
             onClick={workspace.openCurrentWorkspaceFolder}
           >
@@ -191,6 +193,7 @@ function SaveConflictDialog() {
           </button>
           <button
             type="button"
+            disabled={lifecycle.isSavingConflictAs}
             className={controls.secondaryAction}
             onClick={() => void lifecycle.saveConflictAs()}
           >
@@ -200,7 +203,7 @@ function SaveConflictDialog() {
           <button
             type="button"
             className={`${controls.secondaryAction} ${styles.conflictDiscard}`}
-            disabled={!issue.diskSnapshot}
+            disabled={lifecycle.isSavingConflictAs || !issue.diskSnapshot}
             onClick={() => void lifecycle.useDiskVersion()}
           >
             <HardDriveDownload size={16} />
@@ -208,6 +211,7 @@ function SaveConflictDialog() {
           </button>
           <button
             type="button"
+            disabled={lifecycle.isSavingConflictAs}
             className={controls.primaryAction}
             onClick={() => void lifecycle.overwriteDiskVersion()}
           >
@@ -216,9 +220,10 @@ function SaveConflictDialog() {
           </button>
         </div>
         <footer>
-          <span>关闭后可继续编辑，自动保存仍保持暂停。</span>
+          <span role="status">{lifecycle.isSavingConflictAs ? "正在另存，请稍候…" : "关闭后可继续编辑，自动保存仍保持暂停。"}</span>
           <button
             type="button"
+            disabled={lifecycle.isSavingConflictAs}
             className={controls.tertiaryAction}
             onClick={lifecycle.closeConflictDialog}
           >

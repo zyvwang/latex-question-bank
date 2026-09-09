@@ -153,6 +153,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
 
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", pngSignature, { filename: "real.png", contentType: "image/png" })
       .expect(403)
       .expect(({ body }) => expect(body.code).toBe("WORKSPACE_SUBDIR_SYMLINK"));
@@ -189,6 +190,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .expect(200);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", pngSignature, { filename: "ok.png", contentType: "image/png" })
       .expect(200);
   });
@@ -198,6 +200,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
     await createEmptyWorkspaceViaApi(app);
     const uploaded = await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", pngSignature, { filename: "ok.png", contentType: "image/png" })
       .expect(200);
 

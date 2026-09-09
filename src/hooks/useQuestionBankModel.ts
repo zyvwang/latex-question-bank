@@ -1,3 +1,5 @@
+import { flushSync } from "react-dom";
+import { useLatestCallback } from "./useLatestCallback.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAppInfo,
@@ -39,6 +41,11 @@ import {
 export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [bank, setBank] = useState<Bank | null>(null);
+  const bankRef = useRef(bank);
+  bankRef.current = bank;
+  const [isSavingConflictAs, setIsSavingConflictAs] = useState(false);
+  const conflictSavePromiseRef = useRef<Promise<void> | null>(null);
+  const conflictSaveBusyRef = useRef(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNoticeState] = useState<QuestionBankContextValues["lifecycle"]["notice"]>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -338,27 +345,35 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     workspacePath: appInfo?.currentWorkspacePath ?? ""
   });
 
+  const initialLoadBusyRef = useRef(false);
   const loadAppAndBank = useCallback(async () => {
+    if (initialLoadBusyRef.current) return;
+    initialLoadBusyRef.current = true;
     setLoadError(null);
-    const nextAppInfo = await fetchAppInfo();
-    if (nextAppInfo.setupRequired) {
-      applySetupState(nextAppInfo);
-      return;
-    }
-    setAppInfo(nextAppInfo);
-    applyBankSnapshot(nextAppInfo, await fetchBank());
-  }, [applyBankSnapshot, applySetupState]);
-
-  useEffect(() => {
-    loadAppAndBank().catch((error) => {
+    setNotice(null);
+    setRecoveryCandidates([]);
+    let nextAppInfo: AppInfo | null = null;
+    try {
+      nextAppInfo = await fetchAppInfo();
+      if (nextAppInfo.setupRequired) {
+        applySetupState(nextAppInfo);
+        return;
+      }
+      setAppInfo(nextAppInfo);
+      applyBankSnapshot(nextAppInfo, await fetchBank());
+    } catch (error) {
       const message = error instanceof Error ? error.message : "读取题库失败。";
       setLoadError(message);
       setNotice({ type: "error", text: message });
-      fetchRecoveryCandidates()
-        .then(setRecoveryCandidates)
-        .catch(() => setRecoveryCandidates([]));
-    });
-  }, [loadAppAndBank, setNotice]);
+      if (nextAppInfo && !nextAppInfo.setupRequired) {
+        setRecoveryCandidates(await fetchRecoveryCandidates().catch(() => []));
+      }
+    } finally {
+      initialLoadBusyRef.current = false;
+    }
+  }, [applyBankSnapshot, applySetupState, setNotice]);
+
+  useEffect(() => { void loadAppAndBank(); }, [loadAppAndBank]);
 
   const recoverFromCandidate = useCallback(
     async (candidateId: string) => {
@@ -373,15 +388,20 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     },
     [resetAutosave, selectAllItems, setNotice]
   );
-  const flushPendingChanges = useCallback(async () => {
+  const flushCurrentChanges = useLatestCallback(async () => {
     await Promise.all([
       bank && appInfo?.currentWorkspacePath
         ? persistBank(bank)
         : Promise.resolve(),
       flushPendingSettings()
     ]);
-  }, [appInfo?.currentWorkspacePath, bank, flushPendingSettings, persistBank]);
+  });
+  const flushPendingChanges = useCallback(async () => {
+    await conflictSavePromiseRef.current;
+    await flushCurrentChanges();
+  }, [flushCurrentChanges]);
   const useDiskVersion = useCallback(async () => {
+    if (conflictSaveBusyRef.current) return;
     if (
       saveIssue?.kind !== "conflict" ||
       !appInfo?.currentWorkspacePath
@@ -420,6 +440,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setNotice
   ]);
   const overwriteDiskVersion = useCallback(async () => {
+    if (conflictSaveBusyRef.current) return;
     if (
       saveIssue?.kind !== "conflict" ||
       !bank ||
@@ -457,49 +478,45 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setNotice
   ]);
   const saveConflictAs = useCallback(async () => {
-    if (
-      saveIssue?.kind !== "conflict" ||
-      !bank ||
-      !appInfo?.currentWorkspacePath
-    ) {
+    if (conflictSaveBusyRef.current || saveIssue?.kind !== "conflict" || !bankRef.current || !appInfo?.currentWorkspacePath) return;
+    if (compileExport.hasPendingUploads()) {
+      setNotice({ type: "error", text: "图片仍在上传，请等待上传完成后另存。" });
       return;
     }
-    const targetWorkspacePath = await pickWorkspaceDirectory(
-      "选择空文件夹另存当前题库",
-      "输入一个空文件夹路径，用于另存当前题库"
-    );
-    if (!targetWorkspacePath?.trim()) return;
-    try {
-      const response = await saveBankAs({
-        sourceWorkspacePath: appInfo.currentWorkspacePath,
-        targetWorkspacePath,
-        bank
-      });
-      applyBankSnapshot(
-        response.appInfo,
-        response.snapshot,
-        appView.activeView
-      );
-      setIsConflictDialogOpen(false);
-      setNotice({
-        type: "ok",
-        text: `已另存为新题库：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({
-        type: "error",
-        text:
-          error instanceof Error ? error.message : "另存当前题库失败。"
-      });
-    }
-  }, [
-    appInfo?.currentWorkspacePath,
-    appView.activeView,
-    applyBankSnapshot,
-    bank,
-    saveIssue?.kind,
-    setNotice
-  ]);
+    beginDraftCommit();
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) flushSync(() => active.blur());
+    if (takeDraftCommitRejection()) return;
+    conflictSaveBusyRef.current = true;
+    setIsSavingConflictAs(true);
+    const operation = (async () => {
+      try {
+        const targetWorkspacePath = await pickWorkspaceDirectory(
+          "选择空文件夹另存当前题库", "输入一个空文件夹路径，用于另存当前题库"
+        );
+        if (!targetWorkspacePath?.trim()) return;
+        const response = await saveBankAs({
+          sourceWorkspacePath: appInfo.currentWorkspacePath,
+          targetWorkspacePath,
+          bank: bankRef.current!
+        });
+        // 关闭等待者必须看到已切换的 bank 和 autosave 会话。
+        flushSync(() => {
+          applyBankSnapshot(response.appInfo, response.snapshot, appView.activeView);
+          setIsConflictDialogOpen(false);
+        });
+        setNotice({ type: "ok", text: `已另存为新题库：${response.appInfo.currentWorkspaceName}` });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "另存当前题库失败。" });
+      } finally {
+        conflictSaveBusyRef.current = false;
+        conflictSavePromiseRef.current = null;
+        setIsSavingConflictAs(false);
+      }
+    })();
+    conflictSavePromiseRef.current = operation;
+    await operation;
+  }, [appInfo, appView.activeView, applyBankSnapshot, beginDraftCommit, compileExport, saveIssue?.kind, setNotice, takeDraftCommitRejection]);
   const openQuestionFromHeatmap = useCallback((id: string) => {
     setHeatmapFocusedId(id);
     setActiveId(id);
@@ -517,6 +534,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     saveState,
     saveIssue,
     isConflictDialogOpen,
+    isSavingConflictAs,
     activeModule,
     derived,
     selection,
@@ -542,7 +560,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     overwriteDiskVersion,
     saveConflictAs,
     openConflictDialog: () => setIsConflictDialogOpen(true),
-    closeConflictDialog: () => setIsConflictDialogOpen(false),
+    closeConflictDialog: () => { if (!conflictSaveBusyRef.current) setIsConflictDialogOpen(false); },
     loadAppAndBank,
     recoverFromCandidate,
     flushPendingChanges

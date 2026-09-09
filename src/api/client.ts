@@ -136,8 +136,9 @@ export async function saveTexPath(texPath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/tex-path", { texPath });
 }
 
-export async function uploadQuestionAsset(file: File): Promise<AssetUploadResponse> {
+export async function uploadQuestionAsset(file: File, workspacePath: string): Promise<AssetUploadResponse> {
   const formData = new FormData();
+  formData.append("workspacePath", workspacePath);
   formData.append("file", file);
   const response = await fetch("/api/assets", { method: "POST", body: formData });
   return readJsonResponse<AssetUploadResponse>(response);

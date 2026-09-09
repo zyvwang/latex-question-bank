@@ -2,6 +2,7 @@ import { Router, json } from "express";
 import multer from "multer";
 import path from "node:path";
 import {
+  validateWorkspacePathRequest,
   validateCompileItemRequest,
   validateExportRequest,
   validateRevealExportRequest
@@ -44,7 +45,13 @@ export function createDocumentRouter(options: {
         );
         return;
       }
-      response.json(await saveQuestionAsset(request.file));
+      const validation = validateWorkspacePathRequest(request.body);
+      if (!validation.ok || !validation.value) {
+        sendApiError(response, 400, validation.error, "WORKSPACE_PATH_INVALID");
+        return;
+      }
+      const { assetDir } = await requireCurrentWorkspace(validation.value.workspacePath);
+      response.json(await saveQuestionAsset(request.file, assetDir));
     } catch (error) {
       next(error);
     }

@@ -23,6 +23,9 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - launching a second desktop instance exits the newcomer, restores/focuses the existing window, keeps one BrowserWindow/API server, and preserves pending edits through the normal close flush
    - generic save failure pauses automatic requests and retries only once on demand
    - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
+   - conflict save-as blocks dismissal, background editing, and duplicate requests until completion; cancel/failure preserves local edits, pending uploads prevent save-as, and closing waits for the operation
+   - initial AppInfo failure and repeated retry failure show an error; a successful retry enters Setup or Workspace
+   - uploads across A → B and A → B → A never insert stale assets or notices, and accepted uploads write only to their captured directory
    - conflict save-as copies referenced images only and rejects non-empty or symlinked targets without changing the current workspace
    - opening, switching, or relocating to malformed `bank.json` leaves the prior workspace active and still saveable; successful transitions make no follow-up bank request
    - a missing current workspace offers retry, relocation, explicit switching to an available recent workspace, and removal without silently changing workspaces
@@ -58,7 +61,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 
 1. Push the release branch or tag.
 2. Run the **Build LaTeX Question Bank Installers** workflow.
-3. Confirm the dependency security audit passes before any install or build job starts.
+3. Confirm the release-version check and dependency security audit pass before any install or build job starts. `node scripts/verify-release-version.mjs` requires matching `package.json.version`, `package-lock.json.version`, and `package-lock.json.packages[""].version`. Tag builds (including manual runs on a tag) additionally require `GITHUB_REF` to equal `refs/tags/v<version>`; manual branch builds only check the files.
 4. Confirm Linux verification and TeX Live export compilation pass.
 5. Confirm both Windows and macOS jobs pass `npm run verify`, the packaged Electron smoke test, and installer packaging.
 6. Download and test artifacts:

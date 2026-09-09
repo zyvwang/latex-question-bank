@@ -108,6 +108,51 @@ describe("App UI", () => {
     vi.clearAllMocks();
   });
 
+  it("shows startup errors on every failed retry and recovers", async () => {
+    let attempts = 0;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/app" && ++attempts < 3) {
+        return json({ error: "应用信息暂时不可用" }, 500);
+      }
+      return handleFetch(input, init);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText("应用信息加载失败")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByText("应用信息加载失败")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByText("2024-1")).toBeInTheDocument();
+    expect(attempts).toBe(3);
+  });
+
+  it("locks conflict save-as until a delayed failure and preserves edits", async () => {
+    let finish!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => { finish = resolve; });
+    vi.spyOn(window, "prompt").mockReturnValue("/tmp/conflict-copy");
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) === "/api/bank" && init?.method === "PUT") {
+        return json({ error: "conflict", code: "BANK_CONFLICT" }, 409);
+      }
+      if (String(input) === "/api/workspaces/save-as") return pending;
+      return handleFetch(input, init);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const editor = await screen.findByRole("textbox", { name: "latex-editor" });
+    fireEvent.change(editor, { target: { value: "必须保留的修改" } });
+    const saveAs = await screen.findByRole("button", { name: "另存为新题库" });
+    await user.click(saveAs);
+    expect(screen.getByRole("button", { name: "暂时关闭" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "用本地版本覆盖" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "题库保存冲突" })).toBeInTheDocument();
+    finish(json({ error: "无法另存" }, 500));
+    await waitFor(() => expect(screen.getByRole("button", { name: "暂时关闭" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "暂时关闭" }));
+    expect(editor).toHaveValue("必须保留的修改");
+  });
+
   it("offers blank, existing, and sample banks on first launch", async () => {
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       const url = String(input);

@@ -2,7 +2,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AssetUploadResponse, QuestionAsset } from "../shared/types.js";
 import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
-import { getCurrentWorkspaceDirs } from "./workspace-storage.js";
 
 interface UploadedFile {
   buffer: Buffer;
@@ -20,7 +19,7 @@ export class AssetUploadError extends Error {
   }
 }
 
-export async function saveQuestionAsset(file: UploadedFile): Promise<AssetUploadResponse> {
+export async function saveQuestionAsset(file: UploadedFile, assetDir: string): Promise<AssetUploadResponse> {
   const imageType = detectImageType(file.buffer);
   if (!imageType) {
     throw new AssetUploadError("图片内容不是有效的 PNG 或 JPEG。", "IMAGE_SIGNATURE_INVALID");
@@ -34,7 +33,6 @@ export async function saveQuestionAsset(file: UploadedFile): Promise<AssetUpload
     throw new AssetUploadError("图片扩展名与文件内容不匹配。", "IMAGE_EXTENSION_MISMATCH");
   }
 
-  const { assetDir } = await getCurrentWorkspaceDirs();
   await assertRealWorkspaceSubdir(assetDir);
   await mkdir(assetDir, { recursive: true });
   const fileName = `${crypto.randomUUID()}${imageType.safeExtension}`;

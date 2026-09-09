@@ -615,14 +615,17 @@ describe("API validation", () => {
     await request(app).post("/api/export").send({ itemIds: [], fileName: "empty" }).expect(400);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from("not an image"), { filename: "note.txt", contentType: "text/plain" })
       .expect(400);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from("not an image"), { filename: "fake.png", contentType: "image/png" })
       .expect(400);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
         filename: "real.png",
         contentType: "image/png"
@@ -630,6 +633,7 @@ describe("API validation", () => {
       .expect(200);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
         filename: "disguised.jpg",
         contentType: "image/png"
@@ -638,6 +642,7 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_EXTENSION_MISMATCH"));
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from([0xff, 0xd8, 0xff, 0x00]), {
         filename: "mismatch.jpg",
         contentType: "image/png"

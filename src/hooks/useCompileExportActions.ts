@@ -65,7 +65,8 @@ export function useCompileExportActions({
   const compileGenerationRef = useRef(0);
   const exportGenerationRef = useRef(0);
   const exportingRef = useRef(false);
-  const workspacePathRef = useRef(workspacePath);
+  const pendingUploadsRef = useRef(new Set<SaveSession>());
+  const hasPendingUploads = useCallback(() => [...pendingUploadsRef.current].some(isSaveSessionCurrent), [isSaveSessionCurrent]);
   const trustedWorkspacePathsRef = useRef(new Set<string>());
   const workspaceGeneration = captureSaveSession().generation;
 
@@ -94,9 +95,6 @@ export function useCompileExportActions({
   const compileResult =
     compileStatus?.state === "failure" && compileRecord ? compileRecord.result : null;
 
-  useEffect(() => {
-    workspacePathRef.current = workspacePath;
-  }, [workspacePath]);
 
   useEffect(() => {
     exportNameManualRef.current = false;
@@ -144,10 +142,11 @@ export function useCompileExportActions({
   async function uploadAsset(kind: ModuleKind, file: File) {
     if (!activeItem) return;
     const itemId = activeItem.id;
-    const requestWorkspace = workspacePath;
+    const session = captureSaveSession();
+    pendingUploadsRef.current.add(session);
     try {
-      const { asset, insertText } = await uploadQuestionAsset(file);
-      if (workspacePathRef.current !== requestWorkspace) {
+      const { asset, insertText } = await uploadQuestionAsset(file, session.workspacePath);
+      if (!isSaveSessionCurrent(session)) {
         // 上传期间已切换工作区:丢弃过期响应,避免把资源写入另一工作区中同 ID 的题目。
         return;
       }
@@ -180,10 +179,12 @@ export function useCompileExportActions({
         setNotice({ type: "ok", text: "图片已插入当前模块。" });
       }
     } catch (error) {
-      setNotice({
+      if (isSaveSessionCurrent(session)) setNotice({
         type: "error",
         text: error instanceof Error ? error.message : "图片上传失败。"
       });
+    } finally {
+      pendingUploadsRef.current.delete(session);
     }
   }
 
@@ -313,6 +314,7 @@ export function useCompileExportActions({
     setExportOrderMode,
     setRandomSeed,
     resetCompileState,
+    hasPendingUploads,
     uploadAsset,
     compileCurrentItem,
     exportSelected

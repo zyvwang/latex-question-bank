@@ -178,3 +178,39 @@ it("loads the automatic name when the bank session becomes ready after app info"
   const { result } = await setup();
   expect(result.current.actions.exportName).toBe("questions-test-1");
 });
+
+
+it.each([[false, false], [false, true], [true, false], [true, true]])("ignores a stale upload (failure: %s, return to A: %s)", async (failure, returnToA) => {
+  const { result, original, transition } = await setup();
+  const gate = deferred<Response>();
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (input, options) => input === "/api/assets" ? gate.promise : originalFetch(input, options));
+  let operation!: Promise<void>;
+  await act(async () => { operation = result.current.actions.uploadAsset("question", new File(["image"], "x.png")); });
+  const uploadCall = vi.mocked(fetch).mock.calls.find(([input]) => input === "/api/assets");
+  expect((uploadCall?.[1]?.body as FormData).get("workspacePath")).toBe("/synthetic/A");
+  await transition(structuredClone(original), "/synthetic/B");
+  if (returnToA) await transition(structuredClone(original), "/synthetic/A");
+  notice.mockClear();
+  await act(async () => {
+    gate.resolve(failure ? new Response(JSON.stringify({ error: "old error" }), { status: 500 }) : json({ asset: { id: "old" }, insertText: "old image" }));
+    await operation;
+  });
+  expect(result.current.bank).toEqual(original);
+  expect(notice).not.toHaveBeenCalled();
+});
+
+
+it("does not insert a delayed upload into a deleted question", async () => {
+  const { result } = await setup();
+  const gate = deferred<Response>();
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (input, options) => input === "/api/assets" ? gate.promise : originalFetch(input, options));
+  let operation!: Promise<void>;
+  await act(async () => { operation = result.current.actions.uploadAsset("question", new File(["image"], "x.png")); });
+  await act(async () => { result.current.setBank((current) => ({ ...current, items: current.items.slice(1) })); });
+  notice.mockClear();
+  await act(async () => { gate.resolve(json({ asset: { id: "old" }, insertText: "old image" })); await operation; });
+  expect(result.current.bank.items.every((item) => item.assets.length === 0)).toBe(true);
+  expect(notice).not.toHaveBeenCalled();
+});

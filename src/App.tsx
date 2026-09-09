@@ -25,9 +25,9 @@ function AppContent() {
   const questions = useQuestions();
   useBeforeCloseFlush();
 
+  if (lifecycle.loadError) return <RecoveryScreen />;
   if (!workspace.appInfo) return <LoadingScreen />;
   if (workspace.appInfo.setupRequired) return <SetupScreen />;
-  if (lifecycle.loadError) return <RecoveryScreen />;
   if (!questions.bank) return <LoadingScreen />;
 
   return (
@@ -36,14 +36,16 @@ function AppContent() {
         跳到主要内容
       </a>
       <main className={styles.appShell}>
-        <AppNavigation />
-        {appView.activeView === "editor" ? (
-          <EditorLayout />
-        ) : appView.activeView === "heatmap" ? (
-          <HeatmapScreen />
-        ) : (
-          <SettingsScreen />
-        )}
+        <div inert={lifecycle.isSavingConflictAs || undefined} style={{ display: "contents" }}>
+          <AppNavigation />
+          {appView.activeView === "editor" ? (
+            <EditorLayout />
+          ) : appView.activeView === "heatmap" ? (
+            <HeatmapScreen />
+          ) : (
+            <SettingsScreen />
+          )}
+        </div>
         <Overlays />
       </main>
     </>

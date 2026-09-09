@@ -70,6 +70,10 @@ describe("GitHub Actions supply-chain boundaries", () => {
       const firstInstall = workflow.indexOf("npm ci");
 
       expect(auditJobStart).toBeGreaterThan(-1);
+      const versionCheck = workflow.indexOf("run: node scripts/verify-release-version.mjs");
+      expect(versionCheck).toBeGreaterThan(auditJobStart);
+      expect(versionCheck).toBeLessThan(firstInstall);
+      expect(versionCheck).toBeLessThan(workflow.indexOf("run: npm run audit:security"));
       expect(workflow).toContain("run: npm run audit:security");
       expect(auditJobStart).toBeLessThan(firstInstall);
 

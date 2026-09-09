@@ -21,6 +21,21 @@ export function RecoveryScreen() {
   const run = (operation: Promise<void>, fallback: string) => {
     void operation.catch((error) => reportError(error, fallback));
   };
+  if (!workspace.appInfo) return (
+    <main className={styles.setupShell}>
+      <section className={styles.setupPanel}>
+        <div className={styles.setupCopy}>
+          <h1>应用信息加载失败</h1>
+          <p role="alert">{lifecycle.loadError}</p>
+        </div>
+        <div className={styles.setupActions}>
+          <button className={controls.primaryAction} onClick={() => run(lifecycle.retryInitialLoad(), "重新读取失败。")}>
+            <RefreshCw size={18} />重试
+          </button>
+        </div>
+      </section>
+    </main>
+  );
   return (
     <main className={styles.setupShell}>
       <section className={`${styles.setupPanel} ${styles.recoveryPanel}`}>

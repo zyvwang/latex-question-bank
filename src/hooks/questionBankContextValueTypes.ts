@@ -26,6 +26,7 @@ export interface ContextValueInput {
   saveState: SaveState;
   saveIssue: SaveIssue | null;
   isConflictDialogOpen: boolean;
+  isSavingConflictAs: boolean;
   activeModule: ModuleKind;
   appView: ReturnType<typeof useAppView>;
   derived: ReturnType<typeof useQuestionDerivedData>;

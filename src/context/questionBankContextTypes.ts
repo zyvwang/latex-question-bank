@@ -35,6 +35,7 @@ export interface LifecycleContextValue {
   saveState: SaveState;
   saveIssue: SaveIssue | null;
   isConflictDialogOpen: boolean;
+  isSavingConflictAs: boolean;
   notice: Notice | null;
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];

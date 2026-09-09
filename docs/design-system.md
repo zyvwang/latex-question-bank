@@ -58,6 +58,8 @@ No remote font dependency is required.
 - Motion is limited to opacity and transform, and is disabled for reduced-motion preferences. Resizing and high-frequency editing feedback do not animate layout properties.
 - Focus rings remain visible for keyboard users.
 - Modal dialogs contain keyboard focus. The backdrop only blocks the pointer, so `src/hooks/useFocusTrap.ts` wraps Tab and Shift+Tab at both ends and returns focus to the opening element on close. The hook owns initial focus; a dialog that needs a specific landing spot marks it with `data-autofocus` rather than `autoFocus`, which fires too early to record the outside element.
+- Conflict save-as keeps its dialog open and disables its actions while choosing a directory or copying. The background editor and navigation are inert; a status message explains the wait. Cancellation or failure restores the dialog actions and preserves the draft.
+- Before AppInfo is available, a failed startup displays the error and a retry action without workspace-specific controls.
 - A save conflict opens a dismissible, focus-contained resolution dialog and leaves a persistent coral “保存冲突” action in the global navigation. Dismissing it allows continued editing but does not resume disk writes. The dialog shows a structural difference summary and keeps destructive disk/local replacement actions explicit; save-as remains non-destructive to the original workspace.
 
 ## CSS Ownership
