@@ -54,6 +54,7 @@ async function setup() {
     const autosave = useAutosave(bank, notice);
     const actions = useCompileExportActions({
       ...autosave,
+      isWorkspaceChanging: () => false,
       activeItem: bank.items[0] ?? null, bank, workspacePath,
       selectedIds: new Set(bank.items.map((item) => item.id)),
       setNotice: notice, updateBank: setBank

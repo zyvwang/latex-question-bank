@@ -61,6 +61,7 @@ No remote font dependency is required.
 - Conflict save-as keeps its dialog open and disables its actions while choosing a directory or copying. The background editor and navigation are inert; a status message explains the wait. Cancellation or failure restores the dialog actions and preserves the draft.
 - Before AppInfo is available, a failed startup displays the error and a retry action without workspace-specific controls.
 - A save conflict opens a dismissible, focus-contained resolution dialog and leaves a persistent coral “保存冲突” action in the global navigation. Dismissing it allows continued editing but does not resume disk writes. The dialog shows a structural difference summary and keeps destructive disk/local replacement actions explicit; save-as remains non-destructive to the original workspace.
+- Closing during image upload returns an unsaved warning; returning to edit keeps the upload running. Retry closing after upload completion. Workspace changes reject pending uploads with a notice and ignore duplicate transition requests. The editor and navigation are inert during a transition, and new uploads cannot start until it finishes.
 
 ## CSS Ownership
 

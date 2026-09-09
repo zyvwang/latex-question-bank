@@ -32,6 +32,7 @@
     "test:coverage:node": "vitest run --config vitest.node.config.ts --coverage",
     "test:coverage:ui": "vitest run --config vitest.ui.config.ts --coverage",
     "test:coverage": "npm run test:coverage:node && npm run test:coverage:ui",
+    "test:packaged": "playwright test --config playwright.packaged.config.ts",
     "test:desktop": "playwright test --config playwright.config.ts",
     "verify": "npm run lint && npm run test && npm run build && npm run test:coverage && cross-env LQB_WORKSPACE_DIR=.tmp/verify-workspace tsx scripts/verify-export.ts",
     "dist": "npm run build && electron-builder --publish never",

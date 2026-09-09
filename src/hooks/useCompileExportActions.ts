@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   compileItem,
@@ -28,6 +29,7 @@ interface CompileExportOptions {
   isSaveSessionCurrent: (session: SaveSession) => boolean;
   flushSession: (session: SaveSession) => Promise<BankSnapshot>;
   setNotice: (notice: Notice | null) => void;
+  isWorkspaceChanging: () => boolean;
   updateBank: (updater: (current: Bank) => Bank) => void;
 }
 
@@ -49,7 +51,8 @@ export function useCompileExportActions({
   isSaveSessionCurrent,
   flushSession,
   setNotice,
-  updateBank
+  updateBank,
+  isWorkspaceChanging
 }: CompileExportOptions) {
   // 导出名的唯一来源是服务端(它才知道 exports/ 下已有几份同日导出)。渲染期不猜,
   // 空串由 fetch 结果填上;只有服务端不可达时才退回本地日期名,见下面的 catch。
@@ -141,6 +144,10 @@ export function useCompileExportActions({
 
   async function uploadAsset(kind: ModuleKind, file: File) {
     if (!activeItem) return;
+    if (isWorkspaceChanging()) {
+      setNotice({ type: "error", text: "正在切换工作区，请完成后再上传图片。" });
+      return;
+    }
     const itemId = activeItem.id;
     const session = captureSaveSession();
     pendingUploadsRef.current.add(session);
@@ -151,7 +158,8 @@ export function useCompileExportActions({
         return;
       }
       let applied = false;
-      updateBank((current) => {
+      // 图片引用必须在解除上传保护前进入渲染和保存队列。
+      flushSync(() => updateBank((current) => {
         if (!current.items.some((item) => item.id === itemId)) return current;
         applied = true;
         const now = new Date().toISOString();
@@ -174,7 +182,7 @@ export function useCompileExportActions({
               : item
           )
         };
-      });
+      }));
       if (applied) {
         setNotice({ type: "ok", text: "图片已插入当前模块。" });
       }

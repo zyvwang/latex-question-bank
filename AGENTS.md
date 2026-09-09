@@ -40,6 +40,7 @@ React UI
 - 构建：`npm run build`
 - 完整验证：`npm run verify`
 - 桌面冒烟测试：`npm run test:desktop`
+- 打包应用冒烟测试：打包后运行 `npm run test:packaged`（macOS 需在清理 unpacked app 前执行）
 
 `npm run audit:security` 会对生产与开发依赖执行中高等级漏洞门禁；CI 和发布工作流会在安装依赖前执行它，审计服务不可用时也按失败处理。`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证，但不重复运行联网安全审计。`scripts/verify-export.ts` 只主动探测 `latexmk`：未检测到时会跳过真实 PDF 编译并以成功状态退出；如果已检测到 `latexmk` 但 `xelatex` 不可用，真实编译会失败。只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
 

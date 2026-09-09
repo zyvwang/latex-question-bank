@@ -36,7 +36,7 @@ function AppContent() {
         跳到主要内容
       </a>
       <main className={styles.appShell}>
-        <div inert={lifecycle.isSavingConflictAs || undefined} style={{ display: "contents" }}>
+        <div inert={lifecycle.isSavingConflictAs || workspace.isChangingWorkspace || undefined} style={{ display: "contents" }}>
           <AppNavigation />
           {appView.activeView === "editor" ? (
             <EditorLayout />

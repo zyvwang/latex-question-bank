@@ -25,6 +25,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - save conflict remains stable while editing, refreshes its disk summary, and supports disk reload, revision-checked local overwrite, and independent save-as
    - conflict save-as blocks dismissal, background editing, and duplicate requests until completion; cancel/failure preserves local edits, pending uploads prevent save-as, and closing waits for the operation
    - initial AppInfo failure and repeated retry failure show an error; a successful retry enters Setup or Workspace
+   - closing during delayed/concurrent image uploads offers return-to-edit; after completion, retrying close persists image references; workspace changes reject pending uploads and uploads cannot begin during a transition
    - uploads across A → B and A → B → A never insert stale assets or notices, and accepted uploads write only to their captured directory
    - conflict save-as copies referenced images only and rejects non-empty or symlinked targets without changing the current workspace
    - opening, switching, or relocating to malformed `bank.json` leaves the prior workspace active and still saveable; successful transitions make no follow-up bank request
@@ -63,7 +64,12 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
 2. Run the **Build LaTeX Question Bank Installers** workflow.
 3. Confirm the release-version check and dependency security audit pass before any install or build job starts. `node scripts/verify-release-version.mjs` requires matching `package.json.version`, `package-lock.json.version`, and `package-lock.json.packages[""].version`. Tag builds (including manual runs on a tag) additionally require `GITHUB_REF` to equal `refs/tags/v<version>`; manual branch builds only check the files.
 4. Confirm Linux verification and TeX Live export compilation pass.
-5. Confirm both Windows and macOS jobs pass `npm run verify`, the packaged Electron smoke test, and installer packaging.
+5. Confirm both Windows and macOS jobs pass `npm run verify`, `npm run test:desktop`, installer packaging, then `npm run test:packaged` before artifact upload.
+   - `test:desktop` launches the repository with Electron; `test:packaged` launches the packaged executable and requires `app.isPackaged` and an ASAR app path.
+   - Local macOS: `npm run build && npx electron-builder --mac dmg --publish never && npm run test:packaged`. Run before `cleanup-macos-unpacked.mjs` removes the unpacked app.
+   - Local Windows: `npm run build && npx electron-builder --win nsis --publish never && npm run test:packaged`.
+   - Packaged tests launch outside the repository, use disposable app data/workspaces, and verify Setup, sample workspace creation, MathJax, PNG upload, immediate quit and restart persistence. Missing artifacts fail; failed runs retain logs, traces and screenshots under `test-results/packaged/`.
+   - This checks the packaged application, not installation/uninstallation by DMG or NSIS. Test those installers manually in step 6. macOS success does not substitute for the Windows CI result.
 6. Download and test artifacts:
    - Windows: `release/*.exe`
    - macOS: `release/*.dmg`

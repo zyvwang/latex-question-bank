@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createEmptyWorkspace,
@@ -11,15 +12,15 @@ import {
 } from "../api/client.js";
 import type {
   AppInfo,
-  Bank,
   WorkspaceTransitionResponse
 } from "../../shared/types.js";
 import type { Notice } from "./controllerTypes.js";
 
 interface WorkspaceActionsOptions {
   appInfo: AppInfo | null;
-  bank: Bank | null;
-  persistBank: (bank: Bank) => Promise<void>;
+  persistCurrentBank: () => Promise<void>;
+  hasPendingUploads: () => boolean;
+  changingRef: { current: boolean };
   applyWorkspaceTransition: (response: WorkspaceTransitionResponse) => void;
   setAppInfo: (appInfo: AppInfo) => void;
   setNotice: (notice: Notice | null) => void;
@@ -27,8 +28,9 @@ interface WorkspaceActionsOptions {
 
 export function useWorkspaceActions({
   appInfo,
-  bank,
-  persistBank,
+  persistCurrentBank,
+  hasPendingUploads,
+  changingRef,
   applyWorkspaceTransition,
   setAppInfo,
   setNotice
@@ -132,122 +134,134 @@ export function useWorkspaceActions({
     }
   }, [queueTexPathSave]);
 
+  async function runWorkspaceChange(operation: () => Promise<void>) {
+    if (changingRef.current) return;
+    if (hasPendingUploads()) {
+      setNotice({ type: "error", text: "图片仍在上传，请等待上传完成后切换工作区。" });
+      return;
+    }
+    changingRef.current = true;
+    setIsChangingWorkspace(true);
+    try {
+      await operation();
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
+    } finally {
+      changingRef.current = false;
+      setIsChangingWorkspace(false);
+    }
+  }
+
   async function saveBeforeWorkspaceChange() {
     await Promise.all([
       flushPendingSettings(),
-      bank && appInfo?.currentWorkspacePath
-        ? persistBank(bank)
-        : Promise.resolve()
+      persistCurrentBank()
     ]);
   }
 
   async function createSampleWorkspace() {
-    const workspacePath = await pickWorkspaceDirectory(
-      "选择示例工作区文件夹",
-      "输入示例工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/Sample Bank"
-    );
-    if (!workspacePath?.trim()) return;
-    setIsChangingWorkspace(true);
-    try {
-      const response = await createSampleWorkspaceRequest(workspacePath);
-      applyWorkspaceTransition(response);
-      setNotice({
-        type: "ok",
-        text: `已创建示例工作区：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "创建示例工作区失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+    return runWorkspaceChange(async () => {
+      const workspacePath = await pickWorkspaceDirectory(
+        "选择示例工作区文件夹",
+        "输入示例工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/Sample Bank"
+      );
+      if (!workspacePath?.trim()) return;
+      try {
+        await saveBeforeWorkspaceChange();
+        const response = await createSampleWorkspaceRequest(workspacePath);
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({
+          type: "ok",
+          text: `已创建示例工作区：${response.appInfo.currentWorkspaceName}`
+        });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "创建示例工作区失败。" });
+      }
+    });
   }
 
   async function createNewWorkspace() {
-    const workspacePath = await pickWorkspaceDirectory(
-      "选择新工作区文件夹",
-      "输入新工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
-    );
-    if (!workspacePath?.trim()) return;
-    setIsChangingWorkspace(true);
-    try {
-      await saveBeforeWorkspaceChange();
-      const response = await createEmptyWorkspace(workspacePath);
-      applyWorkspaceTransition(response);
-      setNotice({
-        type: "ok",
-        text: `已创建工作区：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "创建工作区失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+    return runWorkspaceChange(async () => {
+      const workspacePath = await pickWorkspaceDirectory(
+        "选择新工作区文件夹",
+        "输入新工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
+      );
+      if (!workspacePath?.trim()) return;
+      try {
+        await saveBeforeWorkspaceChange();
+        const response = await createEmptyWorkspace(workspacePath);
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({
+          type: "ok",
+          text: `已创建工作区：${response.appInfo.currentWorkspaceName}`
+        });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "创建工作区失败。" });
+      }
+    });
   }
 
   async function openWorkspace() {
-    const workspacePath = await pickWorkspaceDirectory(
-      "打开已有工作区",
-      "输入题库工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
-    );
-    if (!workspacePath?.trim()) return;
-    if (workspacePath === appInfo?.currentWorkspacePath) return;
-    setIsChangingWorkspace(true);
-    try {
-      await saveBeforeWorkspaceChange();
-      const response = await openExistingWorkspace(workspacePath);
-      applyWorkspaceTransition(response);
-      setNotice({
-        type: "ok",
-        text: `已打开工作区：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "打开工作区失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+    return runWorkspaceChange(async () => {
+      const workspacePath = await pickWorkspaceDirectory(
+        "打开已有工作区",
+        "输入题库工作区文件夹路径，例如 /Users/me/Documents/LaTeX Question Bank/My Bank"
+      );
+      if (!workspacePath?.trim()) return;
+      if (workspacePath === appInfo?.currentWorkspacePath) return;
+      try {
+        await saveBeforeWorkspaceChange();
+        const response = await openExistingWorkspace(workspacePath);
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({
+          type: "ok",
+          text: `已打开工作区：${response.appInfo.currentWorkspaceName}`
+        });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "打开工作区失败。" });
+      }
+    });
   }
 
   async function switchToWorkspace(workspacePath: string) {
-    if (!workspacePath || workspacePath === appInfo?.currentWorkspacePath) return;
-    setIsChangingWorkspace(true);
-    try {
-      await saveBeforeWorkspaceChange();
-      const response = await switchWorkspaceRequest(workspacePath);
-      applyWorkspaceTransition(response);
-      setNotice({
-        type: "ok",
-        text: `已切换至：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+    return runWorkspaceChange(async () => {
+      if (!workspacePath || workspacePath === appInfo?.currentWorkspacePath) return;
+      try {
+        await saveBeforeWorkspaceChange();
+        const response = await switchWorkspaceRequest(workspacePath);
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({
+          type: "ok",
+          text: `已切换至：${response.appInfo.currentWorkspaceName}`
+        });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
+      }
+    });
   }
 
   async function relocateWorkspace(workspacePath: string) {
-    const replacementPath = await pickWorkspaceDirectory(
-      "重新定位题库工作区",
-      "输入该题库工作区的新路径"
-    );
-    if (!replacementPath?.trim()) return;
-    setIsChangingWorkspace(true);
-    try {
-      await saveBeforeWorkspaceChange();
-      const response = await relocateWorkspaceRequest(
-        workspacePath,
-        replacementPath
+    return runWorkspaceChange(async () => {
+      const replacementPath = await pickWorkspaceDirectory(
+        "重新定位题库工作区",
+        "输入该题库工作区的新路径"
       );
-      applyWorkspaceTransition(response);
-      setNotice({
-        type: "ok",
-        text: `已重新定位至：${response.appInfo.currentWorkspaceName}`
-      });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "重新定位工作区失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+      if (!replacementPath?.trim()) return;
+      try {
+        await saveBeforeWorkspaceChange();
+        const response = await relocateWorkspaceRequest(
+          workspacePath,
+          replacementPath
+        );
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({
+          type: "ok",
+          text: `已重新定位至：${response.appInfo.currentWorkspaceName}`
+        });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "重新定位工作区失败。" });
+      }
+    });
   }
 
   async function moveWorkspaceInList(workspacePath: string, direction: "up" | "down") {
@@ -260,25 +274,24 @@ export function useWorkspaceActions({
   }
 
   async function removeWorkspaceFromList(workspacePath: string) {
-    const workspace = appInfo?.recentWorkspaces.find((item) => item.path === workspacePath);
-    const name = workspace?.name ?? workspacePath;
-    const message =
-      `确定要从列表移除工作区“${name}”吗？\n\n磁盘上的工作区文件夹和 bank.json 会保持不变。`;
-    if (!window.confirm(message)) return;
+    return runWorkspaceChange(async () => {
+      const workspace = appInfo?.recentWorkspaces.find((item) => item.path === workspacePath);
+      const name = workspace?.name ?? workspacePath;
+      const message =
+        `确定要从列表移除工作区“${name}”吗？\n\n磁盘上的工作区文件夹和 bank.json 会保持不变。`;
+      if (!window.confirm(message)) return;
 
-    setIsChangingWorkspace(true);
-    try {
-      if (workspacePath === appInfo?.currentWorkspacePath) {
-        await saveBeforeWorkspaceChange();
+      try {
+        if (workspacePath === appInfo?.currentWorkspacePath) {
+          await saveBeforeWorkspaceChange();
+        }
+        const response = await removeWorkspace(workspacePath);
+        flushSync(() => applyWorkspaceTransition(response));
+        setNotice({ type: "ok", text: `已从列表移除工作区：${name}；磁盘文件保持不变。` });
+      } catch (error) {
+        setNotice({ type: "error", text: error instanceof Error ? error.message : "移除工作区记录失败。" });
       }
-      const response = await removeWorkspace(workspacePath);
-      applyWorkspaceTransition(response);
-      setNotice({ type: "ok", text: `已从列表移除工作区：${name}；磁盘文件保持不变。` });
-    } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "移除工作区记录失败。" });
-    } finally {
-      setIsChangingWorkspace(false);
-    }
+    });
   }
 
   function openCurrentWorkspaceFolder() {
