@@ -156,6 +156,10 @@ export function apiErrorHandler(
   response: express.Response,
   _next: express.NextFunction
 ) {
+  if (error instanceof Error && "type" in error && error.type === "entity.parse.failed") {
+    sendApiError(response, 400, "请求 JSON 格式无效。", "REQUEST_JSON_INVALID");
+    return;
+  }
   if (isEntityTooLarge(error)) {
     const pathname = new URL(
       request.originalUrl,

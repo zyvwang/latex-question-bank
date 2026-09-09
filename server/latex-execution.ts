@@ -1,21 +1,30 @@
 import { StorageError } from "./storage-types.js";
 
-let latexExecutionActive = false;
+export interface LatexExecutionSession {
+  readonly id: symbol;
+}
+
+let activeSession: LatexExecutionSession | undefined;
+
+export function assertLatexExecutionSession(session: LatexExecutionSession) {
+  if (session !== activeSession) throw new Error("LaTeX execution session has expired.");
+}
 
 export async function withLatexExecutionSlot<T>(
-  operation: () => Promise<T>
+  operation: (session: LatexExecutionSession) => Promise<T>
 ): Promise<T> {
-  if (latexExecutionActive) {
+  if (activeSession) {
     throw new StorageError(
       "已有 LaTeX 编译正在运行，请稍后重试。",
       "LATEX_BUSY",
       503
     );
   }
-  latexExecutionActive = true;
+  const session = { id: Symbol("latex-execution") };
+  activeSession = session;
   try {
-    return await operation();
+    return await operation(session);
   } finally {
-    latexExecutionActive = false;
+    activeSession = undefined;
   }
 }

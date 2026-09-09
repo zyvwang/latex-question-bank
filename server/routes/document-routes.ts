@@ -16,6 +16,7 @@ import {
 import { exportBank } from "../export-service.js";
 import { sendApiError } from "../http/api-response.js";
 import { writeCurrentItemCheck } from "../latex-files.js";
+import { withLatexExecutionSlot } from "../latex-execution.js";
 import { compileLatex } from "../latex-runtime.js";
 import { StorageError } from "../storage-types.js";
 import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
@@ -65,12 +66,11 @@ export function createDocumentRouter(options: {
         return;
       }
       const { workspaceDir, tempDir } = await requireCurrentWorkspace(validation.value.workspacePath);
-      const texPath = await writeCurrentItemCheck(
-        validation.value.item,
-        validation.value.settings,
-        workspaceDir
-      );
-      const result = await compileLatex(texPath, path.dirname(texPath));
+      const { item, settings } = validation.value;
+      const result = await withLatexExecutionSlot(async (session) => {
+        const texPath = await writeCurrentItemCheck(item, settings, workspaceDir);
+        return compileLatex(texPath, path.dirname(texPath), 45_000, session);
+      });
       response.status(result.ok ? 200 : 422).json({
         ...result,
         texUrl: toPublicTempUrl(result.texPath, tempDir),

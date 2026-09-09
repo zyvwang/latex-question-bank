@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -51,7 +52,7 @@ test("packaged application loads bundled resources and persists edits through qu
     await expect.poll(() => page.locator('[role="tabpanel"] mjx-container').count()).toBeGreaterThan(0);
     await page.locator('input[type="file"]').setInputFiles({
       name: "pixel.png", mimeType: "image/png",
-      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=", "base64")
+      buffer: validPng
     });
     await expect(page.getByText("图片已插入当前模块。", { exact: true })).toBeVisible();
     await page.getByLabel("原编号").fill("packaged-save");

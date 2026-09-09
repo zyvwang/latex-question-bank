@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import {
   mkdir,
   readFile,
@@ -20,7 +21,7 @@ import { getWorkspaceDirs } from "../../server/workspace-storage.js";
 const workspacePath = path.resolve(".tmp/vitest-symlink-workspace");
 const externalDir = path.resolve(".tmp/vitest-symlink-external");
 const saveAsPath = path.resolve(".tmp/vitest-symlink-save-as");
-const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngSignature = validPng;
 
 function withAsset(fileName: string) {
   const sample = createSampleBank();

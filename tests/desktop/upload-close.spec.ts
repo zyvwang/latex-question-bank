@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -30,7 +31,7 @@ test("returns to editing when closing during upload and saves the completed inse
     await page.route("**/api/assets", async (route) => { started(); await gate; await route.continue(); });
     await page.locator('input[type="file"]').setInputFiles({
       name: "pixel.png", mimeType: "image/png",
-      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=", "base64")
+      buffer: validPng
     });
     await requested;
     await app.evaluate(({ app }) => app.quit());

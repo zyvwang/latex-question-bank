@@ -1,7 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import type { AssetUploadResponse, QuestionAsset } from "../shared/types.js";
 import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
+
+const MAX_IMAGE_PIXELS = 25_000_000;
 
 interface UploadedFile {
   buffer: Buffer;
@@ -33,6 +36,7 @@ export async function saveQuestionAsset(file: UploadedFile, assetDir: string): P
     throw new AssetUploadError("图片扩展名与文件内容不匹配。", "IMAGE_EXTENSION_MISMATCH");
   }
 
+  await validateImageContent(file.buffer);
   await assertRealWorkspaceSubdir(assetDir);
   await mkdir(assetDir, { recursive: true });
   const fileName = `${crypto.randomUUID()}${imageType.safeExtension}`;
@@ -74,4 +78,20 @@ function detectImageType(buffer: Buffer): {
     };
   }
   return null;
+}
+
+async function validateImageContent(buffer: Buffer): Promise<void> {
+  try {
+    // Metadata inspection allocates no pixel raster; reject oversized images before decoding.
+    const metadata = await sharp(buffer, { limitInputPixels: false, failOn: "warning" }).metadata();
+    if (!metadata.width || !metadata.height) throw new Error("Missing image dimensions");
+    if (metadata.width * metadata.height > MAX_IMAGE_PIXELS) {
+      throw new AssetUploadError("图片不能超过 2,500 万像素，请缩小图片后重试。", "IMAGE_DIMENSIONS_EXCEEDED");
+    }
+    // Force pixel decoding: valid headers alone do not establish image integrity.
+    await sharp(buffer, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: "warning" }).stats();
+  } catch (error) {
+    if (error instanceof AssetUploadError) throw error;
+    throw new AssetUploadError("图片内容损坏或不完整，请重新选择 PNG 或 JPEG 图片。", "IMAGE_CONTENT_INVALID");
+  }
 }

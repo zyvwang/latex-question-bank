@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import {
   mkdir,
   readFile,
@@ -626,7 +627,7 @@ describe("API validation", () => {
     await request(app)
       .post("/api/assets")
       .field("workspacePath", workspacePath)
-      .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+      .attach("file", validPng, {
         filename: "real.png",
         contentType: "image/png"
       })
@@ -634,7 +635,7 @@ describe("API validation", () => {
     await request(app)
       .post("/api/assets")
       .field("workspacePath", workspacePath)
-      .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+      .attach("file", validPng, {
         filename: "disguised.jpg",
         contentType: "image/png"
       })

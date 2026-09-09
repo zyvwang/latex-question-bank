@@ -10,6 +10,7 @@ import {
   sanitizeFileName,
   selectedItems
 } from "./latex.js";
+import { withLatexExecutionSlot, type LatexExecutionSession } from "./latex-execution.js";
 import { StorageError } from "./storage-types.js";
 import {
   EXPORT_TEMP_PREFIX,
@@ -27,6 +28,15 @@ export async function exportBank(
   bank: Bank,
   workspacePath: string,
   request: Omit<ExportRequest, "workspacePath" | "baseRevision">
+): Promise<ExportResponse> {
+  return withLatexExecutionSlot((session) => exportBankExclusive(bank, workspacePath, request, session));
+}
+
+async function exportBankExclusive(
+  bank: Bank,
+  workspacePath: string,
+  request: Omit<ExportRequest, "workspacePath" | "baseRevision">,
+  session: LatexExecutionSession
 ): Promise<ExportResponse> {
   const fileName = sanitizeFileName(request.fileName);
   const items = selectedItems(bank, request.itemIds, {
@@ -60,8 +70,8 @@ export async function exportBank(
   await writeFile(questionsTex, buildQuestionOnlyLatex(items, bank.settings), "utf8");
   await writeFile(fullTex, buildFullLatex(items, bank.settings), "utf8");
 
-  const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000);
-  const fullResult = await compileLatex(fullTex, stagingDir, 60_000);
+  const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000, session);
+  const fullResult = await compileLatex(fullTex, stagingDir, 60_000, session);
   const ok = questionsResult.ok && fullResult.ok;
   const files = await listExportFiles(stagingDir);
   const results = ok

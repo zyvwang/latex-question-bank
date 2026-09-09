@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import request from "supertest";
@@ -110,7 +111,7 @@ describe("document workspace boundaries", () => {
 
 it("rejects missing and stale upload targets before writing assets", async () => {
   const { app } = await setup();
-  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const png = validPng;
   await request(app).post("/api/workspaces/switch").send({ workspacePath: b }).expect(200);
   await request(app).post("/api/assets").attach("file", png, "image.png").expect(400);
   await request(app).post("/api/assets").field("workspacePath", a).attach("file", png, "image.png")
@@ -132,7 +133,7 @@ it("writes an accepted upload only to its captured workspace after a switch", as
     await resume.promise;
     return save(file, assetDir);
   });
-  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const png = validPng;
   const pending = request(app).post("/api/assets").field("workspacePath", a)
     .attach("file", png, "image.png").then((value) => value);
   await entered.promise;

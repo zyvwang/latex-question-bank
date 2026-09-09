@@ -10,7 +10,11 @@ import {
   MAX_LATEX_LOG_BYTES,
   MAX_LATEX_PROBE_BYTES
 } from "./bounded-output.js";
-import { withLatexExecutionSlot } from "./latex-execution.js";
+import {
+  assertLatexExecutionSession,
+  withLatexExecutionSlot,
+  type LatexExecutionSession
+} from "./latex-execution.js";
 
 const TEX_DETECTION_CACHE_MS = 30_000;
 let cachedTexStatus:
@@ -23,8 +27,14 @@ let texDetectionInFlight:
 export async function compileLatex(
   texPath: string,
   cwd: string,
-  timeoutMs = 45_000
+  timeoutMs = 45_000,
+  session?: LatexExecutionSession
 ): Promise<CompileResult> {
+  if (session) {
+    // A document operation holds the slot across file preparation and export commit.
+    assertLatexExecutionSession(session);
+    return compileLatexExclusive(texPath, cwd, timeoutMs);
+  }
   return withLatexExecutionSlot(() =>
     compileLatexExclusive(texPath, cwd, timeoutMs)
   );
