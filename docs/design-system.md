@@ -28,7 +28,7 @@ No remote font dependency is required.
 
 ## Layout
 
-- A persistent top navigation owns page switching and the global save state. Editor, Heatmap, and Bank Settings are peer pages rather than drawers or modals.
+- A persistent top navigation owns page switching and the global save state. Layout write failures show a separate “布局未保存 · 重试” action, leaving the bank save state visible and accurate. The status area can wrap at narrow widths; retry controls have a minimum 40px hit target. Editor, Heatmap, and Bank Settings are peer pages rather than drawers or modals.
 - Wide desktop: the question navigation defaults to 288px, can be resized from 240px to 360px, and can collapse to a 48px rail. Workspace lifecycle controls live on the Bank Settings page rather than in the editor sidebar.
 - The active module gives source code about 55% of the editor width and preview about 45%. The separator keeps both panes usable, with a 35% to 65% source-width range and pixel minimums before the layout stacks.
 - The heatmap uses a wrapping grid and one preview pane. Its toolbar is approximately 72px tall; the mode-specific legend opens on demand. The preview defaults to 420px, resizes from 380px to 520px, and can collapse. Small banks use a compact content band instead of stretching the grid through the viewport. Rows retain Chinese chapter numerals; uncategorized items stay last without a numeral.

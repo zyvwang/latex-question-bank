@@ -26,6 +26,21 @@ export function contentSecurityPolicy(
   next();
 }
 
+export function rejectForeignHosts(
+  request: express.Request,
+  response: express.Response,
+  next: express.NextFunction
+) {
+  // Validate the raw authority: URL parsing alone accepts abbreviated numeric IPs
+  // and userinfo. Forwarded headers cannot authorize access to local files.
+  const match = /^(localhost|127\.0\.0\.1|\[::1\])(?::([0-9]{1,5}))?$/i.exec(request.get("host") ?? "");
+  if (!match || (match[2] !== undefined && (Number(match[2]) < 1 || Number(match[2]) > 65535))) {
+    sendApiError(response, 403, "拒绝非本机或无效的请求地址。", "HOST_FORBIDDEN");
+    return;
+  }
+  next();
+}
+
 export function rejectForeignMutatingOrigins(
   request: express.Request,
   response: express.Response,
@@ -203,7 +218,7 @@ function isMutatingMethod(method: string): boolean {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-  return ["127.0.0.1", "localhost", "::1"].includes(hostname);
+  return ["127.0.0.1", "localhost", "[::1]"].includes(hostname);
 }
 
 function isEntityTooLarge(

@@ -4,10 +4,12 @@ import {
   useLifecycle,
   useWorkspace
 } from "../context/questionBankContexts.js";
+import { useLayoutPreferences } from "../context/layoutPreferences.js";
 import styles from "./AppNavigation.module.css";
 
 export function AppNavigation() {
   const appView = useAppView();
+  const layout = useLayoutPreferences();
   const lifecycle = useLifecycle();
   const workspace = useWorkspace();
   return (
@@ -43,6 +45,19 @@ export function AppNavigation() {
         </button>
       </nav>
       <div className={styles.status}>
+        {layout.persistError && (
+          <span role="status">
+            <button
+              type="button"
+              className={`${styles.saveState} ${styles.layoutError}`}
+              title={layout.persistError}
+              onClick={() => void layout.retryPersist().catch(() => undefined)}
+            >
+              <AlertTriangle size={15} />
+              布局未保存 · 重试
+            </button>
+          </span>
+        )}
         {appView.activeView === "settings" && lifecycle.notice && (
           <span
             className={`${styles.notice} ${styles[lifecycle.notice.type]}`}

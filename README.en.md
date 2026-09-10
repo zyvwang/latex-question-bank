@@ -175,6 +175,8 @@ A complete bank save request is supported up to 64 MiB. Oversized banks remain p
 
 Existing `version: 1` banks open directly. Legacy chapter text is converted to formal chapters in memory, while ratings are intentionally not mapped to mastery. Read-only use does not rewrite the file. Before the first real edit is saved as v2, the original v1 content is retained in `bank.json.bak` and the session recovery snapshot.
 
+Layout save failures show a separate retry action in the navigation bar. Retry saves the latest layout; quitting with an unresolved write failure opens the existing unsaved-changes dialog. Bank save status remains independent.
+
 The app keeps only recent workspace paths, a custom TeX path, and UI layout preferences in local application data. Workspaces remain ordinary folders under your control: “Remove from list” only clears the recent entry, and the app never deletes the folder or its `bank.json`. It does not provide cloud sync. If another tool syncs your workspace, avoid editing the same bank on multiple computers at once.
 
 ## Local development
@@ -215,6 +217,8 @@ npm run dist:win
 ```
 
 Follow the [release checklist](docs/release-checklist.md) before publishing.
+
+`npm run verify` runs lint, build, the full test suite with coverage once, and export verification. See [the performance baseline](docs/performance-baseline.md) for the repeatable large-bank benchmark.
 
 ## Stack
 

@@ -3,6 +3,8 @@ import type { UiLayoutPreferences } from "../../shared/ui-layout-preferences.js"
 
 export interface LayoutPreferencesContextValue {
   preferences: UiLayoutPreferences;
+  persistError: string | null;
+  retryPersist: () => Promise<void>;
   updatePreferences: (patch: Partial<UiLayoutPreferences>) => void;
 }
 

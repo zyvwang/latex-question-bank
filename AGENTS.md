@@ -140,6 +140,7 @@ React UI
 
 - `server/index.ts` 只做装配；业务逻辑放到 route、service 或 storage 模块。
 - HTTP route 负责请求/响应适配和调用共享 validation，不应承载复杂领域逻辑。
+- 所有 API 和静态文件请求必须先校验原始 Host，仅允许 `localhost`、`127.0.0.1`、`[::1]` 和有效可选端口；不得用转发头绕过校验。写请求继续校验 Origin。
 - 读写 workspace 路径时使用现有 storage/path helper，避免手写路径拼接绕过校验。
 - 文件写入优先使用现有原子写入工具和 revision 机制。
 - 图片上传必须保持扩展名、MIME、文件签名三重校验。

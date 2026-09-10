@@ -7,6 +7,7 @@ import {
   contentSecurityPolicy,
   dynamicWorkspaceStatic,
   installFrontend,
+  rejectForeignHosts,
   rejectForeignMutatingOrigins
 } from "./http/middleware.js";
 import { createBankRouter } from "./routes/bank-routes.js";
@@ -41,6 +42,7 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
     options.bankBodyLimitBytes ?? BANK_SAVE_BODY_LIMIT_BYTES;
   const jsonBodyLimitBytes =
     options.jsonBodyLimitBytes ?? DEFAULT_JSON_BODY_LIMIT_BYTES;
+  app.use(rejectForeignHosts);
   app.use(contentSecurityPolicy);
   app.use(rejectForeignMutatingOrigins);
   app.use("/assets", dynamicWorkspaceStatic("assetDir"));
