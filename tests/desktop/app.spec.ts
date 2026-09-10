@@ -942,3 +942,85 @@ function createLargeHeatmapBank(): Bank {
   );
   return { ...base, chapters, items };
 }
+
+test("sidebar chapter headings stick, hand off, and preserve keyboard and drag targets", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-chapter-sidebar-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-chapter-sidebar-app-data");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  const bank = createLargeHeatmapBank();
+  bank.chapters = bank.chapters.slice(0, 3);
+  bank.chapters[1].name = "第二章：含参数的分段函数连续性与极限的分类讨论";
+  bank.items = bank.items.filter((item) =>
+    bank.chapters.some((chapter) => chapter.id === item.chapterId) && item.chapterOrder <= 16
+  );
+  await writeFile(path.join(workspacePath, "bank.json"), JSON.stringify(bank));
+  const app = await electron.launch({
+    args: ["."],
+    env: { ...process.env, LQB_APP_DATA_DIR: appDataPath, LQB_WORKSPACE_DIR: workspacePath }
+  });
+  try {
+    const page = await app.firstWindow();
+    const list = page.getByLabel("题目列表", { exact: true });
+    const headings = list.getByRole("heading");
+    await expect(headings).toHaveCount(3);
+    const geometry = () => list.evaluate((element) => ({
+      top: element.getBoundingClientRect().top,
+      headings: Array.from(element.querySelectorAll("h3")).map((h) => ({
+        top: h.getBoundingClientRect().top, bottom: h.getBoundingClientRect().bottom
+      }))
+    }));
+    await list.evaluate((element) => { element.scrollTop = 200; });
+    let bounds = await geometry();
+    expect(Math.abs(bounds.headings[0].top - bounds.top)).toBeLessThan(2);
+    await list.evaluate((element) => {
+      const next = element.querySelectorAll("h3")[1];
+      element.scrollTop += next.getBoundingClientRect().top -
+        element.getBoundingClientRect().top - 12;
+    });
+    bounds = await geometry();
+    expect(bounds.headings[0].top).toBeLessThan(bounds.top);
+    expect(Math.abs(bounds.headings[0].bottom - bounds.headings[1].top)).toBeLessThan(2);
+    await list.evaluate((element) => { element.scrollTop += 80; });
+    bounds = await geometry();
+    expect(Math.abs(bounds.headings[1].top - bounds.top)).toBeLessThan(2);
+
+    const separator = page.getByRole("separator", { name: "调整题目侧栏宽度" });
+    // The sidebar's minimum width must still show the full wrapped heading.
+    await separator.press("Home");
+    await expect(headings.nth(1)).toHaveCSS("white-space", "normal");
+    const target = page.locator("#question-nav-large-2-3");
+    await target.focus();
+    const targetBox = await target.boundingBox();
+    bounds = await geometry();
+    expect(targetBox!.y).toBeGreaterThanOrEqual(bounds.headings[1].bottom);
+
+    await list.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    bounds = await geometry();
+    expect(Math.abs(bounds.headings[2].top - bounds.top)).toBeLessThan(2);
+    await list.evaluate((element) => { element.scrollTop = 0; });
+    bounds = await geometry();
+    expect(Math.abs(bounds.headings[0].top - bounds.top)).toBeLessThan(2);
+
+    const row = list.locator('[data-question-id="large-1-1"]');
+    const handle = row.getByTitle("拖拽排序");
+    const handleBox = await handle.boundingBox();
+    const headingBox = await headings.first().boundingBox();
+    await page.mouse.move(handleBox!.x + 10, handleBox!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(headingBox!.x + 20, headingBox!.y + 10);
+    await page.mouse.up();
+    await expect(list.locator("[data-question-id]").first()).toHaveAttribute("data-question-id", "large-1-1");
+    const secondBox = await list.locator('[data-question-id="large-1-2"]').boundingBox();
+    await page.mouse.move(handleBox!.x + 10, handleBox!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(secondBox!.x + 30, secondBox!.y + secondBox!.height - 5);
+    await page.mouse.up();
+    await expect(list.locator("[data-question-id]").first()).toHaveAttribute("data-question-id", "large-1-2");
+  } finally {
+    await app.evaluate(({ app: electronApp }) => electronApp.exit(0)).catch(() => undefined);
+    await rm(workspacePath, { recursive: true, force: true });
+    await rm(appDataPath, { recursive: true, force: true });
+  }
+});

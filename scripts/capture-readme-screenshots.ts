@@ -79,6 +79,11 @@ async function captureEditorAndHistory() {
     await expect(
       page.getByRole("button", { name: "1 自编 1.1" })
     ).toContainText("洛必达");
+    await expect(
+      page.getByLabel("题目列表", { exact: true }).getByRole("heading", {
+        name: "函数、极限与连续", exact: true
+      })
+    ).toBeVisible();
     await page.getByText("自编 1.2", { exact: true }).click();
     await expect(page.getByLabel("原编号")).toHaveValue("自编 1.2");
     await settlePage(page);

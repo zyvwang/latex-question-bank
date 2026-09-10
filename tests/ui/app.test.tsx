@@ -283,7 +283,7 @@ describe("App UI", () => {
     ));
   });
 
-  it("shows complete review marks and separate chapter and tag tokens", async () => {
+  it("shows chapter headings and keeps review marks and tags on question rows", async () => {
     const statusBank: Bank = {
       ...bank,
       items: bank.items.map((item, index) => index === 0
@@ -317,7 +317,8 @@ describe("App UI", () => {
     expect(within(first!).getByLabelText(
       "掌握程度：太难了；错误原因：计算问题、方法问题"
     )).toBeInTheDocument();
-    expect(within(first!).getByText("高等数学/极限")).toBeInTheDocument();
+    expect(within(first!).queryByText("高等数学/极限")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "高等数学/极限" })).toBeInTheDocument();
     expect(within(first!).getByText("极限")).toBeInTheDocument();
     expect(within(first!).getByText(
       "含参数的分段函数连续性分类讨论"
@@ -328,7 +329,8 @@ describe("App UI", () => {
     expect(within(second!).getByLabelText(
       "掌握程度：未设置；错误原因：未设置"
     )).toBeInTheDocument();
-    expect(within(second!).getByText("未分类")).toBeInTheDocument();
+    expect(within(second!).queryByText("未分类")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "未分类" })).toBeInTheDocument();
   });
 
   it("combines multi-value review filters with OR inside fields and AND across fields", async () => {
@@ -350,6 +352,7 @@ describe("App UI", () => {
     expect(errorMenu).not.toBeNull();
     await user.click(within(errorMenu!).getByRole("checkbox", { name: "计算问题" }));
     expect(screen.getByText("当前筛选没有匹配题目。")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "高等数学/极限" })).not.toBeInTheDocument();
 
     await user.click(within(errorMenu!).getByRole("checkbox", { name: "方法问题" }));
     expect(screen.getByText("2024-1")).toBeInTheDocument();
@@ -374,6 +377,8 @@ describe("App UI", () => {
 
     await user.click(screen.getByRole("button", { name: "切换到已选中列表" }));
     expect(screen.getByText("筛选已保留，返回当前列表后继续生效。")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "高等数学/极限" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "线性代数/矩阵" })).not.toBeInTheDocument();
     expect(screen.getByText("2024-1")).toBeInTheDocument();
     expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
 

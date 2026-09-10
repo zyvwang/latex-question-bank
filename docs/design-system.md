@@ -42,7 +42,7 @@ No remote font dependency is required.
 - Chapter and review-option names and review colors commit on Enter or blur after validation. Destructive chapter and option deletion requires confirmation.
 - Review metadata combines text with color swatches; “unset” remains a fixed system state and is never represented as a removable option.
 - Sidebar filters use compact multi-select menus. Counts expose active filters without expanding the control labels, and review filters pair color swatches with text.
-- Sidebar question summaries show review state as compact color-and-pattern marks, separated into mastery and error-reason groups. Chapter and tag names use separate rectangular tokens, wrap as whole tokens, and break inside a token only when one name exceeds the available width.
+- Sidebar question summaries show review state as compact color-and-pattern marks, separated into mastery and error-reason groups. Sidebar questions are grouped by chapter, with an opaque sticky chapter heading below the filters. The next chapter pushes the previous heading away. Only chapters with visible questions appear, including an uncategorized group last; current and selected lists share this behavior. Chapter names wrap in full and are not repeated as row tokens. Method tags remain rectangular tokens, wrapping as whole tokens and breaking inside a token only when one name exceeds the available width.
 - The editor uses the same chapter and tag token vocabulary while keeping the native chapter select and the existing tag add/remove behavior.
 - “Current list” and “Selected items” share one stable action slot. Selected-items mode replaces filter controls with a quiet note explaining that filters are preserved but paused.
 - Module tabs support Left, Right, Home, and End.

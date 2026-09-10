@@ -199,6 +199,22 @@
 }
 
 .questionList { min-height: 0; overflow: auto; padding: 0 9px 16px; }
+/* Each section bounds its sticky heading so the next chapter pushes it away. */
+.chapterGroup { display: flow-root; }
+.chapterHeading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 10px 7px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--sidebar);
+  color: var(--teal-strong);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .emptyQuestionList {
   min-height: 120px;
   display: grid;

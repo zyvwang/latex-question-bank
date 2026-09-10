@@ -239,6 +239,19 @@ function QuestionList() {
     [questions.bank?.errorReasonOptions]
   );
 
+  const groups = useMemo(() => {
+    const result: { chapterId: string | null; items: QuestionItem[] }[] = [];
+    for (const item of selection.listItems) {
+      const previous = result.at(-1);
+      if (previous && previous.chapterId === item.chapterId) {
+        previous.items.push(item);
+      } else {
+        result.push({ chapterId: item.chapterId, items: [item] });
+      }
+    }
+    return result;
+  }, [selection.listItems]);
+
   if (selection.listItems.length === 0) {
     return (
       <div className={styles.emptyQuestionList} role="status">
@@ -251,24 +264,46 @@ function QuestionList() {
 
   return (
     <div className={styles.questionList} aria-label="题目列表">
-      {selection.listItems.map((item) => (
-        <QuestionListRow
-          key={item.id}
-          item={item}
-          chapterById={chapterById}
-          masteryById={masteryById}
-          errorReasonById={errorReasonById}
-          questionNumber={questions.numberById.get(item.id)}
-          active={questions.activeItem?.id === item.id}
-          selected={selection.selectedIds.has(item.id)}
-          dragging={ui.draggingId === item.id}
-          dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
-          onToggleSelected={selection.toggleSelected}
-          onActivate={questions.setActiveId}
-          onOpenReorderMenu={ui.openReorderMenu}
-          onStartMouseDrag={ui.startMouseDrag}
-          onStartPointerDrag={ui.startPointerDrag}
-        />
+      {groups.map((group) => (
+        <section
+          className={styles.chapterGroup}
+          key={group.chapterId ?? "uncategorized"}
+          onFocusCapture={(event) => {
+            if (!event.target.matches(":focus-visible")) return;
+            const section = event.currentTarget;
+            const list = section.parentElement;
+            const heading = section.querySelector("h3");
+            const row = event.target.closest("[data-question-id]");
+            if (!list || !heading || !row) return;
+            // Wrapped headings have variable height; reserve their actual height for keyboard focus.
+            const offset = row.getBoundingClientRect().top -
+              list.getBoundingClientRect().top - heading.getBoundingClientRect().height - 4;
+            if (offset < 0) list.scrollTop += offset;
+          }}
+        >
+          <h3 className={styles.chapterHeading}>
+            {group.chapterId ? (chapterById.get(group.chapterId) ?? "未分类") : "未分类"}
+          </h3>
+          {group.items.map((item) => (
+            <QuestionListRow
+              key={item.id}
+              item={item}
+              chapterById={chapterById}
+              masteryById={masteryById}
+              errorReasonById={errorReasonById}
+              questionNumber={questions.numberById.get(item.id)}
+              active={questions.activeItem?.id === item.id}
+              selected={selection.selectedIds.has(item.id)}
+              dragging={ui.draggingId === item.id}
+              dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
+              onToggleSelected={selection.toggleSelected}
+              onActivate={questions.setActiveId}
+              onOpenReorderMenu={ui.openReorderMenu}
+              onStartMouseDrag={ui.startMouseDrag}
+              onStartPointerDrag={ui.startPointerDrag}
+            />
+          ))}
+        </section>
       ))}
     </div>
   );
@@ -353,10 +388,7 @@ const QuestionListRow = memo(function QuestionListRow({
         <span className={styles.questionMeta}>
           <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
           <ReviewStateMarks mastery={mastery} errors={errors} />
-          <span className={metadataStyles.flow}>
-            <span className={`${metadataStyles.token} ${metadataStyles.chapter}`}>
-              {chapterName}
-            </span>
+          {item.tags.length > 0 ? <span className={metadataStyles.flow}>
             {item.tags.map((tag) => (
               <span
                 className={`${metadataStyles.token} ${metadataStyles.tag}`}
@@ -365,7 +397,7 @@ const QuestionListRow = memo(function QuestionListRow({
                 {tag}
               </span>
             ))}
-          </span>
+          </span> : null}
         </span>
       </button>
     </div>
