@@ -75,7 +75,7 @@ it("does not rewrite a clean bank when switching workspaces", async () => {
     render(<App />);
     await screen.findByText("2024-1");
     const bankReadsBeforeSwitch = vi.mocked(fetch).mock.calls.filter(
-      ([url, init]) => String(url) === "/api/bank" && !init
+      ([url, init]) => String(url) === "/api/bank" && !init?.method
     ).length;
 
     await user.click(screen.getByRole("button", { name: "题库设置" }));
@@ -93,7 +93,7 @@ it("does not rewrite a clean bank when switching workspaces", async () => {
     ).toBe(false);
     expect(
       vi.mocked(fetch).mock.calls.filter(
-        ([url, init]) => String(url) === "/api/bank" && !init
+        ([url, init]) => String(url) === "/api/bank" && !init?.method
       )
     ).toHaveLength(bankReadsBeforeSwitch);
   });
@@ -301,7 +301,7 @@ it("can discard local conflict edits and resume from the latest disk revision", 
     }> = [];
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url === "/api/bank" && !init) {
+      if (url === "/api/bank" && !init?.method) {
         bankReads += 1;
         return bankReads === 1
           ? json({
@@ -436,10 +436,10 @@ it("saves a conflicted local bank as a new independent workspace", async () => {
 it("shows recovery actions instead of an endless loading screen", async () => {
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url === "/api/bank" && !init) {
+      if (url === "/api/bank" && !init?.method) {
         return json({ error: "bank.json 不是有效的 JSON。", code: "BANK_JSON_INVALID" }, 500);
       }
-      if (url === "/api/recovery" && !init) {
+      if (url === "/api/recovery" && !init?.method) {
         return json({
           candidates: [
             {
@@ -482,13 +482,13 @@ it("offers valid recent workspaces when the current workspace is missing", async
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       const url = String(input);
       if (url === "/api/app") return json(missingAppInfo);
-      if (url === "/api/bank" && !init) {
+      if (url === "/api/bank" && !init?.method) {
         return json(
           { error: "当前工作区缺少 bank.json。", code: "WORKSPACE_MISSING" },
           404
         );
       }
-      if (url === "/api/recovery" && !init) {
+      if (url === "/api/recovery" && !init?.method) {
         return json({ candidates: [] });
       }
       return handleFetch(input, init);
@@ -504,3 +504,78 @@ it("offers valid recent workspaces when the current workspace is missing", async
     await user.click(screen.getByRole("button", { name: /切换到 other-bank/ }));
     expect(await screen.findByText("2024-1")).toBeInTheDocument();
   });
+
+it("locks recovery, retry and switching until a failed restore settles", async () => {
+  let finish!: (response: Response) => void;
+  const pending = new Promise<Response>((resolve) => { finish = resolve; });
+  vi.mocked(fetch).mockImplementation(async (input, init) => {
+    if (String(input) === "/api/bank" && !init?.method) return json({ error: "损坏" }, 500);
+    if (String(input) === "/api/recovery") {
+      if (init?.method === "POST") return pending;
+      return json({ candidates: [{ id: "bank.json.bak", label: "恢复测试备份", source: "backup" }] });
+    }
+    return handleFetch(input, init);
+  });
+  render(<App />);
+  const restore = await screen.findByRole("button", { name: "恢复测试备份" });
+  fireEvent.click(restore);
+  fireEvent.click(restore);
+  expect(restore).toBeDisabled();
+  expect(screen.getByRole("button", { name: "重试" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "切换到 other-bank" })).toBeDisabled();
+  const calls = vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url) === "/api/recovery" && init?.method === "POST");
+  expect(calls).toHaveLength(1);
+  expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ candidateId: "bank.json.bak", workspacePath: appInfo.currentWorkspacePath });
+  finish(json({ error: "候选已失效" }, 400));
+  await waitFor(() => expect(restore).toBeEnabled());
+  expect(screen.getByText("候选已失效")).toBeVisible();
+});
+
+it("reconciles an uncertain workspace switch before allowing another action", async () => {
+  let switched = false;
+  let verifyFails = true;
+  const nextApp = { ...appInfo, currentWorkspacePath: "/tmp/other-bank", currentWorkspaceName: "other-bank" };
+  vi.mocked(fetch).mockImplementation(async (input, init) => {
+    const url = String(input);
+    if (url === "/api/workspaces/switch") {
+      switched = true;
+      return json({ error: "结果尚未确认", code: "WRITE_RESULT_UNKNOWN" }, 504);
+    }
+    if (switched && url === "/api/app") {
+      if (verifyFails) return json({ error: "读取失败" }, 500);
+      return json(nextApp);
+    }
+    if (switched && url === "/api/bank" && !init?.method) return json({ workspacePath: "/tmp/other-bank", revision: "verified", bank });
+    return handleFetch(input, init);
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole("button", { name: "题库设置" }));
+  await user.click(screen.getByRole("button", { name: /other-bank/ }));
+  const check = await screen.findByRole("button", { name: "核对工作区状态" });
+  await waitFor(() => expect(check).toBeEnabled());
+  verifyFails = false;
+  await user.click(check);
+  await waitFor(() => expect(screen.queryByRole("button", { name: "核对工作区状态" })).not.toBeInTheDocument());
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url) === "/api/workspaces/switch")).toHaveLength(1);
+});
+
+it("keeps local edits when the pre-switch save times out instead of reloading disk", async () => {
+  vi.mocked(fetch).mockImplementation(async (input, init) => {
+    if (String(input) === "/api/bank" && init?.method === "PUT") {
+      return json({ error: "保存结果尚未确认", code: "WRITE_RESULT_UNKNOWN" }, 504);
+    }
+    return handleFetch(input, init);
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  const editor = await screen.findByRole("textbox", { name: "latex-editor" });
+  fireEvent.change(editor, { target: { value: "超时后必须保留的本地草稿" } });
+  await user.click(screen.getByRole("button", { name: "题库设置" }));
+  await user.click(screen.getByRole("button", { name: /other-bank/ }));
+  expect(await screen.findByText("保存结果尚未确认")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "核对工作区状态" })).not.toBeInTheDocument();
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url) === "/api/workspaces/switch")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "编辑" }));
+  expect(await screen.findByRole("textbox", { name: "latex-editor" })).toHaveValue("超时后必须保留的本地草稿");
+});

@@ -102,7 +102,7 @@ async function run(root: string, count: number, sample: number) {
     });
     const switchItem = await measure(page, async () => {
       await page.locator("#question-nav-benchmark-1").click();
-      await expect(page.getByLabel("原编号", { exact: true })).toHaveValue("性能题 2");
+      await expect(page.locator("#main-workspace").getByLabel("原编号", { exact: true })).toHaveValue("性能题 2");
     });
     const scroll = await measure(page, async () => {
       await page.getByLabel("题目列表", { exact: true }).evaluate(async (element) => {

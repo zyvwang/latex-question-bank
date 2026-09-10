@@ -45,7 +45,7 @@ describe("shared validation", () => {
     expect(validateRecoverBankRequest(null).ok).toBe(false);
     expect(validateRecoverBankRequest({ candidateId: 3 }).ok).toBe(false);
     expect(validateRecoverBankRequest({ candidateId: " " }).ok).toBe(false);
-    expect(validateRecoverBankRequest({ candidateId: "bank.json.bak" }).ok).toBe(true);
+    expect(validateRecoverBankRequest({ candidateId: "bank.json.bak", workspacePath: "/bank" }).ok).toBe(true);
 
     expect(validateExportRequest(null).ok).toBe(false);
     expect(validateExportRequest({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), itemIds: [3], fileName: "x" }).ok).toBe(false);

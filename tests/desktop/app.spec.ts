@@ -62,7 +62,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
       });
     });
     await browserWindow.evaluate((targetWindow) => {
-      targetWindow.webContents.send("app:before-close");
+      targetWindow.webContents.send("app:before-close", "test-probe");
     });
     await expect.poll(() => page.evaluate(() => document.body.dataset.closeProbe)).toBe("received");
     await page.evaluate(() => {

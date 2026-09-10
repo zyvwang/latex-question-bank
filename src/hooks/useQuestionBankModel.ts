@@ -297,7 +297,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setAppInfo,
     setNotice
   });
-  const { flushPendingSettings } = workspace;
+  const { flushPendingSettings, runWorkspaceChange } = workspace;
   const bankSettings = useBankSettingsActions({
     bank,
     updateBank,
@@ -318,7 +318,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   });
 
   const initialLoadBusyRef = useRef(false);
-  const loadAppAndBank = useCallback(async () => {
+  const loadAppAndBank = useCallback(() => runWorkspaceChange(async () => {
     if (initialLoadBusyRef.current) return;
     initialLoadBusyRef.current = true;
     setLoadError(null);
@@ -343,22 +343,24 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     } finally {
       initialLoadBusyRef.current = false;
     }
-  }, [applyBankSnapshot, applySetupState, setNotice]);
+  }), [applyBankSnapshot, applySetupState, setNotice, runWorkspaceChange]);
 
   useEffect(() => { void loadAppAndBank(); }, [loadAppAndBank]);
 
   const recoverFromCandidate = useCallback(
-    async (candidateId: string) => {
-      const snapshot = await recoverBank(candidateId);
-      resetAutosave(snapshot);
-      setBank(snapshot.bank);
-      setActiveId(snapshot.bank.items[0]?.id ?? null);
-      selectAllItems(snapshot.bank.items);
-      setLoadError(null);
-      setRecoveryCandidates([]);
+    (candidateId: string) => runWorkspaceChange(async () => {
+      if (!appInfo?.currentWorkspacePath) return;
+      const session = autosave.captureSaveSession();
+      const workspacePath = appInfo.currentWorkspacePath;
+      setNotice({ type: "info", text: "正在恢复题库，请稍候。" });
+      const snapshot = await recoverBank(candidateId, workspacePath);
+      if (!autosave.isSaveSessionCurrent(session) || snapshot.workspacePath !== workspacePath) {
+        throw new Error("恢复响应已过期，请重新读取当前工作区。");
+      }
+      applyBankSnapshot(appInfo, snapshot);
       setNotice({ type: "ok", text: "题库已从备份恢复。" });
-    },
-    [resetAutosave, selectAllItems, setNotice]
+    }),
+    [appInfo, autosave, applyBankSnapshot, runWorkspaceChange, setNotice]
   );
   const flushCurrentChanges = useLatestCallback(async () => {
     await Promise.all([
@@ -397,6 +399,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     saveIssue,
     isConflictDialogOpen: conflicts.isConflictDialogOpen,
     isSavingConflictAs: conflicts.isSavingConflictAs,
+    isSaveAsUncertain: conflicts.isSaveAsUncertain,
     activeModule,
     derived,
     selection,

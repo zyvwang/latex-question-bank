@@ -220,7 +220,9 @@ function SaveConflictDialog() {
           </button>
         </div>
         <footer>
-          <span role="status">{lifecycle.isSavingConflictAs ? "正在另存，请稍候…" : "关闭后可继续编辑，自动保存仍保持暂停。"}</span>
+          {lifecycle.isSaveAsUncertain && <button className={controls.secondaryAction}
+            onClick={() => void lifecycle.saveConflictAs()}>核对另存结果</button>}
+          <span role="status">{lifecycle.isSaveAsUncertain ? "另存结果尚未确认，草稿已保留。" : lifecycle.isSavingConflictAs ? "正在另存，请稍候…" : "关闭后可继续编辑，自动保存仍保持暂停。"}</span>
           <button
             type="button"
             disabled={lifecycle.isSavingConflictAs}

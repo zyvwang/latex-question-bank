@@ -29,7 +29,8 @@ export function RecoveryScreen() {
           <p role="alert">{lifecycle.loadError}</p>
         </div>
         <div className={styles.setupActions}>
-          <button className={controls.primaryAction} onClick={() => run(lifecycle.retryInitialLoad(), "重新读取失败。")}>
+          <button className={controls.primaryAction} disabled={workspace.isChangingWorkspace}
+            onClick={() => run(lifecycle.retryInitialLoad(), "重新读取失败。")}>
             <RefreshCw size={18} />重试
           </button>
         </div>
@@ -94,6 +95,7 @@ export function RecoveryScreen() {
             <>
               <button
                 className={controls.primaryAction}
+                disabled={workspace.isChangingWorkspace}
                 onClick={() => run(lifecycle.retryInitialLoad(), "重新读取失败。")}
               >
                 <RefreshCw size={18} />重试
@@ -143,6 +145,7 @@ export function RecoveryScreen() {
               <button
                 key={candidate.id}
                 className={controls.secondaryAction}
+                disabled={workspace.isChangingWorkspace}
                 onClick={() => void lifecycle.recoverFromCandidate(candidate.id).catch((error) => reportError(error, "恢复失败。"))}
               >
                 <RotateCcw size={16} />{candidate.label}
@@ -150,6 +153,8 @@ export function RecoveryScreen() {
             ))}
           </div>
         )}
+        {workspace.isWorkspaceUncertain && <button className={controls.secondaryAction}
+          disabled={workspace.isChangingWorkspace} onClick={() => void workspace.openWorkspace()}>核对工作区状态</button>}
         {lifecycle.notice && <p className={`${styles.setupNotice} ${styles[lifecycle.notice.type]}`}>{lifecycle.notice.text}</p>}
       </section>
     </main>

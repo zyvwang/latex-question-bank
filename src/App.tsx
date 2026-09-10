@@ -16,6 +16,7 @@ import {
   useQuestions,
   useWorkspace
 } from "./context/questionBankContexts.js";
+import controls from "./styles/controls.module.css";
 import styles from "./styles/AppShell.module.css";
 
 function AppContent() {
@@ -36,7 +37,7 @@ function AppContent() {
         跳到主要内容
       </a>
       <main className={styles.appShell}>
-        <div inert={lifecycle.isSavingConflictAs || workspace.isChangingWorkspace || undefined} style={{ display: "contents" }}>
+        <div inert={lifecycle.isSavingConflictAs || workspace.isChangingWorkspace || workspace.isWorkspaceUncertain || undefined} style={{ display: "contents" }}>
           <AppNavigation />
           {appView.activeView === "editor" ? (
             <EditorLayout />
@@ -46,6 +47,13 @@ function AppContent() {
             <SettingsScreen />
           )}
         </div>
+        {workspace.isWorkspaceUncertain && (
+          <div role="alert" className={styles.workspaceRecovery}>
+            <p>工作区操作结果尚未确认。核对完成前暂停编辑，保留当前内容。</p>
+            <button className={controls.secondaryAction} disabled={workspace.isChangingWorkspace}
+              onClick={() => void workspace.openWorkspace()}>核对工作区状态</button>
+          </div>
+        )}
         <Overlays />
       </main>
     </>

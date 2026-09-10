@@ -69,7 +69,7 @@ describe("bank save client limit", () => {
 
   it("applies the same client limit to save-as", async () => {
     const oversizedBank = createSampleBank();
-    oversizedBank.settings.preamble = "x".repeat(32 * 1024);
+    oversizedBank.settings = { ...oversizedBank.settings, preamble: "x".repeat(32 * 1024) };
 
     await expect(
       saveBankAs({
@@ -122,5 +122,41 @@ describe("non-JSON responses", () => {
       status: 503,
       code: "LATEX_BUSY"
     });
+  });
+});
+
+describe("request deadlines", () => {
+  it("times out both a stalled connection and a stalled JSON body", async () => {
+    vi.useFakeTimers();
+    try {
+      for (const bodyStalls of [false, true]) {
+        const response = new Response("{}", { headers: { "Content-Type": "application/json" } });
+        vi.spyOn(response, "json").mockReturnValue(new Promise(() => undefined));
+        vi.stubGlobal("fetch", vi.fn(() => bodyStalls ? Promise.resolve(response) : new Promise(() => undefined)));
+        const result = fetchAppInfo().catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(await result).toMatchObject({ code: "REQUEST_TIMEOUT" });
+        expect(vi.mocked(fetch).mock.calls[0][1]?.signal?.aborted).toBe(true);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry or claim cancellation when a write exceeds its deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+      const sample = createSampleBank();
+      sample.items = [];
+      const result = saveBank({ workspacePath: "/tmp/bank", baseRevision: "a".repeat(64), bank: sample })
+        .catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(await result).toMatchObject({ code: "WRITE_RESULT_UNKNOWN" });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(fetch).mock.calls[0][1]?.signal?.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

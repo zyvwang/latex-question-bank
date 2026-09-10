@@ -3,12 +3,14 @@ import type { UiLayoutPreferences } from "../shared/ui-layout-preferences.js";
 
 const beforeCloseListeners = new Set<() => Promise<void>>();
 
-ipcRenderer.on("app:before-close", () => {
+ipcRenderer.on("app:before-close", (_event, requestId: unknown) => {
+  if (typeof requestId !== "string" || !requestId) return;
   void Promise.all([...beforeCloseListeners].map((listener) => listener()))
-    .then(() => ipcRenderer.send("app:close-response", { ok: true }))
+    .then(() => ipcRenderer.send("app:close-response", { ok: true, requestId }))
     .catch((error) => {
       ipcRenderer.send("app:close-response", {
         ok: false,
+        requestId,
         error: error instanceof Error ? error.message : "保存失败。"
       });
     });

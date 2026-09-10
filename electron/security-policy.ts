@@ -2,6 +2,7 @@ import type { WebPreferences } from "electron";
 import path from "node:path";
 
 export interface RendererCloseResponse {
+  requestId: string;
   ok: boolean;
   error?: string;
 }
@@ -91,7 +92,8 @@ export function isCloseResponse(
   if (typeof value !== "object" || value === null || !("ok" in value)) {
     return false;
   }
-  if (typeof value.ok !== "boolean") return false;
+  if (typeof value.ok !== "boolean" || !("requestId" in value) ||
+      typeof value.requestId !== "string" || !value.requestId) return false;
   return (
     !("error" in value) ||
     value.error === undefined ||

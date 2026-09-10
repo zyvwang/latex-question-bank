@@ -63,6 +63,9 @@ No remote font dependency is required.
 - A save conflict opens a dismissible, focus-contained resolution dialog and leaves a persistent coral “保存冲突” action in the global navigation. Dismissing it allows continued editing but does not resume disk writes. The dialog shows a structural difference summary and keeps destructive disk/local replacement actions explicit; save-as remains non-destructive to the original workspace.
 - Closing during image upload returns an unsaved warning; returning to edit keeps the upload running. Retry closing after upload completion. Workspace changes reject pending uploads with a notice and ignore duplicate transition requests. The editor and navigation are inert during a transition, and new uploads cannot start until it finishes.
 
+- Recovery disables restore, retry, and workspace transition controls while an operation runs. An uncertain workspace write pauses editing and offers “核对工作区状态”; it never silently replays the previous action.
+- An uncertain conflict save-as keeps its draft and dialog open and exposes “核对另存结果”. A successful check applies the original completed response; a still-pending check keeps editing paused.
+
 ## CSS Ownership
 
 - `foundation.css`: reset, semantic tokens, focus, reduced motion.

@@ -40,7 +40,7 @@ export async function readBankSnapshot(): Promise<BankSnapshot> {
     return { workspacePath: "", revision: revisionForContent(serializeJson(bank)), bank };
   }
   try {
-    return await readBankSnapshotAt(state.currentWorkspacePath);
+    return await withWorkspaceWriteLock(state.currentWorkspacePath, () => readBankSnapshotAt(state.currentWorkspacePath!));
   } catch (error) {
     if (error instanceof StorageError && error.code === "WORKSPACE_MISSING") {
       throw new StorageError("当前工作区缺少 bank.json。", "WORKSPACE_MISSING", 404);

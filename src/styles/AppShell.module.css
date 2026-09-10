@@ -24,3 +24,17 @@
 @media (max-width: 760px) {
   .appShell { height: auto; min-height: 100vh; display: block; }
 }
+
+.workspaceRecovery {
+  position: fixed;
+  z-index: 110;
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
+  padding: 16px;
+  border: 1px solid var(--coral);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--paper);
+}
+.workspaceRecovery p { margin: 0 0 12px; }

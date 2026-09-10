@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { fetchBank, fetchBankHead, saveBankAs } from "../api/client.js";
+import { ApiRequestError, confirmSaveBankAs, fetchBank, fetchBankHead, saveBankAs } from "../api/client.js";
 import type { AppInfo, Bank, BankSnapshot } from "../../shared/types.js";
 import type { AppView } from "./useAppView.js";
 import type { Notice, SaveIssue } from "./controllerTypes.js";
@@ -27,6 +27,8 @@ export function useSaveConflictActions({
   const bankRef = useRef(bank);
   bankRef.current = bank;
   const [isSavingConflictAs, setIsSavingConflictAs] = useState(false);
+  const [isSaveAsUncertain, setIsSaveAsUncertain] = useState(false);
+  const uncertainSaveAsRef = useRef(false);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
   const conflictSavePromiseRef = useRef<Promise<void> | null>(null);
   const conflictSaveBusyRef = useRef(false);
@@ -34,7 +36,7 @@ export function useSaveConflictActions({
     if (saveIssue?.kind === "conflict") setIsConflictDialogOpen(true);
   }, [saveIssue?.kind]);
   const useDiskVersion = useCallback(async () => {
-    if (conflictSaveBusyRef.current) return;
+    if (conflictSaveBusyRef.current || uncertainSaveAsRef.current) return;
     if (
       saveIssue?.kind !== "conflict" ||
       !appInfo?.currentWorkspacePath
@@ -73,7 +75,7 @@ export function useSaveConflictActions({
     setNotice
   ]);
   const overwriteDiskVersion = useCallback(async () => {
-    if (conflictSaveBusyRef.current) return;
+    if (conflictSaveBusyRef.current || uncertainSaveAsRef.current) return;
     if (
       saveIssue?.kind !== "conflict" ||
       !bank ||
@@ -124,15 +126,17 @@ export function useSaveConflictActions({
     setIsSavingConflictAs(true);
     const operation = (async () => {
       try {
-        const targetWorkspacePath = await pickWorkspaceDirectory(
+        const targetWorkspacePath = uncertainSaveAsRef.current ? "" : await pickWorkspaceDirectory(
           "选择空文件夹另存当前题库", "输入一个空文件夹路径，用于另存当前题库"
         );
-        if (!targetWorkspacePath?.trim()) return;
-        const response = await saveBankAs({
+        if (!uncertainSaveAsRef.current && !targetWorkspacePath?.trim()) return;
+        setIsSaveAsUncertain(false);
+        const response = uncertainSaveAsRef.current ? await confirmSaveBankAs() : await saveBankAs({
           sourceWorkspacePath: appInfo.currentWorkspacePath,
-          targetWorkspacePath,
+          targetWorkspacePath: targetWorkspacePath!,
           bank: bankRef.current!
         });
+        uncertainSaveAsRef.current = false;
         // 关闭等待者必须看到已切换的 bank 和 autosave 会话。
         flushSync(() => {
           applyBankSnapshot(response.appInfo, response.snapshot, activeView);
@@ -140,11 +144,13 @@ export function useSaveConflictActions({
         });
         setNotice({ type: "ok", text: `已另存为新题库：${response.appInfo.currentWorkspaceName}` });
       } catch (error) {
+        uncertainSaveAsRef.current = error instanceof ApiRequestError && error.code === "WRITE_RESULT_UNKNOWN";
+        setIsSaveAsUncertain(uncertainSaveAsRef.current);
         setNotice({ type: "error", text: error instanceof Error ? error.message : "另存当前题库失败。" });
       } finally {
         conflictSaveBusyRef.current = false;
         conflictSavePromiseRef.current = null;
-        setIsSavingConflictAs(false);
+        setIsSavingConflictAs(uncertainSaveAsRef.current);
       }
     })();
     conflictSavePromiseRef.current = operation;
@@ -152,11 +158,12 @@ export function useSaveConflictActions({
   }, [appInfo, activeView, applyBankSnapshot, beginDraftCommit, hasPendingUploads, saveIssue?.kind, setNotice, takeDraftCommitRejection]);
   const waitForSaveAs = useCallback(async () => {
     await conflictSavePromiseRef.current;
+    if (uncertainSaveAsRef.current) throw new Error("另存结果尚未确认，请先核对结果。");
   }, []);
   return {
-    isSavingConflictAs, isConflictDialogOpen, useDiskVersion, overwriteDiskVersion, saveConflictAs,
+    isSavingConflictAs, isSaveAsUncertain, isConflictDialogOpen, useDiskVersion, overwriteDiskVersion, saveConflictAs,
     waitForSaveAs,
     openConflictDialog: () => setIsConflictDialogOpen(true),
-    closeConflictDialog: () => { if (!conflictSaveBusyRef.current) setIsConflictDialogOpen(false); }
+    closeConflictDialog: () => { if (!conflictSaveBusyRef.current && !uncertainSaveAsRef.current) setIsConflictDialogOpen(false); }
   };
 }

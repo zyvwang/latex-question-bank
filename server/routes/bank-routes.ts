@@ -71,7 +71,7 @@ export function createBankRouter(options: {
           sendApiError(response, 400, validation.error, "RECOVERY_REQUEST_INVALID");
           return;
         }
-        response.json(await recoverBank(validation.value.candidateId));
+        response.json(await recoverBank(validation.value.candidateId, validation.value.workspacePath));
       } catch (error) {
         next(error);
       }

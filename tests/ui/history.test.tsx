@@ -332,7 +332,7 @@ async function handleFetch(
 ): Promise<Response> {
   const url = String(input);
   if (url === "/api/app") return json(appInfo);
-  if (url === "/api/bank" && !init) {
+  if (url === "/api/bank" && !init?.method) {
     return json({
       workspacePath: appInfo.currentWorkspacePath,
       revision: "history-revision",

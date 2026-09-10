@@ -209,6 +209,7 @@ export interface RecoveryCandidate {
 }
 
 export interface RecoverBankRequest {
+  workspacePath: string;
   candidateId: string;
 }
 

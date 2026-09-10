@@ -13,6 +13,7 @@ export function useQuestionBankContextValues(
     saveIssue: input.saveIssue,
     isConflictDialogOpen: input.isConflictDialogOpen,
     isSavingConflictAs: input.isSavingConflictAs,
+    isSaveAsUncertain: input.isSaveAsUncertain,
     notice: input.notice,
     loadError: input.loadError,
     recoveryCandidates: input.recoveryCandidates,
@@ -34,6 +35,7 @@ export function useQuestionBankContextValues(
     input.loadError,
     input.isConflictDialogOpen,
     input.isSavingConflictAs,
+    input.isSaveAsUncertain,
     input.notice,
     input.recoveryCandidates,
     input.saveState,
@@ -55,6 +57,7 @@ export function useQuestionBankContextValues(
   const workspace = useMemo<QuestionBankContextValues["workspace"]>(() => ({
     appInfo: input.appInfo,
     isChangingWorkspace: input.workspace.isChangingWorkspace,
+    isWorkspaceUncertain: input.workspace.isWorkspaceUncertain,
     texPathDraft: input.workspace.texPathDraft,
     setTexPathDraft: input.workspace.setTexPathDraft,
     createSampleWorkspace: stable.createSampleWorkspace,
@@ -69,6 +72,7 @@ export function useQuestionBankContextValues(
   }), [
     input.appInfo,
     input.workspace.isChangingWorkspace,
+    input.workspace.isWorkspaceUncertain,
     input.workspace.setTexPathDraft,
     input.workspace.texPathDraft,
     stable.createNewWorkspace,

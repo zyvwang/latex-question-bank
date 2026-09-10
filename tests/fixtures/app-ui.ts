@@ -96,7 +96,7 @@ export function setupAppFixture() {
 export async function handleFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = String(input);
   if (url === "/api/app") return json(appInfo);
-  if (url === "/api/bank" && !init) {
+  if (url === "/api/bank" && !init?.method) {
     return json({ workspacePath: "/tmp/latex-bank", revision: "revision-1", bank });
   }
   if (url === "/api/bank/head") {

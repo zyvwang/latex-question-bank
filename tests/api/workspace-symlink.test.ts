@@ -292,12 +292,12 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
     );
     await request(app)
       .post("/api/recovery")
-      .send({ candidateId })
+      .send({ candidateId, workspacePath })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
     await request(app)
       .post("/api/recovery")
-      .send({ candidateId: "bank.json.bak" })
+      .send({ candidateId: "bank.json.bak", workspacePath })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
     expect(await readFile(externalFile, "utf8")).toContain('"version":2');
@@ -325,7 +325,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
 
     await request(app)
       .post("/api/recovery")
-      .send({ candidateId })
+      .send({ candidateId, workspacePath })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
     expect(await readFile(externalFile, "utf8")).toContain('"version":2');
@@ -381,4 +381,17 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
 
     expect(await readdir(externalDir)).toEqual([]);
   });
+});
+
+it("rejects recovery addressed to a different workspace before touching its backup", async () => {
+  await rm(appDataDir, { recursive: true, force: true });
+  await rm(workspacePath, { recursive: true, force: true });
+  const app = createApiApp();
+  await createEmptyWorkspaceViaApi(app);
+  const before = await readFile(path.join(workspacePath, "bank.json"), "utf8");
+  await request(app).post("/api/recovery")
+    .send({ candidateId: "bank.json.bak", workspacePath: externalDir })
+    .expect(409)
+    .expect(({ body }) => expect(body.code).toBe("WORKSPACE_CHANGED"));
+  expect(await readFile(path.join(workspacePath, "bank.json"), "utf8")).toBe(before);
 });

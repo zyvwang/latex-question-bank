@@ -185,7 +185,7 @@ test("shows only one unsaved dialog when a second close response arrives", async
       });
     });
     await browserWindow.evaluate((targetWindow) => {
-      targetWindow.webContents.send("app:before-close");
+      targetWindow.webContents.send("app:before-close", "test-probe");
     });
     await expect
       .poll(() => page.evaluate(() => document.body.dataset.secondCloseProbe))
@@ -195,6 +195,49 @@ test("shows only one unsaved dialog when a second close response arrives", async
 
     // closeCheckPending 若等到 await 之后才置 false,这里会是 2 个叠起来的对话框。
     expect(await readMessageBoxCalls(electronApp)).toHaveLength(1);
+  } finally {
+    await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  }
+});
+
+test("ignores a late success from a timed-out close round", async () => {
+  const workspacePath = path.resolve(".tmp/playwright-late-close-workspace");
+  const appDataPath = path.resolve(".tmp/playwright-late-close-app-data");
+  await rm(workspacePath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true });
+  await mkdir(workspacePath, { recursive: true });
+  await writeFile(path.join(workspacePath, "bank.json"), JSON.stringify(createConflictingDesktopBank()));
+  const electronApp = await electron.launch({ args: ["."], env: {
+    ...process.env, LQB_WORKSPACE_DIR: workspacePath, LQB_APP_DATA_DIR: appDataPath
+  } });
+  try {
+    const page = await electronApp.firstWindow();
+    await expect(page.getByLabel("原编号")).toBeVisible();
+    await installMessageBoxRecorder(electronApp, 0);
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      const original = window.webContents.send.bind(window.webContents);
+      Object.assign(globalThis, { closeRoundIds: [] as string[] });
+      window.webContents.send = (channel, ...args) => {
+        if (channel === "app:before-close") {
+          (globalThis as typeof globalThis & { closeRoundIds: string[] }).closeRoundIds.push(String(args[0]));
+          return;
+        }
+        original(channel, ...args);
+      };
+      window.close();
+    });
+    await expect.poll(() => readMessageBoxCalls(electronApp), { timeout: 15_000 }).toHaveLength(1);
+    await electronApp.evaluate(({ BrowserWindow, ipcMain }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      window.close();
+      const ids = (globalThis as typeof globalThis & { closeRoundIds: string[] }).closeRoundIds;
+      ipcMain.emit("app:close-response", {
+        sender: window.webContents, senderFrame: window.webContents.mainFrame
+      }, { ok: true, requestId: ids[0] });
+    });
+    expect(await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
+    expect(await electronApp.evaluate(() => (globalThis as typeof globalThis & { closeRoundIds: string[] }).closeRoundIds.length)).toBe(2);
   } finally {
     await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }

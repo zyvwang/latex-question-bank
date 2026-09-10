@@ -59,6 +59,14 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 - `server/export-service.ts` stages and compiles exports before handing directory replacement to `server/export-transaction.ts`. The transaction module journals the two-rename commit, restores interrupted replacements, and is the only owner allowed to delete `previous-export-*` directories.
 - `server/latex.ts` is a compatibility facade. Pure rendering, workspace file preparation, and TeX process management live in separate modules. Compile output uses a one-MiB head/tail buffer, formal compilations have a single fail-fast execution session spanning cleanup, preparation, compilation, and export commit. Session-bound compilation validates the active session instead of acquiring a nested lock; standalone compilation acquires its own session. Busy requests cannot mutate artifacts, and installation probes are deduplicated and cached briefly.
 
+## Request deadlines and uncertain writes
+
+Application API requests use one client transport that includes JSON body consumption in the deadline: reads 15 seconds, ordinary writes 60 seconds, item compilation 75 seconds, and export 180 seconds (two sequential 60-second TeX runs plus preparation). Read timeouts abort the fetch. Write deadlines stop UI waiting without claiming cancellation or automatically replaying the operation. Workspace write promises remain observable until settled.
+
+Autosave retains the attempted bank and base revision after an uncertain write. Retry first reads the disk snapshot behind the workspace write lock: matching content advances the revision without replay, an unchanged revision permits the normal conditional save, and other content becomes a conflict. New edits made during verification remain queued. A failed verification retains the pending bank.
+
+Recovery, initial-load retry, and workspace transitions share the same renderer operation guard. Recovery requests include the target workspace; storage rejects mismatches and the renderer checks the response path and save-session generation. A timed-out workspace mutation is reconciled by awaiting outstanding workspace requests and reading matching AppInfo/bank snapshots. Failed reconciliation pauses editing and exposes an explicit retry; closing remains blocked. Save-as retains its original response promise, keeps the conflict draft inert, and exposes a result-check action instead of starting another copy.
+
 ## Data Safety
 
 `bank.json` and `app-state.json` are written through temp-file rename. Temporary content uses flushed writes and POSIX parent-directory entries are synced on a best-effort basis after commit. Directory-sync failure is warned rather than reported as a failed save after the rename has already committed. When replacing an existing file, the previous version is kept as `<file>.bak`.
@@ -110,3 +118,5 @@ Workspaces are user-managed ordinary directories. Removing one from the recent l
 Every IPC entry validates its sender. Main-window navigation is locked to the application origin, new Electron windows are denied, and trusted HTTPS or local PDF links are delegated to the system browser. App quit and window close both wait for the renderer save queue; failures offer either returning to edit or explicitly discarding unsaved changes.
 
 Packaged pages receive a strict CSP. Development additionally allows Vite's inline React Refresh bootstrap, local HMR, and local API connections. The macOS development runtime uses an isolated Chromium session and mock keychain so it does not contend with or request credentials for an installed build. Until Developer ID signing and notarization are configured, packaged macOS builds also enable the mock keychain through `lqbUseMockKeychain`; remove that metadata after signing is available, then verify packaged builds use the system keychain without repeated prompts.
+
+Close IPC requests carry a unique request ID. Only the currently pending ID may authorize closing. Timeout retires that ID; the native dialog has its own busy state so another close cannot open a second dialog. The renderer still commits the focused draft before flushing persistence queues.

@@ -51,8 +51,11 @@ async function listRecoveryCandidatesForDirs(dirs: WorkspaceDirs): Promise<Recov
   return candidates;
 }
 
-export async function recoverBank(candidateId: string): Promise<BankSnapshot> {
+export async function recoverBank(candidateId: string, workspacePath?: string): Promise<BankSnapshot> {
   const initialDirs = await getCurrentWorkspaceDirs();
+  if (workspacePath && path.resolve(workspacePath) !== initialDirs.workspaceDir) {
+    throw new StorageError("恢复目标已不是当前工作区。", "WORKSPACE_CHANGED", 409);
+  }
   return withWorkspaceWriteLock(initialDirs.workspaceDir, async () => {
     const dirs = await getCurrentWorkspaceDirs();
     if (dirs.workspaceDir !== initialDirs.workspaceDir) {

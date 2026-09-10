@@ -36,6 +36,7 @@ export interface LifecycleContextValue {
   saveIssue: SaveIssue | null;
   isConflictDialogOpen: boolean;
   isSavingConflictAs: boolean;
+  isSaveAsUncertain: boolean;
   notice: Notice | null;
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
@@ -58,6 +59,7 @@ export interface LifecycleContextValue {
 export interface WorkspaceContextValue {
   appInfo: AppInfo | null;
   isChangingWorkspace: boolean;
+  isWorkspaceUncertain: boolean;
   texPathDraft: string;
   setTexPathDraft: (value: string) => void;
   createSampleWorkspace: () => Promise<void>;

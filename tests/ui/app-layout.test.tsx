@@ -123,7 +123,7 @@ it("shows chapter headings and keeps review marks and tags on question rows", as
           })
     };
     vi.mocked(fetch).mockImplementation(async (input, init) => {
-      if (String(input) === "/api/bank" && !init) {
+      if (String(input) === "/api/bank" && !init?.method) {
         return json({
           workspacePath: "/tmp/latex-bank",
           revision: "revision-status",

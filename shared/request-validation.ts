@@ -77,7 +77,9 @@ export function validateRecoverBankRequest(
   const candidateId = getStringField(value, "candidateId");
   if (candidateId === undefined) return invalid("candidateId 必须是字符串。");
   if (!candidateId) return invalid("缺少恢复候选。");
-  return { ok: true, value: { candidateId } };
+  const target = validateWorkspacePathRequest(value);
+  if (!target.ok || !target.value) return invalid(target.error ?? "缺少工作区路径。");
+  return { ok: true, value: { candidateId, workspacePath: target.value.workspacePath } };
 }
 
 export function validateWorkspacePathRequest(

@@ -1,6 +1,11 @@
+import { useLatestCallback } from "./useLatestCallback.js";
 import { flushSync } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ApiRequestError,
+  fetchAppInfo,
+  fetchBank,
+  waitForWorkspaceWrites,
   createEmptyWorkspace,
   createSampleWorkspace as createSampleWorkspaceRequest,
   moveWorkspace,
@@ -36,6 +41,8 @@ export function useWorkspaceActions({
   setNotice
 }: WorkspaceActionsOptions) {
   const [isChangingWorkspace, setIsChangingWorkspace] = useState(false);
+  const unresolvedRef = useRef(false);
+  const [isWorkspaceUncertain, setIsWorkspaceUncertain] = useState(false);
   const initialTexPath = appInfo?.appState.texPathOverride ?? "";
   const [texPathDraft, setTexPathDraftState] = useState(initialTexPath);
   const texPathDraftRef = useRef(initialTexPath);
@@ -128,13 +135,14 @@ export function useWorkspaceActions({
   }, [queueTexPathSave]);
 
   const flushPendingSettings = useCallback(async () => {
+    if (unresolvedRef.current) throw new Error("工作区操作结果尚未确认，请先核对后退出。");
     await queueTexPathSave(texPathDraftRef.current.trim());
     while (texPathSavePromiseRef.current) {
       await texPathSavePromiseRef.current;
     }
   }, [queueTexPathSave]);
 
-  async function runWorkspaceChange(operation: () => Promise<void>) {
+  const runWorkspaceChange = useLatestCallback(async (operation: () => Promise<void>) => {
     if (changingRef.current) return;
     if (hasPendingUploads()) {
       setNotice({ type: "error", text: "图片仍在上传，请等待上传完成后切换工作区。" });
@@ -143,13 +151,46 @@ export function useWorkspaceActions({
     changingRef.current = true;
     setIsChangingWorkspace(true);
     try {
+      if (unresolvedRef.current) {
+        await reconcileWorkspace();
+        return;
+      }
       await operation();
     } catch (error) {
-      setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
+      await handleWorkspaceError(error);
     } finally {
       changingRef.current = false;
       setIsChangingWorkspace(false);
     }
+  });
+
+  async function reconcileWorkspace() {
+    await waitForWorkspaceWrites();
+    const nextAppInfo = await fetchAppInfo();
+    const snapshot = nextAppInfo.setupRequired ? null : await fetchBank();
+    if (snapshot && snapshot.workspacePath !== nextAppInfo.currentWorkspacePath) {
+      throw new Error("工作区仍在变化，请重试核对。");
+    }
+    flushSync(() => applyWorkspaceTransition({ appInfo: nextAppInfo, snapshot }));
+    unresolvedRef.current = false;
+    setIsWorkspaceUncertain(false);
+    setNotice({ type: "ok", text: "已核对当前工作区，请继续操作。" });
+  }
+
+  async function handleWorkspaceError(error: unknown) {
+    if (error instanceof ApiRequestError && error.code === "WRITE_RESULT_UNKNOWN" &&
+        (error.requestUrl?.startsWith("/api/workspaces/") || error.requestUrl === "/api/recovery")) {
+      unresolvedRef.current = true;
+      setIsWorkspaceUncertain(true);
+      try {
+        await reconcileWorkspace();
+        return;
+      } catch {
+        setNotice({ type: "error", text: "操作结果尚未确认，请点击“核对工作区状态”。当前内容已保留。" });
+        return;
+      }
+    }
+    setNotice({ type: "error", text: error instanceof Error ? error.message : "工作区操作失败。" });
   }
 
   async function saveBeforeWorkspaceChange() {
@@ -175,7 +216,7 @@ export function useWorkspaceActions({
           text: `已创建示例工作区：${response.appInfo.currentWorkspaceName}`
         });
       } catch (error) {
-        setNotice({ type: "error", text: error instanceof Error ? error.message : "创建示例工作区失败。" });
+        await handleWorkspaceError(error);
       }
     });
   }
@@ -196,7 +237,7 @@ export function useWorkspaceActions({
           text: `已创建工作区：${response.appInfo.currentWorkspaceName}`
         });
       } catch (error) {
-        setNotice({ type: "error", text: error instanceof Error ? error.message : "创建工作区失败。" });
+        await handleWorkspaceError(error);
       }
     });
   }
@@ -218,7 +259,7 @@ export function useWorkspaceActions({
           text: `已打开工作区：${response.appInfo.currentWorkspaceName}`
         });
       } catch (error) {
-        setNotice({ type: "error", text: error instanceof Error ? error.message : "打开工作区失败。" });
+        await handleWorkspaceError(error);
       }
     });
   }
@@ -235,7 +276,7 @@ export function useWorkspaceActions({
           text: `已切换至：${response.appInfo.currentWorkspaceName}`
         });
       } catch (error) {
-        setNotice({ type: "error", text: error instanceof Error ? error.message : "切换工作区失败。" });
+        await handleWorkspaceError(error);
       }
     });
   }
@@ -259,7 +300,7 @@ export function useWorkspaceActions({
           text: `已重新定位至：${response.appInfo.currentWorkspaceName}`
         });
       } catch (error) {
-        setNotice({ type: "error", text: error instanceof Error ? error.message : "重新定位工作区失败。" });
+        await handleWorkspaceError(error);
       }
     });
   }
@@ -305,6 +346,8 @@ export function useWorkspaceActions({
 
   return {
     isChangingWorkspace,
+    isWorkspaceUncertain,
+    runWorkspaceChange,
     texPathDraft,
     setTexPathDraft,
     createSampleWorkspace,
