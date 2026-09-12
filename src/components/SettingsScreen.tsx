@@ -62,7 +62,7 @@ function LatexSettings() {
           {appInfo.texStatus.available
             ? <FileCheck2 size={15} />
             : <AlertTriangle size={15} />}
-          {appInfo.texStatus.available ? "TeX 可用" : "未检测到 TeX"}
+          {appInfo.texStatus.available ? "TeX 可用" : appInfo.texStatus.missingCommand ? `${appInfo.texStatus.missingCommand} 不可用` : "未检测到 TeX"}
         </button>
         <label>
           <span>题间距</span>

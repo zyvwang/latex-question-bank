@@ -83,7 +83,8 @@ async function run(root: string, count: number, sample: number) {
     const loadStart = performance.now();
     await page.reload();
     const rows = page.locator("[data-question-id]");
-    await expect(rows).toHaveCount(count, { timeout: 30_000 });
+    await expect(page.locator('[aria-label="切换到已选中列表"]')).toContainText(`${count}/${count}`);
+    await expect(rows.first()).toBeVisible();
     await expect(page.locator(".cm-content")).toBeVisible();
     await painted(page);
     const loadMs = Math.round(performance.now() - loadStart);
@@ -92,20 +93,23 @@ async function run(root: string, count: number, sample: number) {
       sidebar: document.querySelector('[aria-label="题目列表"]')?.querySelectorAll("*").length ?? 0,
       loadLongTasks: (window as unknown as ProbeWindow).sidebarProbe.tasks
     }));
-    const search = page.getByRole("textbox", { name: "搜索题目" });
+    const search = page.locator('[aria-label="搜索题目"]');
     const filter = await measure(page, async () => {
       await search.fill("基准命中");
-      await expect(rows).toHaveCount(count / 10);
+      await expect(page.locator('[aria-label="切换到已选中列表"]')).toContainText(`${count / 10}/${count}`);
+      await expect(page.locator("#question-nav-benchmark-0")).toBeVisible();
     });
     const clearSearch = await measure(page, async () => {
-      await search.fill(""); await expect(rows).toHaveCount(count);
+      await search.fill("");
+      await expect(page.locator('[aria-label="切换到已选中列表"]')).toContainText(`${count}/${count}`);
+      await expect(page.locator("#question-nav-benchmark-1")).toBeVisible();
     });
     const switchItem = await measure(page, async () => {
       await page.locator("#question-nav-benchmark-1").click();
       await expect(page.locator("#main-workspace").getByLabel("原编号", { exact: true })).toHaveValue("性能题 2");
     });
     const scroll = await measure(page, async () => {
-      await page.getByLabel("题目列表", { exact: true }).evaluate(async (element) => {
+      await page.locator('[aria-label="题目列表"]').evaluate(async (element) => {
         const frameDeltas: number[] = [];
         let previous = performance.now();
         for (let frame = 1; frame <= 60; frame++) {
@@ -118,7 +122,7 @@ async function run(root: string, count: number, sample: number) {
         element.setAttribute("data-benchmark-frame-max", String(Math.max(...frameDeltas)));
       });
     });
-    const maxScrollFrameMs = await page.getByLabel("题目列表", { exact: true })
+    const maxScrollFrameMs = await page.locator('[aria-label="题目列表"]')
       .getAttribute("data-benchmark-frame-max");
     const responsePromise = page.waitForResponse((response) =>
       response.url().endsWith("/api/bank") && response.request().method() === "PUT");

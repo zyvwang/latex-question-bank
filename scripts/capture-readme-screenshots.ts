@@ -85,7 +85,7 @@ async function captureEditorAndHistory() {
       })
     ).toBeVisible();
     await page.getByText("自编 1.2", { exact: true }).click();
-    await expect(page.getByLabel("原编号")).toHaveValue("自编 1.2");
+    await expect(page.locator("#main-workspace").getByLabel("原编号")).toHaveValue("自编 1.2");
     await settlePage(page);
     await capture(page, "main.png");
 

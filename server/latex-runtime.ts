@@ -1,12 +1,9 @@
-import { spawn } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import type { CompileResult, TexStatus } from "../shared/types.js";
 import { readAppState } from "./workspace-storage.js";
 import {
-  BoundedOutput,
   MAX_LATEX_LOG_BYTES,
   MAX_LATEX_PROBE_BYTES
 } from "./bounded-output.js";
@@ -15,6 +12,8 @@ import {
   withLatexExecutionSlot,
   type LatexExecutionSession
 } from "./latex-execution.js";
+
+import { runLatexProcess } from "./latex-process.js";
 
 const TEX_DETECTION_CACHE_MS = 30_000;
 let cachedTexStatus:
@@ -65,69 +64,15 @@ async function compileLatexExclusive(
     texFile
   ];
 
-  return new Promise((resolve) => {
-    const child = spawn(latexmkCommand, args, {
-      cwd,
-      env: createLatexProcessEnv(latexmkCommand),
-      detached: process.platform !== "win32"
-    });
-    const output = new BoundedOutput(MAX_LATEX_LOG_BYTES);
-    let settled = false;
-    let timedOut = false;
-    let terminationFallback: NodeJS.Timeout | undefined;
-    const finish = (result: CompileResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (terminationFallback) clearTimeout(terminationFallback);
-      resolve(result);
-    };
-    const timer = setTimeout(() => {
-      if (!settled) {
-        timedOut = true;
-        terminateProcessTree(child);
-        terminationFallback = setTimeout(() => {
-          finish(timeoutResult(texPath, output, timeoutMs));
-        }, 2_000);
-        terminationFallback.unref();
-      }
-    }, timeoutMs);
-
-    child.stdout.on("data", (chunk) => {
-      output.append(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      output.append(chunk);
-    });
-    child.on("error", (error) => {
-      if (timedOut) {
-        finish(timeoutResult(texPath, output, timeoutMs));
-        return;
-      }
-      finish({
-        ok: false,
-        texPath,
-        log: summarizeLog(`${output.toString()}\n${error.message}`)
-      });
-    });
-    child.on("close", async (code) => {
-      if (settled) return;
-      // close 已在期限内触发时先取消计时器；不要让随后的 PDF 可读性检查
-      // 与超时回调竞争，把已经结束的进程误判成超时。
-      clearTimeout(timer);
-      if (timedOut) {
-        finish(timeoutResult(texPath, output, timeoutMs));
-        return;
-      }
-      const ok = code === 0 && (await fileExists(pdfPath));
-      finish({
-        ok,
-        texPath,
-        pdfPath: ok ? pdfPath : undefined,
-        log: summarizeLog(output.toString())
-      });
-    });
+  const result = await runLatexProcess(latexmkCommand, args, {
+    cwd, env: createLatexProcessEnv(latexmkCommand), timeoutMs,
+    maxOutputBytes: MAX_LATEX_LOG_BYTES
   });
+  const ok = !result.timedOut && result.code === 0 && await fileExists(pdfPath);
+  return {
+    ok, texPath, pdfPath: ok ? pdfPath : undefined,
+    log: summarizeLog(result.log + (result.timedOut ? `\nLaTeX compile timed out after ${timeoutMs}ms.` : ""))
+  };
 }
 
 export async function detectTexInstallation(
@@ -178,18 +123,23 @@ async function detectTexInstallationUncached(
   ];
 
   for (const candidate of candidates) {
-    const result = await probeLatexmk(candidate.command);
+    const env = createLatexProcessEnv(candidate.command);
+    const result = await probeCommand(candidate.command, env);
     if (result.available) {
+      const engine = await probeCommand("xelatex", env);
       return {
-        available: true,
+        available: engine.available,
+        missingCommand: engine.available ? undefined : "xelatex",
         command: candidate.command,
         source: candidate.source,
         version: result.version,
-        message: `已检测到 LaTeX：${candidate.command}`
+        message: engine.available
+          ? `已检测到 latexmk 和 xelatex：${candidate.command}`
+          : `已检测到 latexmk，但 xelatex ${engine.timedOut ? "检测超时" : "不可用"}。请检查同一 TeX 安装中的 xelatex。`
       };
     }
   }
-  return { available: false, source: "missing", message: "未检测到 latexmk。" };
+  return { available: false, source: "missing", missingCommand: "latexmk", message: "未检测到可用的 latexmk。" };
 }
 
 export function createLatexProcessEnv(latexmkCommand: string): NodeJS.ProcessEnv {
@@ -204,38 +154,6 @@ export function createLatexProcessEnv(latexmkCommand: string): NodeJS.ProcessEnv
   ].filter(Boolean);
   env[pathKey] = [...extraDirs, existingPath].filter(Boolean).join(path.delimiter);
   return env;
-}
-
-function terminateProcessTree(child: ChildProcess) {
-  const pid = child.pid;
-  if (!pid) return;
-  if (process.platform === "win32") {
-    const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
-      windowsHide: true,
-      stdio: "ignore"
-    });
-    killer.unref();
-    return;
-  }
-  killUnixProcessTree(pid, "SIGTERM");
-  const forceKillTimer = setTimeout(() => {
-    if (child.exitCode === null && child.signalCode === null) {
-      killUnixProcessTree(pid, "SIGKILL");
-    }
-  }, 1_000);
-  forceKillTimer.unref();
-}
-
-function killUnixProcessTree(pid: number, signal: NodeJS.Signals) {
-  try {
-    process.kill(-pid, signal);
-  } catch {
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // The process already exited.
-    }
-  }
 }
 
 function summarizeLog(log: string): string {
@@ -273,56 +191,14 @@ function getPathEnvKey(env: NodeJS.ProcessEnv): string {
   return Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
 }
 
-function probeLatexmk(
-  command: string,
-  timeoutMs = 3_000
-): Promise<{ available: boolean; version?: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(command, ["-version"], { env: createLatexProcessEnv(command) });
-    const output = new BoundedOutput(MAX_LATEX_PROBE_BYTES, 8 * 1024);
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill("SIGTERM");
-        resolve({ available: false });
-      }
-    }, timeoutMs);
-    child.stdout.on("data", (chunk) => {
-      output.append(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      output.append(chunk);
-    });
-    child.on("error", () => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({ available: false });
-    });
-    child.on("close", (code) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({
-        available: code === 0,
-        version: output.toString().split(/\r?\n/).find(Boolean)
-      });
-    });
+async function probeCommand(command: string, env: NodeJS.ProcessEnv) {
+  const result = await runLatexProcess(command, ["-version"], {
+    env, timeoutMs: 3_000, maxOutputBytes: MAX_LATEX_PROBE_BYTES
   });
-}
-
-function timeoutResult(
-  texPath: string,
-  output: BoundedOutput,
-  timeoutMs: number
-): CompileResult {
   return {
-    ok: false,
-    texPath,
-    log: summarizeLog(
-      `${output.toString()}\nLaTeX compile timed out after ${timeoutMs}ms.`
-    )
+    available: !result.timedOut && result.code === 0,
+    timedOut: result.timedOut,
+    version: result.log.split(/\r?\n/).find(Boolean)
   };
 }
 

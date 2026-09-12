@@ -339,3 +339,9 @@
   .questionList { display: grid; overflow-x: visible; }
   .questionListItem { min-width: 0; width: 100%; }
 }
+
+.virtualQuestionList { overflow-anchor: none; }
+.virtualCanvas { position: relative; }
+.virtualChapter { position: absolute; left: 0; right: 0; }
+.virtualRow { position: absolute; left: 0; right: 0; padding-bottom: 2px; }
+.virtualRow .questionListItem { margin-bottom: 0; }

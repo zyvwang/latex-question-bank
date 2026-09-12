@@ -1,3 +1,4 @@
+import { once } from "node:events";
 import { _electron as electron } from "@playwright/test";
 import { createSampleBank } from "../../server/bank-schema.js";
 import type { Bank, LegacyBank } from "../../shared/types.js";
@@ -167,4 +168,13 @@ export function createLargeHeatmapBank(): Bank {
     }))
   );
   return { ...base, chapters, items };
+}
+
+
+export async function closeDesktopApp(electronApp: Awaited<ReturnType<typeof electron.launch>>) {
+  const child = electronApp.process();
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = once(child, "exit");
+  await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  await exited;
 }

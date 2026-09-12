@@ -329,3 +329,11 @@
   .cells { grid-template-columns: repeat(auto-fill, 44px); gap: 6px; }
   .cell { width: 44px; height: 44px; }
 }
+
+.cell strong.multicolorNumber {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--panel);
+  text-shadow: none;
+}

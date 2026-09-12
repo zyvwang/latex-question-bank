@@ -16,6 +16,8 @@ The shared API and data contracts live in `shared/`. Frontend and backend module
 
 ## Frontend Boundaries
 
+- Desktop question navigation uses a dynamically measured TanStack virtual list. Chapter sections retain their full measured/estimated height and sticky headings; only visible question rows, overscan, the focused row and its neighbours, and the dragged row are mounted. Tab navigation mounts and scrolls the next logical row before focusing its control. Selection and ordering always use the full model, never DOM membership. Width changes remeasure mounted rows; narrow layouts (760px and below) retain the ordinary list.
+
 - `src/App.tsx` is only the composition root and screen-state switch.
 - `src/context/LayoutPreferencesContext.tsx` owns renderer layout preferences. Desktop builds read and write the internal `uiLayout` block in local `app-state.json` through narrow preload methods; browser development falls back to `localStorage`. These preferences never enter a workspace or `bank.json`. Renderer writes are single-flight and coalesce later adjustments. Failed writes keep the latest layout pending, expose a separate navigation retry action, and reject the desktop close boundary until a retry succeeds or the user explicitly discards changes. Hydration alone never writes preferences.
 - `src/context/QuestionBankProvider.tsx` exposes focused lifecycle, workspace, questions, selection, compile/export, workspace UI, app-view, and review contexts. Components consume only the domains they render.
@@ -120,3 +122,9 @@ Every IPC entry validates its sender. Main-window navigation is locked to the ap
 Packaged pages receive a strict CSP. Development additionally allows Vite's inline React Refresh bootstrap, local HMR, and local API connections. The macOS development runtime uses an isolated Chromium session and mock keychain so it does not contend with or request credentials for an installed build. Until Developer ID signing and notarization are configured, packaged macOS builds also enable the mock keychain through `lqbUseMockKeychain`; remove that metadata after signing is available, then verify packaged builds use the system keychain without repeated prompts.
 
 Close IPC requests carry a unique request ID. Only the currently pending ID may authorize closing. Timeout retires that ID; the native dialog has its own busy state so another close cannot open a second dialog. The renderer still commits the focused draft before flushing persistence queues.
+
+## TeX process lifecycle
+
+Both `latexmk` and `xelatex` are probed in the same environment used for compilation. A detected latexmk with an unavailable engine retains its command in `TexStatus`, reports `missingCommand: "xelatex"`, and fails real-export verification instead of becoming a successful skip. Detection caches and coalesces matching requests for 30 seconds; command probes are bounded to three seconds plus cleanup.
+
+`server/latex-process.ts` owns bounded output and process termination for probes and compilation. POSIX timeout cleanup signals the process group, escalates to SIGKILL even when its leader has exited, and waits for the group to disappear. Windows waits for taskkill and reports spawn, exit and timeout failures. Timeout completion waits for cleanup; failed cleanup must be resolved before another process starts. The document execution slot remains held through this boundary.

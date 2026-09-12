@@ -210,7 +210,7 @@ const HeatmapCell = memo(function HeatmapCell({
           ))}
         </span>
       )}
-      <strong>{chapterOrder}</strong>
+      <strong className={mode === "errorReason" && visibleErrors.length > 1 ? styles.multicolorNumber : undefined}>{chapterOrder}</strong>
       {mode === "combined" && errors.length > 0 && (
         <span
           className={styles.errorMarks}

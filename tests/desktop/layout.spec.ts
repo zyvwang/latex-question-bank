@@ -3,13 +3,13 @@ import path from "node:path";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createSampleBank } from "../../server/bank-schema.js";
 
-import { isMissingFile, createLargeHeatmapBank, installMessageBoxRecorder, readMessageBoxCalls } from "../fixtures/desktop-app.js";
+import { closeDesktopApp, isMissingFile, createLargeHeatmapBank, installMessageBoxRecorder, readMessageBoxCalls } from "../fixtures/desktop-app.js";
 
 test("restores adjusted and collapsed panes after a desktop restart", async () => {
   const workspacePath = path.resolve(".tmp/playwright-layout-workspace");
   const appDataPath = path.resolve(".tmp/playwright-layout-app-data");
   await rm(workspacePath, { recursive: true, force: true });
-  await rm(appDataPath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true, maxRetries: 3 });
   await mkdir(workspacePath, { recursive: true });
   await writeFile(
     path.join(workspacePath, "bank.json"),
@@ -89,7 +89,7 @@ test("sidebar chapter headings stick, hand off, and preserve keyboard and drag t
   const workspacePath = path.resolve(".tmp/playwright-chapter-sidebar-workspace");
   const appDataPath = path.resolve(".tmp/playwright-chapter-sidebar-app-data");
   await rm(workspacePath, { recursive: true, force: true });
-  await rm(appDataPath, { recursive: true, force: true });
+  await rm(appDataPath, { recursive: true, force: true, maxRetries: 3 });
   await mkdir(workspacePath, { recursive: true });
   const bank = createLargeHeatmapBank();
   bank.chapters = bank.chapters.slice(0, 3);
@@ -161,9 +161,9 @@ test("sidebar chapter headings stick, hand off, and preserve keyboard and drag t
     await page.mouse.up();
     await expect(list.locator("[data-question-id]").first()).toHaveAttribute("data-question-id", "large-1-2");
   } finally {
-    await app.evaluate(({ app: electronApp }) => electronApp.exit(0)).catch(() => undefined);
+    await closeDesktopApp(app);
     await rm(workspacePath, { recursive: true, force: true });
-    await rm(appDataPath, { recursive: true, force: true });
+    await rm(appDataPath, { recursive: true, force: true, maxRetries: 3 });
   }
 });
 
@@ -172,7 +172,7 @@ test("reports layout write failures, blocks close, and retries without changing 
   const directory = path.resolve(".tmp/playwright-layout-failure");
   const workspacePath = path.join(directory, "workspace");
   const appDataPath = path.join(directory, "app-data");
-  await rm(directory, { recursive: true, force: true });
+  await rm(directory, { recursive: true, force: true, maxRetries: 3 });
   await mkdir(workspacePath, { recursive: true });
   await writeFile(path.join(workspacePath, "bank.json"), JSON.stringify(createSampleBank()));
   const electronApp = await electron.launch({ args: ["."], env: {

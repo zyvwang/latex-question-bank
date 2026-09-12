@@ -72,7 +72,7 @@ latexmk --version
 xelatex --version
 ```
 
-The app checks `PATH` and common install locations. If TeX is elsewhere, set the `latexmk` path under Bank Settings → LaTeX.
+The app checks `PATH` and common install locations, then confirms that both `latexmk` and `xelatex` run in the compilation environment. Settings identify an unavailable command. If TeX is elsewhere, set the `latexmk` path under Bank Settings → LaTeX.
 
 ## Install
 

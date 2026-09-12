@@ -32,6 +32,8 @@ import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
 import metadataStyles from "./MetadataTokens.module.css";
 import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import styles from "./Sidebar.module.css";
+import { VirtualQuestionList } from "./VirtualQuestionList.js";
+import { useDesktopQuestionList } from "../hooks/useDesktopQuestionList.js";
 
 interface FilterOption {
   value: string;
@@ -223,6 +225,7 @@ function MultiSelectFilter({
 }
 
 function QuestionList() {
+  const desktop = useDesktopQuestionList();
   const questions = useQuestions();
   const selection = useSelection();
   const ui = useWorkspaceUi();
@@ -262,8 +265,39 @@ function QuestionList() {
     );
   }
 
+  const renderRow = (item: QuestionItem) => (
+    <QuestionListRow
+      key={item.id}
+      item={item}
+      chapterById={chapterById}
+      masteryById={masteryById}
+      errorReasonById={errorReasonById}
+      questionNumber={questions.numberById.get(item.id)}
+      active={questions.activeItem?.id === item.id}
+      selected={selection.selectedIds.has(item.id)}
+      dragging={ui.draggingId === item.id}
+      dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
+      onToggleSelected={selection.toggleSelected}
+      onActivate={questions.setActiveId}
+      onOpenReorderMenu={ui.openReorderMenu}
+      onStartMouseDrag={ui.startMouseDrag}
+      onStartPointerDrag={ui.startPointerDrag}
+    />
+  );
+  if (desktop) {
+    return (
+      <VirtualQuestionList
+        groups={groups}
+        chapterById={chapterById}
+        activeId={questions.activeItem?.id ?? null}
+        draggingId={ui.draggingId}
+        renderRow={renderRow}
+      />
+    );
+  }
+
   return (
-    <div className={styles.questionList} aria-label="题目列表">
+    <div className={styles.questionList} aria-label="题目列表" data-question-count={selection.listItems.length}>
       {groups.map((group) => (
         <section
           className={styles.chapterGroup}
@@ -284,25 +318,7 @@ function QuestionList() {
           <h3 className={styles.chapterHeading}>
             {group.chapterId ? (chapterById.get(group.chapterId) ?? "未分类") : "未分类"}
           </h3>
-          {group.items.map((item) => (
-            <QuestionListRow
-              key={item.id}
-              item={item}
-              chapterById={chapterById}
-              masteryById={masteryById}
-              errorReasonById={errorReasonById}
-              questionNumber={questions.numberById.get(item.id)}
-              active={questions.activeItem?.id === item.id}
-              selected={selection.selectedIds.has(item.id)}
-              dragging={ui.draggingId === item.id}
-              dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
-              onToggleSelected={selection.toggleSelected}
-              onActivate={questions.setActiveId}
-              onOpenReorderMenu={ui.openReorderMenu}
-              onStartMouseDrag={ui.startMouseDrag}
-              onStartPointerDrag={ui.startPointerDrag}
-            />
-          ))}
+          {group.items.map(renderRow)}
         </section>
       ))}
     </div>

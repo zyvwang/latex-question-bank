@@ -122,6 +122,7 @@ await writeFile(fullPath, buildFullLatex(exportItems, defaultSettings), "utf8");
 
 const texStatus = await detectTexInstallation();
 if (!texStatus.available) {
+  if (texStatus.command) throw new Error(`TeX 安装不完整：${texStatus.message}`);
   await rm(sourceAssetPath, { force: true });
   // CI 里必须真的编译:否则 "verify 通过" 只证明了 tex 文件写出来了,没证明能出 PDF。
   if (process.env.LQB_REQUIRE_TEX === "1") {

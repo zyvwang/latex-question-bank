@@ -145,6 +145,7 @@ export interface WorkspaceSummary {
 
 export interface TexStatus {
   available: boolean;
+  missingCommand?: "latexmk" | "xelatex";
   command?: string;
   source: "override" | "path" | "common" | "missing";
   version?: string;

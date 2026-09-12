@@ -19,7 +19,7 @@ The grid has three modes:
 
 The 72px toolbar keeps the title, count, mode switch, and a "View legend" disclosure together. The disclosed legend shows only the active mode's definitions; Combined shows both dimensions. Banks with twelve questions or fewer use a compact grid band so empty viewport height is not presented as part of the grid.
 
-Cell text automatically chooses dark ink or white from the rendered background. Color is never the only status signal. The visible legend, patterns, corner marks, overflow text, preview metadata, and accessible name repeat the meaning.
+Single-background cell text automatically chooses dark ink or white from the rendered background. In Error reasons mode with two or more stripes, the number has an opaque paper background and dark ink; stripe colors and patterns remain visible around it. Color is never the only status signal. The visible legend, patterns, corner marks, overflow text, preview metadata, and accessible name repeat the meaning.
 
 ## Chapter and item order
 
