@@ -28,6 +28,9 @@ test("restores adjusted and collapsed panes after a desktop restart", async () =
   const electronApp = await electron.launch(launchOptions);
   try {
     const page = await electronApp.firstWindow();
+    // CI 运行器的虚拟屏幕可能把窗口压到 ≤1040px，触发堆叠断点后
+    // 代码/预览分隔符会隐藏；显式设置视口保证跨环境可复现。
+    await page.setViewportSize({ width: 1470, height: 891 });
     const sidebarSeparator = page.getByRole("separator", {
       name: "调整题目侧栏宽度"
     });
@@ -56,6 +59,7 @@ test("restores adjusted and collapsed panes after a desktop restart", async () =
   const restartedApp = await electron.launch(launchOptions);
   try {
     const page = await restartedApp.firstWindow();
+    await page.setViewportSize({ width: 1470, height: 891 });
     await expect(page.getByRole("separator", {
       name: "调整题目侧栏宽度"
     })).toHaveAttribute("aria-valuenow", "360");
