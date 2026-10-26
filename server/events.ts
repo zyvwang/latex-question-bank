@@ -1,9 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { AgentUndoCounts } from "../shared/agent-undo.js";
 
 export interface BankChangedEvent {
   workspacePath: string;
   revision: string;
-  source: "agent-import";
+  source: "agent-import" | "agent-undo";
   batchId: string;
   counts: {
     created: number;
@@ -12,6 +13,7 @@ export interface BankChangedEvent {
     conflicts: number;
     assets: number;
   };
+  undoCounts?: AgentUndoCounts;
 }
 
 const clients = new Set<ServerResponse>();

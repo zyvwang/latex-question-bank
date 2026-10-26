@@ -54,11 +54,15 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - `lqb status`, `lqb link`, `lqb agent-init`, `lqb list/search/get`, `lqb book list`, and `lqb batch list` work with the app running
    - agent dry-run writes nothing; commit creates pending items, import-log records, and a `.history/` snapshot
    - approved duplicates are skipped with a partial result; `--overwrite` updates and returns them to pending
+   - `lqb bank create` creates an empty v3 bank with copied settings; `--switch` switches and omitting it leaves the app on the prior workspace
+   - `lqb import --create-bank` creates the requested/default path, copies settings and top-level chapters, imports pending items, and refuses an existing `bank.json`
+   - chunked imports with one `--batch-id` merge into a single import record; `lqb import undo <batchId>` removes only pending, unedited items, restores overwritten items, keeps approved/edited items, and reports missing snapshots with exit code 6
+   - book path edits clear the matching hash with a visible notice; referenced books cannot be deleted; the import log shows batch IDs and undone status
    - screenshot assets are validated, written under `assets/`, substituted from `{{asset:key}}`, and content-hashed
    - agent import rejects a stale `baseRevision`, a mismatched workspace, and an invalid manifest without partial writes
    - the Review page approves, advances, bulk-approves, deletes with undo, shows the pending count, and handles empty/filtered-empty states
-   - idle external imports auto-refresh; focused drafts, uploads, saves, or workspace transitions show the external-update banner instead of overwriting
-   - `/api/events` sends `bank-changed` after a successful import and cleans up clients when the server closes
+   - idle external imports and undos auto-refresh; focused drafts, uploads, saves, or workspace transitions show the external-update banner instead of overwriting
+   - `/api/events` sends `bank-changed` after a successful import or undo and cleans up clients when the server closes
    - workspace create/open/switch/reorder/relocate/reveal/remove-from-list actions on Bank Settings, including staying on that page after a switch
    - removing the final workspace returns to Setup while its directory and `bank.json` remain on disk
    - a bank save beyond 64 MiB shows the persistent size error and leaves disk/revision unchanged; reducing content retries successfully

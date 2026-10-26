@@ -90,6 +90,43 @@ it("auto-reloads an idle app after an agent import event", async () => {
   expect(await screen.findByText("已导入 1 道题。")).toBeInTheDocument();
 });
 
+it("shows an undo notice after an agent batch-undo event", async () => {
+  vi.stubGlobal(
+    "EventSource",
+    FakeEventSource as unknown as typeof EventSource
+  );
+  render(<App />);
+  await screen.findByText("2024-1");
+  await waitFor(() =>
+    expect(FakeEventSource.instances.length).toBeGreaterThan(0)
+  );
+
+  setFixtureBank(bank);
+  const source = FakeEventSource.instances.at(-1)!;
+  source.emit("bank-changed", {
+    workspacePath: "/tmp/latex-bank",
+    revision: "revision-undo",
+    source: "agent-undo",
+    counts: {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      conflicts: 0,
+      assets: 1
+    },
+    undoCounts: {
+      deleted: 1,
+      restored: 0,
+      kept: 0,
+      assetsRemoved: 1
+    }
+  });
+
+  expect(
+    await screen.findByText("已撤销导入批次：删除 1 道，恢复 0 道。")
+  ).toBeInTheDocument();
+});
+
 it("keeps local edits and shows a banner while an input is focused", async () => {
   vi.stubGlobal(
     "EventSource",

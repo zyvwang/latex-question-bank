@@ -36,8 +36,9 @@ The application interface currently uses Simplified Chinese. This README provide
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, books, source labels, and multiple tags.
 - Mark each item with a review priority (skip / review again / must review).
-- Let an external agent import selected examples, exercises, or screenshots through the local `lqb` CLI; imported items enter pending review automatically.
+- Let an external agent import selected examples, exercises, screenshots, or a whole book into a new bank through the local `lqb` CLI; imported items enter pending review automatically.
 - Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
+- Undo an agent import batch; approved or manually edited items are kept.
 - Combine keyword, chapter, book, tag, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
 - Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
@@ -119,9 +120,17 @@ lqb import --file manifest.json --dry-run --json
 lqb import --file manifest.json --json
 ```
 
-Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
+Whole-book imports create a new bank named after the book by default. Chunks can share a `--batch-id`; add `--switch` to open the new bank immediately:
 
-This version supports selected examples/exercises and screenshot imports. Whole-book import, new-bank creation, and variant relationships arrive in later phases. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+```bash
+lqb import --file book-1.json --create-bank --switch --batch-id whole-book --json
+lqb import --file book-2.json --batch-id whole-book --json
+lqb import undo whole-book --json
+```
+
+Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports and undos automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
+
+This version supports selected examples/exercises, screenshots, whole-book imports, new-bank creation, and batch undo. Variant relationships arrive in a later phase. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
 

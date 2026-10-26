@@ -55,6 +55,47 @@ describe("agent import manifest validation", () => {
     );
   });
 
+  it("accepts create-bank metadata and normalized chapter names", () => {
+    const value: AgentImportManifest = {
+      ...validManifest(),
+      bank: {
+        name: "Ｂ 书",
+        path: "/tmp/b-book",
+        copySettingsFromCurrent: true
+      },
+      chapters: [{ name: "第一章" }, { name: "第二章" }]
+    };
+    const result = validateAgentImportManifest(value);
+    expect(result.ok).toBe(true);
+    expect(result.value?.bank).toEqual({
+      name: "B 书",
+      path: "/tmp/b-book",
+      copySettingsFromCurrent: true
+    });
+    expect(result.value?.chapters?.map((chapter) => chapter.name)).toEqual([
+      "第一章",
+      "第二章"
+    ]);
+  });
+
+  it("rejects malformed create-bank metadata", () => {
+    const cases: unknown[] = [
+      { ...validManifest(), bank: { name: "" } },
+      {
+        ...validManifest(),
+        bank: { name: "B 书", copySettingsFromCurrent: "yes" }
+      },
+      {
+        ...validManifest(),
+        chapters: [{ name: "第一章" }, { name: " 第一章 " }]
+      },
+      { ...validManifest(), chapters: ["第一章"] }
+    ];
+    for (const value of cases) {
+      expect(validateAgentImportManifest(value).ok).toBe(false);
+    }
+  });
+
   it("rejects invalid schemas and unsafe content", () => {
     const cases: unknown[] = [
       { ...validManifest(), schemaVersion: 2 },

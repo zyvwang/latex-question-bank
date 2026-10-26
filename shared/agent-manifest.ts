@@ -1,9 +1,11 @@
+import { normalizeUniqueName } from "./names.js";
 import { normalizeSourceLabel } from "./question-source.js";
 import {
   isReservedTag,
   isReviewPriority,
   isSolutionSource
 } from "./review-fields.js";
+import { isAgentBatchId } from "./agent-undo.js";
 import type {
   ReviewPriority,
   SolutionSource
@@ -31,6 +33,16 @@ export interface AgentManifestBook {
   fileHash?: string;
   answerBookPath?: string;
   answerBookHash?: string;
+}
+
+export interface AgentManifestBank {
+  name: string;
+  path?: string;
+  copySettingsFromCurrent?: boolean;
+}
+
+export interface AgentManifestChapter {
+  name: string;
 }
 
 export interface AgentManifestSource {
@@ -66,6 +78,8 @@ export interface AgentManifestQuestion {
 export interface AgentImportManifest {
   schemaVersion: 1;
   batch?: AgentManifestBatch;
+  bank?: AgentManifestBank;
+  chapters?: AgentManifestChapter[];
   books?: AgentManifestBook[];
   assets?: AgentManifestAsset[];
   questions: AgentManifestQuestion[];
@@ -106,13 +120,17 @@ export interface AgentImportSummary {
   conflicts: AgentImportConflict[];
   warnings: AgentImportWarning[];
   chapterAssignments: AgentImportChapterAssignment[];
+  createdWorkspace?: {
+    path: string;
+    switched: boolean;
+  };
 }
 
 const MAX_QUESTIONS = 200;
 const MAX_ASSETS = 40;
 const MAX_BOOKS = 50;
+const MAX_CHAPTERS = 200;
 const ASSET_KEY_PATTERN = /^[A-Za-z0-9._-]{1,80}$/;
-const BATCH_ID_PATTERN = /^[A-Za-z0-9._-]{1,80}$/;
 
 export function validateAgentImportManifest(
   value: unknown
@@ -137,6 +155,8 @@ function parseManifest(value: unknown): AgentImportManifest {
     throw new ValidationError(`单次导入最多 ${MAX_QUESTIONS} 道题。`);
   }
   const batch = parseBatch(value.batch);
+  const bank = parseBank(value.bank);
+  const chapters = parseChapters(value.chapters);
   const books = parseBooks(value.books);
   const assets = parseAssets(value.assets);
   const assetKeys = new Set(assets.map((asset) => asset.key));
@@ -146,17 +166,67 @@ function parseManifest(value: unknown): AgentImportManifest {
   return {
     schemaVersion: 1,
     ...(batch ? { batch } : {}),
+    ...(bank ? { bank } : {}),
+    ...(chapters.length ? { chapters } : {}),
     ...(books.length ? { books } : {}),
     ...(assets.length ? { assets } : {}),
     questions
   };
 }
 
+function parseBank(value: unknown): AgentManifestBank | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value)) throw new ValidationError("bank 必须是对象。");
+  const name = requiredString(value, "name").normalize("NFKC");
+  if (hasControlCharacter(name)) {
+    throw new ValidationError("bank.name 含有无效字符。");
+  }
+  const pathValue = optionalString(value, "path");
+  const copySettingsFromCurrent = value.copySettingsFromCurrent;
+  if (
+    copySettingsFromCurrent !== undefined &&
+    typeof copySettingsFromCurrent !== "boolean"
+  ) {
+    throw new ValidationError("bank.copySettingsFromCurrent 必须是布尔值。");
+  }
+  return {
+    name,
+    ...(pathValue ? { path: pathValue } : {}),
+    ...(typeof copySettingsFromCurrent === "boolean"
+      ? { copySettingsFromCurrent }
+      : {})
+  };
+}
+
+function parseChapters(value: unknown): AgentManifestChapter[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new ValidationError("chapters 必须是数组。");
+  if (value.length > MAX_CHAPTERS) {
+    throw new ValidationError(`单次导入最多 ${MAX_CHAPTERS} 个章节。`);
+  }
+  const names = new Set<string>();
+  return value.map((chapter, index) => {
+    if (!isRecord(chapter)) {
+      throw new ValidationError(`chapters[${index}] 必须是对象。`);
+    }
+    const name = requiredString(chapter, "name").normalize("NFKC");
+    if (hasControlCharacter(name)) {
+      throw new ValidationError(`章节名称无效：${name}`);
+    }
+    const key = normalizeUniqueName(name);
+    if (names.has(key)) {
+      throw new ValidationError(`章节名称重复：${name}`);
+    }
+    names.add(key);
+    return { name };
+  });
+}
+
 function parseBatch(value: unknown): AgentManifestBatch | undefined {
   if (value === undefined || value === null) return undefined;
   if (!isRecord(value)) throw new ValidationError("batch 必须是对象。");
   const id = optionalString(value, "id");
-  if (id && !BATCH_ID_PATTERN.test(id)) {
+  if (id && !isAgentBatchId(id)) {
     throw new ValidationError("batch.id 只能包含字母、数字、点、下划线和短横线。");
   }
   return {
@@ -303,7 +373,14 @@ function parseModule(
     return undefined;
   }
   if (!isRecord(value)) throw new ValidationError(`${kind} 模块必须是对象。`);
-  return { tex: requiredString(value, "tex") };
+  const tex = value.tex;
+  if (typeof tex !== "string") {
+    throw new ValidationError(`${kind}.tex 必须是字符串。`);
+  }
+  if (kind === "question" && !tex.trim()) {
+    throw new ValidationError("question 模块不能为空。");
+  }
+  return { tex };
 }
 
 function parseQuestionAssets(

@@ -102,7 +102,7 @@
     minmax(220px, 1.4fr)
     minmax(220px, 1.4fr)
     72px
-    90px
+    132px
     44px;
 }
 .bookCount,
@@ -111,12 +111,14 @@
   font-size: 12px;
   white-space: nowrap;
 }
+.hashState { line-height: 1.4; white-space: normal; }
 .importRow {
   grid-template-columns:
     140px
     minmax(140px, 0.8fr)
     minmax(220px, 1.2fr)
     80px
+    minmax(150px, 0.9fr)
     auto;
 }
 .importTime,
@@ -128,6 +130,15 @@
 .importStatus {
   color: var(--teal-strong);
   font-size: 12px;
+  white-space: nowrap;
+}
+.importBatchId {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

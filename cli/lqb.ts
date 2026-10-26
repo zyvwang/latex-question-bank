@@ -12,6 +12,7 @@ import type {
   AgentImportSummary
 } from "../shared/agent-manifest.js";
 import { validateAgentImportManifest } from "../shared/agent-manifest.js";
+import type { AgentUndoSummary } from "../shared/agent-undo.js";
 import type { Bank, QuestionItem } from "../shared/types.js";
 import {
   AGENT_GUIDE,
@@ -65,7 +66,9 @@ const VALUE_FLAGS = new Set([
   "chapter",
   "tag",
   "priority",
-  "status"
+  "status",
+  "name",
+  "path"
 ]);
 
 class CliError extends Error {
@@ -92,13 +95,16 @@ async function main(): Promise<void> {
     case "agent-init":
       return agentInitCommand(args);
     case "import":
-      return importCommand(args);
+      return importCommand(args, rest);
     case "list":
       return listCommand(args);
     case "search":
       return searchCommand(args, rest.join(" "));
     case "get":
       return getCommand(args, rest[0]);
+    case "bank":
+      if (rest[0] === "create") return bankCreateCommand(args);
+      break;
     case "book":
       if (rest[0] === "list") return bookListCommand(args);
       break;
@@ -201,7 +207,13 @@ async function agentInitCommand(args: ParsedArgs): Promise<void> {
   }
 }
 
-async function importCommand(args: ParsedArgs): Promise<void> {
+async function importCommand(
+  args: ParsedArgs,
+  rest: string[]
+): Promise<void> {
+  if (rest[0] === "undo") {
+    return undoCommand(args, rest[1]);
+  }
   const file = stringFlag(args.flags, "file");
   if (!file) throw new CliError(1, "lqb import 需要 --file <manifest.json>。");
   const manifestPath = path.resolve(file);
@@ -222,17 +234,42 @@ async function importCommand(args: ParsedArgs): Promise<void> {
     );
   }
   applyBatchFlag(manifest, stringFlag(args.flags, "batch-id"));
+  const createBank = args.flags.has("create-bank");
+  if (createBank) {
+    if (!manifest.bank) {
+      throw new CliError(
+        2,
+        "lqb import --create-bank 需要清单提供 bank.name。"
+      );
+    }
+    if (manifest.bank.path) {
+      manifest.bank.path = path.resolve(manifestDir, manifest.bank.path);
+    }
+  } else if (manifest.bank || (manifest.chapters?.length ?? 0) > 0) {
+    throw new CliError(
+      2,
+      "清单中的 bank/chapters 只能与 --create-bank 一起使用。"
+    );
+  }
   await resolveBookPaths(manifest, manifestDir);
   const discovery = await readDiscovery();
   let status = await agentStatus(discovery);
-  const target = await resolveTarget(discovery, status, args, true);
-  status = target.status;
+  let workspacePath = "";
+  if (!createBank) {
+    const target = await resolveTarget(discovery, status, args, true);
+    status = target.status;
+    workspacePath = target.workspacePath;
+  }
   const form = new FormData();
-  form.append("workspacePath", target.workspacePath);
+  if (!createBank) {
+    form.append("workspacePath", workspacePath);
+    form.append("baseRevision", status.revision);
+  }
   form.append("manifest", JSON.stringify(manifest));
-  form.append("baseRevision", status.revision);
   form.append("dryRun", String(args.flags.has("dry-run")));
   form.append("overwrite", String(args.flags.has("overwrite")));
+  form.append("createBank", String(createBank));
+  form.append("switchWorkspace", String(args.flags.has("switch")));
   for (const asset of manifest.assets ?? []) {
     const assetPath = path.resolve(
       manifestDir,
@@ -268,6 +305,83 @@ async function importCommand(args: ParsedArgs): Promise<void> {
   const summary = payload as AgentImportSummary;
   printImportSummary(summary, args.flags.has("json"));
   if (summary.status === "partial") process.exitCode = 3;
+}
+
+async function bankCreateCommand(args: ParsedArgs): Promise<void> {
+  const name = stringFlag(args.flags, "name");
+  if (!name?.trim()) {
+    throw new CliError(1, "lqb bank create 需要 --name <名称>。");
+  }
+  const requestedPath = stringFlag(args.flags, "path");
+  const discovery = await readDiscovery();
+  await agentStatus(discovery);
+  const response = await agentRequest(
+    discovery,
+    "/api/agent/workspaces/create",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        ...(requestedPath ? { path: path.resolve(requestedPath) } : {}),
+        copySettingsFromCurrent: true,
+        chapters: [],
+        switch: args.flags.has("switch")
+      })
+    }
+  );
+  const payload = (await response.json().catch(() => null)) as {
+    workspacePath?: unknown;
+    switched?: unknown;
+    snapshot?: unknown;
+  } | null;
+  if (!response.ok) throw apiError(response.status, payload);
+  if (args.flags.has("json")) {
+    printJson(payload);
+    return;
+  }
+  const createdPath =
+    typeof payload?.workspacePath === "string"
+      ? payload.workspacePath
+      : "";
+  console.log(`已创建题库：${createdPath}`);
+  if (payload?.switched === true) {
+    console.log("应用已切换到新题库。");
+  } else {
+    console.log("新题库尚未切换；请在应用中打开它，或重试时加 --switch。");
+  }
+}
+
+async function undoCommand(
+  args: ParsedArgs,
+  batchId: string | undefined
+): Promise<void> {
+  if (!batchId) {
+    throw new CliError(1, "lqb import undo 需要批次 ID。");
+  }
+  const discovery = await readDiscovery();
+  const status = await agentStatus(discovery);
+  const target = await resolveTarget(discovery, status, args, false);
+  const response = await agentRequest(discovery, "/api/agent/undo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      batchId,
+      workspacePath: target.workspacePath,
+      baseRevision: target.status.revision
+    })
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw apiError(response.status, payload);
+  const summary = payload as AgentUndoSummary;
+  if (args.flags.has("json")) {
+    printJson(summary);
+    return;
+  }
+  console.log(
+    `已撤销批次 ${summary.batchId}：删除 ${summary.counts.deleted} 道 · 恢复 ${summary.counts.restored} 道 · 保留 ${summary.counts.kept} 道 · 清理附件 ${summary.counts.assetsRemoved} 个`
+  );
+  console.log("请在应用中确认题目列表。");
 }
 
 async function listCommand(args: ParsedArgs): Promise<void> {
@@ -558,6 +672,15 @@ function apiError(status: number, payload: unknown): CliError {
   if (status === 401) return new CliError(5, message);
   if (code === "WORKSPACE_CHANGED") return new CliError(4, message);
   if (code === "BANK_CONFLICT") return new CliError(3, message);
+  if (
+    code === "UNDO_BATCH_NOT_FOUND" ||
+    code === "UNDO_BATCH_ALREADY_UNDONE" ||
+    code === "UNDO_SNAPSHOT_MISSING" ||
+    code === "UNDO_SNAPSHOT_INVALID" ||
+    code === "UNDO_CONFLICT"
+  ) {
+    return new CliError(6, message);
+  }
   if (status === 400) return new CliError(2, message);
   return new CliError(1, message);
 }
@@ -603,6 +726,13 @@ function printImportSummary(summary: AgentImportSummary, json: boolean): void {
     printJson(summary);
     return;
   }
+  if (summary.createdWorkspace) {
+    console.log(
+      `${summary.dryRun ? "将创建题库" : "已创建题库"}：${summary.createdWorkspace.path}${
+        summary.createdWorkspace.switched ? "（已切换）" : ""
+      }`
+    );
+  }
   console.log(
     `${summary.dryRun ? "Dry-run 通过" : "导入完成"}：新增 ${summary.counts.created} · 更新 ${summary.counts.updated} · 冲突 ${summary.counts.conflicts} · 附件 ${summary.counts.assets}`
   );
@@ -612,6 +742,13 @@ function printImportSummary(summary: AgentImportSummary, json: boolean): void {
   }
   for (const warning of summary.warnings) {
     console.log(`警告：${warning.message}${warning.question ? `（${warning.question}）` : ""}`);
+  }
+  if (
+    !summary.dryRun &&
+    summary.createdWorkspace &&
+    !summary.createdWorkspace.switched
+  ) {
+    console.log("新题库尚未切换；请在应用中打开它，或下次使用 --switch。");
   }
   if (!summary.dryRun) {
     console.log("请在应用的「待审阅」页检查导入内容。");
@@ -754,7 +891,9 @@ function printHelp(): void {
   lqb status [--json]
   lqb link [--workspace <path>] [--json]
   lqb agent-init [--dir <path>] [--force]
-  lqb import --file <manifest.json> [--dry-run] [--overwrite] [--switch] [--batch-id <id>] [--json]
+  lqb import --file <manifest.json> [--dry-run] [--overwrite] [--switch] [--batch-id <id>] [--create-bank] [--json]
+  lqb import undo <batchId> [--json]
+  lqb bank create --name <name> [--path <path>] [--switch] [--json]
   lqb list [--book <title>] [--chapter <name>] [--tag <tag>] [--priority <p>] [--status <s>] [--limit <n>] [--json]
   lqb search <query> [--limit <n>] [--json]
   lqb get <id> [--json]
@@ -762,7 +901,8 @@ function printHelp(): void {
   lqb batch list [--json]
   lqb manifest example
 
-导入前请先运行 lqb status 和 lqb link，并保持桌面应用运行。`);
+导入前请先运行 lqb status 和 lqb link，并保持桌面应用运行。
+整书导入默认新建题库但不切换；加 --switch 才会切换当前题库。`);
 }
 
 main().catch((error) => {

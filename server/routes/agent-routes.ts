@@ -6,11 +6,16 @@ import {
 import { validateWorkspacePathRequest } from "../../shared/validation.js";
 import { ValidationError } from "../../shared/validation-primitives.js";
 import { applyAgentImport } from "../agent-import-service.js";
+import { undoAgentImport } from "../agent-undo-service.js";
 import { requireAgentToken } from "../agent-auth.js";
 import {
   agentRuntimeAppVersion,
   refreshAgentDiscovery
 } from "../agent-discovery.js";
+import {
+  createAgentWorkspace,
+  parseAgentWorkspaceCreateInput
+} from "../agent-workspace-service.js";
 import { buildAppInfo } from "../app-info.js";
 import { readBankSnapshot } from "../bank-storage.js";
 import { sendApiError } from "../http/api-response.js";
@@ -64,7 +69,10 @@ export function createAgentRouter(options: {
     async (request, response, next) => {
       try {
         const body = request.body as Record<string, unknown>;
-        const workspacePath = requiredString(body, "workspacePath");
+        const createBank = body.createBank === "true";
+        const workspacePath = createBank
+          ? optionalString(body, "workspacePath") ?? ""
+          : requiredString(body, "workspacePath");
         const manifestText = requiredString(body, "manifest");
         let manifestValue: unknown;
         try {
@@ -88,6 +96,8 @@ export function createAgentRouter(options: {
           })),
           dryRun: body.dryRun === "true",
           overwrite: body.overwrite === "true",
+          createBank,
+          switchWorkspace: body.switchWorkspace === "true",
           baseRevision:
             typeof body.baseRevision === "string" && body.baseRevision.trim()
               ? body.baseRevision.trim()
@@ -101,6 +111,61 @@ export function createAgentRouter(options: {
             400,
             error.message,
             "AGENT_MANIFEST_INVALID"
+          );
+          return;
+        }
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    "/agent/undo",
+    json({ limit: options.jsonBodyLimitBytes }),
+    async (request, response, next) => {
+      try {
+        const body = request.body as Record<string, unknown>;
+        const summary = await undoAgentImport({
+          batchId: requiredString(body, "batchId"),
+          workspacePath: optionalString(body, "workspacePath"),
+          baseRevision: optionalString(body, "baseRevision")
+        });
+        response.json(summary);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          sendApiError(
+            response,
+            400,
+            error.message,
+            "UNDO_REQUEST_INVALID"
+          );
+          return;
+        }
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    "/agent/workspaces/create",
+    json({ limit: options.jsonBodyLimitBytes }),
+    async (request, response, next) => {
+      try {
+        const input = parseAgentWorkspaceCreateInput(request.body);
+        const created = await createAgentWorkspace(input);
+        response.json({
+          workspacePath: created.workspacePath,
+          snapshot: created.snapshot,
+          switched: created.switched,
+          ...(created.switched ? { appInfo: await buildAppInfo() } : {})
+        });
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          sendApiError(
+            response,
+            400,
+            error.message,
+            "AGENT_WORKSPACE_INVALID"
           );
           return;
         }
@@ -152,4 +217,14 @@ function requiredString(
     throw new ValidationError(`${key} 必须是非空字符串。`);
   }
   return value.trim();
+}
+
+function optionalString(
+  record: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.trim()
+    ? value.trim()
+    : undefined;
 }

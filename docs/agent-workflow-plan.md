@@ -1,6 +1,6 @@
 # Agent 导入与审阅优先级实施计划
 
-- 状态：Phase A+B 已实施（2026-10-25）；Phase C-D 待实施
+- 状态：Phase A+B+C 已实施（2026-10-26）；Phase D 待实施
 - 日期：2026-10-25
 - 分支：feat/ui-layout-polish
 - 范围：第 1 部分「移除掌握程度/错误原因/热力图，新增复习优先级」；第 2 部分「外部 Agent 通过本地 CLI/API 导入题目并审阅」
@@ -870,6 +870,14 @@ export interface AgentImportQuestion {
 3. 书目设置完善：路径/哈希/答案册、受保护删除。
 4. `lqb import undo <batchId>`、导入记录 UI、快照恢复。
 5. 整书 Agent 说明与测试。
+
+实施情况（2026-10-26）：
+
+- 新增 `server/agent-workspace-service.ts`（新建题库、复制 settings、顶级章节、默认根目录、可选切换）和 `server/agent-undo-service.ts`。
+- `POST /api/agent/workspaces/create`、`POST /api/agent/undo` 已接入 token 保护；`POST /api/agent/import` 支持 `createBank` / `switchWorkspace` 表单字段。
+- 同一 `--batch-id` 的多块导入合并为一条 `imports` 记录，复用首块 `.history/` 快照；撤销只处理仍 pending 且未编辑的题，并清理无引用附件。
+- CLI 已加入 `lqb bank create`、`lqb import --create-bank`、`lqb import undo`；书目/导入记录 UI 已显示哈希状态、批次 ID 和撤销状态。
+- 说明：实现将 `cli/bank.ts` / `cli/undo.ts` 合并在 `cli/lqb.ts`，未拆分独立文件。
 
 主要文件：
 

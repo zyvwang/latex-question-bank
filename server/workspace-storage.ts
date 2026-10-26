@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type {
   AppState,
+  Bank,
   BankSnapshot,
   WorkspaceSummary
 } from "../shared/types.js";
@@ -269,6 +270,38 @@ export async function ensureWorkspace(
     const bank = options.sample ? createSampleBank() : createEmptyBank();
     await writeJsonFileAtomic(dirs.bankPath, bank, { backup: false });
   }
+  return dirs;
+}
+
+/**
+ * 创建一个带指定初始内容的题库目录。调用方负责在 workspace 写锁内先确认目标不存在，
+ * 避免多个 Agent 请求同时把同一路径当作“新题库”。
+ */
+export async function createWorkspaceWithBank(
+  workspacePath: string,
+  bank: Bank
+): Promise<WorkspaceDirs> {
+  const dirs = getWorkspaceDirs(workspacePath);
+  if (await workspaceExists(dirs.workspaceDir)) {
+    throw new StorageError(
+      "该文件夹已经是题库工作区。请选择其他路径。",
+      "WORKSPACE_ALREADY_EXISTS"
+    );
+  }
+  await mkdir(dirs.workspaceDir, { recursive: true });
+  await Promise.all([
+    assertRealWorkspaceSubdir(dirs.assetDir),
+    assertRealWorkspaceSubdir(dirs.exportDir),
+    assertRealWorkspaceSubdir(dirs.tempDir),
+    assertRealWorkspaceSubdir(dirs.historyDir)
+  ]);
+  await Promise.all([
+    mkdir(dirs.assetDir, { recursive: true }),
+    mkdir(dirs.exportDir, { recursive: true }),
+    mkdir(dirs.tempDir, { recursive: true })
+  ]);
+  resetSessionHistory(dirs.workspaceDir);
+  await writeJsonFileAtomic(dirs.bankPath, bank, { backup: false });
   return dirs;
 }
 

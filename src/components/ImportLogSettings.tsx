@@ -49,7 +49,10 @@ export function ImportLogSettings() {
               <span className={styles.importTime}>
                 {formatTimestamp(batch.createdAt)}
               </span>
-              <strong className={styles.importBooks}>
+              <strong
+                className={styles.importBooks}
+                title={batch.note ?? undefined}
+              >
                 {batch.bookTitles.length
                   ? batch.bookTitles.join("、")
                   : "未登记书目"}
@@ -61,6 +64,7 @@ export function ImportLogSettings() {
               <span className={styles.importStatus}>
                 {STATUS_LABELS[batch.status]}
               </span>
+              <code className={styles.importBatchId}>{batch.id}</code>
               <button
                 className={controls.secondaryAction}
                 onClick={() => void copyBatch(batch.id)}

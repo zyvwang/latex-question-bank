@@ -122,7 +122,9 @@ function BookRow({ book, itemCount }: { book: BookRecord; itemCount: number }) {
       />
       <span className={styles.bookCount}>{itemCount} 题</span>
       <small className={styles.hashState}>
-        {book.fileHash || book.answerBookHash ? "哈希已记录" : "无哈希"}
+        {describeFileState("PDF", book.filePath, book.fileHash)}
+        <br />
+        {describeFileState("答案册", book.answerBookPath, book.answerBookHash)}
       </small>
       <button
         className={`${controls.iconButton} ${controls.danger}`}
@@ -139,4 +141,13 @@ function BookRow({ book, itemCount }: { book: BookRecord; itemCount: number }) {
       </button>
     </div>
   );
+}
+
+function describeFileState(
+  label: string,
+  filePath: string | null,
+  hash: string | null
+): string {
+  if (!filePath) return `${label}：未记录路径`;
+  return `${label}：${hash ? "哈希已记录" : "缺少哈希"}`;
 }

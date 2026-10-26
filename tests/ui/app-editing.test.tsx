@@ -343,6 +343,61 @@ it("protects a book that is still referenced by questions", async () => {
     );
   });
 
+it("clears a book hash when its path changes and protects referenced books", async () => {
+    const hashedBank = createBookLinkedConflictBank();
+    const now = "2026-01-01T00:00:00.000Z";
+    setFixtureBank({
+      ...hashedBank,
+      books: hashedBank.books.map((book) => ({
+        ...book,
+        filePath: "/tmp/old.pdf",
+        fileHash: "a".repeat(64)
+      })),
+      imports: [
+        {
+          id: "book-batch-1",
+          createdAt: now,
+          note: "整书导入",
+          bookTitles: ["测试书"],
+          newCount: 2,
+          updatedCount: 0,
+          skippedCount: 0,
+          conflictCount: 0,
+          itemIds: ["limit", "matrix"],
+          updatedItemIds: [],
+          historySnapshot: "snapshot.json",
+          status: "partial",
+          undoneAt: null
+        }
+      ]
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/2024-1/);
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
+
+    const deleteBook = await screen.findByRole("button", {
+      name: "删除书目 测试书"
+    });
+    expect(deleteBook).toBeDisabled();
+    expect(deleteBook).toHaveAttribute(
+      "title",
+      "仍有 2 道题引用，无法删除"
+    );
+    expect(screen.getByText(/PDF：哈希已记录/)).toBeInTheDocument();
+    expect(screen.getByText("book-batch-1")).toBeInTheDocument();
+    expect(screen.getByText("部分完成")).toBeInTheDocument();
+
+    const pdfPath = screen.getByLabelText("测试书 的 PDF 路径");
+    await user.clear(pdfPath);
+    await user.type(pdfPath, "/tmp/new.pdf");
+    await user.tab();
+    expect(
+      await screen.findByText("书目路径已更新，对应文件哈希已清空。")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/PDF：缺少哈希/)).toBeInTheDocument();
+  });
+
 it("approves a pending item from the metadata panel", async () => {
     const user = userEvent.setup();
     render(<App />);

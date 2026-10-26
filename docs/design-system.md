@@ -52,7 +52,7 @@ No remote font dependency is required.
 - Editor LaTeX previews own their horizontal and vertical scrolling. Trackpad and horizontal-wheel deltas scroll directly, Shift plus a vertical wheel scrolls horizontally, and overflowing content exposes a horizontal scrollbar.
 - Review priority is never encoded by color alone: each segment has a text label and a dot, with 必须看 in coral, 再看看 in amber, 不用看 in muted ink, and 未标记 as an outlined dot. Pending review is always written as「待审阅」.
 - Approving the current filtered set requires a confirmation with the count. Deleting an item keeps the existing ten-second undo. The review page selects the next pending item after approval or deletion and does not alter editor filters.
-- External Agent imports use a fixed banner above the bottom edge when local drafts would be lost. It names the import count, offers “重新加载” and “稍后”, and never silently replaces local edits. Idle apps refresh automatically and show a transient success notice instead.
+- External Agent imports use a fixed banner above the bottom edge when local drafts would be lost. It names the import count, offers “重新加载” and “稍后”, and never silently replaces local edits. Idle apps refresh automatically and show a transient success notice instead; batch undos use the same path and report deleted/restored counts.
 - Interactive targets are at least 40px or use an expanded hit area.
 - Press feedback uses `scale(0.96)` for 120-160ms.
 - Motion is limited to opacity and transform, and is disabled for reduced-motion preferences. Resizing and high-frequency editing feedback do not animate layout properties.

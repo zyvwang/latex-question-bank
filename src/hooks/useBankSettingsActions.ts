@@ -210,28 +210,38 @@ export function useBankSettingsActions({
     patch: Pick<BookRecord, "filePath" | "answerBookPath">
   ) => {
     if (!bank) return;
+    const book = bank.books.find((candidate) => candidate.id === id);
+    if (!book) return;
+    const nextFilePath = patch.filePath?.trim() || null;
+    const nextAnswerBookPath = patch.answerBookPath?.trim() || null;
+    const fileChanged = nextFilePath !== book.filePath;
+    const answerBookChanged = nextAnswerBookPath !== book.answerBookPath;
+    if (!fileChanged && !answerBookChanged) return;
+    const clearedHash =
+      (fileChanged && Boolean(book.fileHash)) ||
+      (answerBookChanged && Boolean(book.answerBookHash));
     const now = new Date().toISOString();
     updateBank((current) => ({
       ...current,
-      books: current.books.map((book) => {
-        if (book.id !== id) return book;
-        const nextFilePath = patch.filePath?.trim() || null;
-        const nextAnswerBookPath = patch.answerBookPath?.trim() || null;
+      books: current.books.map((candidate) => {
+        if (candidate.id !== id) return candidate;
         return {
-          ...book,
+          ...candidate,
           filePath: nextFilePath,
-          fileHash:
-            nextFilePath === book.filePath ? book.fileHash : null,
+          fileHash: fileChanged ? null : candidate.fileHash,
           answerBookPath: nextAnswerBookPath,
-          answerBookHash:
-            nextAnswerBookPath === book.answerBookPath
-              ? book.answerBookHash
-              : null,
+          answerBookHash: answerBookChanged ? null : candidate.answerBookHash,
           updatedAt: now
         };
       })
     }));
-  }, [bank, updateBank]);
+    setNotice({
+      type: "ok",
+      text: clearedHash
+        ? "书目路径已更新，对应文件哈希已清空。"
+        : "书目路径已更新。"
+    });
+  }, [bank, setNotice, updateBank]);
 
   const deleteBook = useCallback((id: string) => {
     if (!bank) return;

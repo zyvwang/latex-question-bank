@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { AgentImportCounts } from "../../shared/agent-manifest.js";
+import type { AgentUndoCounts } from "../../shared/agent-undo.js";
 import type { BankSnapshot } from "../../shared/types.js";
 import { fetchBank } from "../api/client.js";
 import type {
@@ -23,7 +24,9 @@ interface ExternalBankSyncOptions {
 interface BankChangedEvent {
   workspacePath: string;
   revision: string;
+  source?: "agent-import" | "agent-undo";
   counts?: AgentImportCounts;
+  undoCounts?: AgentUndoCounts;
 }
 
 export function useExternalBankSync(options: ExternalBankSyncOptions): void {
@@ -66,13 +69,18 @@ export function useExternalBankSync(options: ExternalBankSyncOptions): void {
           latest.current.setExternalBankNotice(null);
           latest.current.showNotice({
             type: "ok",
-            text: payload.counts
-              ? payload.counts.created
-                ? `已导入 ${payload.counts.created} 道题。`
-                : payload.counts.updated
-                  ? `已更新 ${payload.counts.updated} 道题。`
+            text:
+              payload.source === "agent-undo" && payload.undoCounts
+                ? payload.undoCounts.deleted
+                  ? `已撤销导入批次：删除 ${payload.undoCounts.deleted} 道，恢复 ${payload.undoCounts.restored} 道。`
+                  : `已撤销导入批次：恢复 ${payload.undoCounts.restored} 道。`
+                : payload.counts
+                  ? payload.counts.created
+                    ? `已导入 ${payload.counts.created} 道题。`
+                    : payload.counts.updated
+                      ? `已更新 ${payload.counts.updated} 道题。`
+                      : "题库已在外部更新。"
                   : "题库已在外部更新。"
-              : "题库已在外部更新。"
           });
         })
         .catch((error) => {
