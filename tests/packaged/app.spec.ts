@@ -1,4 +1,5 @@
 import { validPng } from "../fixtures/images.js";
+import { closeDesktopApp } from "../fixtures/desktop-app.js";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -78,8 +79,9 @@ test("packaged application loads bundled resources and persists edits through qu
     }
     throw error;
   } finally {
-    if (app) await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+    // Windows 会锁住作为进程 cwd 的临时目录，直到进程真正退出；先等退出再删。
+    if (app) await closeDesktopApp(app);
     await testInfo.attach("application-log", { body: logs.join(""), contentType: "text/plain" });
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
   }
 });
