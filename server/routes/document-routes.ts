@@ -23,6 +23,7 @@ import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     callback(null, ["image/png", "image/jpeg"].includes(file.mimetype));

@@ -23,6 +23,7 @@ import { switchWorkspace } from "../workspace-storage.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  defParamCharset: "utf8",
   limits: {
     fileSize: 15 * 1024 * 1024,
     files: 40,

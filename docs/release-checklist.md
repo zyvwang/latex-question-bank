@@ -59,6 +59,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - chunked imports with one `--batch-id` merge into a single import record; `lqb import undo <batchId>` removes only pending, unedited items, restores overwritten items, keeps approved/edited items, and reports missing snapshots with exit code 6
    - book path edits clear the matching hash with a visible notice; referenced books cannot be deleted; the import log shows batch IDs and undone status
    - screenshot assets are validated, written under `assets/`, substituted from `{{asset:key}}`, and content-hashed
+   - image uploads preserve UTF-8 original filenames in the attachment row and preview dialog
    - an attachment with no `{{asset:key}}` reference is still stored and shown in the details thumbnail row; the preview dialog traps focus and closes with Escape
    - variant imports require an existing `variantOf`; the sidebar shows a 变式 badge, the details row links to the original, and a deleted original shows 原题已删除
    - `npm run screenshots:readme` regenerates `main.png`, `review.png`, and `settings.png` at 1470×891 from synthetic data, and all three are inspected

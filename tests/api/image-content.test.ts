@@ -31,6 +31,17 @@ it("accepts complete transparent PNG and baseline/progressive JPEG without rewri
   }
 });
 
+it("preserves UTF-8 upload filenames", async () => {
+  const app = await setup();
+  const originalName = "李正元 例4.35 扫描页.png";
+  const response = await request(app)
+    .post("/api/assets")
+    .field("workspacePath", workspacePath)
+    .attach("file", validPng, { filename: originalName, contentType: "image/png" })
+    .expect(200);
+  expect(response.body.asset.originalName).toBe(originalName);
+});
+
 it("rejects header-only, truncated, and damaged pixel data without writing assets", async () => {
   const app = await setup();
   const jpeg = await sharp(validPng).jpeg().toBuffer();

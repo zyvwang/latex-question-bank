@@ -193,6 +193,29 @@ describe("agent import API", () => {
     expect(rejected.body.code).toBe("AGENT_MANIFEST_INVALID");
   });
 
+  it("preserves UTF-8 attachment filenames", async () => {
+    const app = await setup();
+    const originalName = "李正元 例4.35 扫描页.png";
+    const manifest = validManifest();
+    manifest.assets = [{ key: "stem", originalName }];
+    manifest.questions[0].assets = ["stem"];
+    const response = await postImport(app, manifest, {
+      assets: [
+        {
+          filename: originalName,
+          contentType: "image/png",
+          buffer: validPng
+        }
+      ]
+    });
+    expect(response.status).toBe(200);
+    const { bank } = await getBank(app);
+    const item = bank.items.find(
+      (candidate) => candidate.source?.label === "例 3.58"
+    );
+    expect(item?.assets[0].originalName).toBe(originalName);
+  });
+
   it("keeps screenshot attachments that are not referenced by TeX", async () => {
     const app = await setup();
     const manifest = validManifest();
