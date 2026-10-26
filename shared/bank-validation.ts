@@ -520,9 +520,6 @@ function parseQuestionModule(
   if (typeof tex !== "string") {
     throw new ValidationError(`题目 ${kind} 模块 tex 必须是字符串。`);
   }
-  if (kind === "question" && !tex.trim()) {
-    throw new ValidationError("题目 question 模块不能为空。");
-  }
   return { tex };
 }
 

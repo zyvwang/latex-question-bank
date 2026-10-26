@@ -67,6 +67,21 @@ describe("shared validation", () => {
     expect(validateBankPayload(bank).ok).toBe(true);
     expect(validateBankPayload(bank).value?.version).toBe(3);
     expect(
+      validateBankPayload({
+        ...bank,
+        items: [
+          {
+            ...item,
+            modules: {
+              question: { tex: "" },
+              solution: { tex: "" },
+              note: { tex: "" }
+            }
+          }
+        ]
+      }).ok
+    ).toBe(true);
+    expect(
       validateSaveBankRequest({
         workspacePath: "/tmp/bank",
         baseRevision: "a".repeat(64),

@@ -1,5 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { normalizeSourceLabel } from "../../shared/question-source.js";
+import { Link2 } from "lucide-react";
+import {
+  questionSourceDisplay,
+  normalizeSourceLabel
+} from "../../shared/question-source.js";
 import {
   REVIEW_PRIORITY_LABELS,
   REVIEW_PRIORITY_ORDER,
@@ -7,12 +11,14 @@ import {
 } from "../../shared/review-fields.js";
 import type { ReviewPriority } from "../../shared/types.js";
 import {
+  useAppView,
   useBankSettings,
   useLifecycle,
   useQuestions,
   useSelection
 } from "../context/questionBankContexts.js";
 import { ChapterCombobox } from "./ChapterCombobox.js";
+import { QuestionAssets } from "./QuestionAssets.js";
 import { TagEditor } from "./TagEditor.js";
 import styles from "./WorkspaceView.module.css";
 
@@ -34,7 +40,73 @@ export function WorkspaceDetails() {
         <ReviewPriorityField />
         <ReviewStatusField />
       </div>
+      <ContextRow />
     </section>
+  );
+}
+
+function ContextRow() {
+  const questions = useQuestions();
+  const item = questions.activeItem;
+  if (!item || (!item.variantOf && item.assets.length === 0)) return null;
+  return (
+    <div className={styles.contextRow}>
+      <VariantField />
+      <QuestionAssets assets={item.assets} itemId={item.id} />
+    </div>
+  );
+}
+
+function VariantField() {
+  const questions = useQuestions();
+  const selection = useSelection();
+  const appView = useAppView();
+  const item = questions.activeItem;
+  if (!item?.variantOf) return null;
+  const original =
+    questions.bank?.items.find(
+      (candidate) => candidate.id === item.variantOf
+    ) ?? null;
+  if (!original) {
+    return (
+      <div className={styles.contextField} aria-label="变式原题">
+        <span>变式原题</span>
+        <strong className={styles.variantMissing}>原题已删除</strong>
+      </div>
+    );
+  }
+  const display = questionSourceDisplay(
+    original,
+    questions.bank?.books ?? []
+  );
+  const originalId = original.id;
+  const originalIsPending = original.reviewStatus === "pending";
+
+  function openOriginal() {
+    questions.setActiveId(originalId);
+    const originalVisibleInReview =
+      originalIsPending &&
+      selection.filteredItems.some(
+        (candidate) => candidate.id === originalId
+      );
+    if (appView.activeView === "review" && !originalVisibleInReview) {
+      appView.setActiveView("editor");
+    }
+  }
+
+  return (
+    <div className={styles.contextField} aria-label="变式原题">
+      <span>变式原题</span>
+      <button
+        type="button"
+        className={styles.variantLink}
+        onClick={openOriginal}
+        title={`跳转到 ${display}`}
+      >
+        <Link2 size={14} />
+        {display}
+      </button>
+    </div>
   );
 }
 

@@ -7,14 +7,15 @@ LaTeX 题库的外部 Agent 工作流是**本地优先**的：Agent 读取本机
 - 指定例题/习题导入到现有题库；
 - 整本书导入，默认新建以书名为名的题库；
 - 分块导入共用 `--batch-id`，整批撤销；
-- 截图作为附件导入；
+- 截图作为附件导入，详情区显示缩略图；
 - Agent 生成或从答案册提取解析；
+- 变式题通过 `variantOf` 关联原题，详情区可跳转；
 - 导入题自动「待审阅」；
 - 独立「待审阅」页批准、编辑、删除和批量批准；
 - 外部导入和撤销时应用自动刷新，编辑中显示提示横幅；
 - 书目路径、答案册和哈希元数据的设置页管理。
 
-变式题关联在后续阶段实现。
+截图、变式和整书导入共用同一套清单与审阅流程。
 
 ## 安装与连接
 
@@ -141,6 +142,75 @@ lqb import --file book-2.json --batch-id whole-book --json
 ```
 
 后续块不要再写 `bank`/`chapters`，否则会被拒绝。如果用户不想切换，先运行 `lqb bank create --name "B 书" --json`，让用户在应用中打开后再逐块导入。也可以先 `lqb bank create --switch` 创建空题库，再导入第一块。
+
+## 截图导入
+
+截图作为普通附件上传。清单在顶层 `assets` 声明 key、原始文件名和相对图片路径，题目用 `assets: ["key"]` 关联：
+
+```json
+{
+  "schemaVersion": 1,
+  "batch": { "note": "截图导入", "agent": "qoder" },
+  "assets": [
+    {
+      "key": "stem",
+      "originalName": "截图 2026-10-26.png",
+      "filePath": "images/screenshot.png"
+    }
+  ],
+  "questions": [
+    {
+      "source": { "label": "截图 2026-10-26" },
+      "reviewPriority": "must",
+      "modules": {
+        "question": {
+          "tex": "根据截图求极限。\n\\begin{center}\n\\includegraphics[width=0.75\\linewidth]{{{asset:stem}}}\n\\end{center}"
+        },
+        "solution": { "tex": "" }
+      },
+      "solutionSource": "none",
+      "assets": ["stem"]
+    }
+  ]
+}
+```
+
+- `{{asset:key}}` 会替换成最终的 `assets/<file>` 路径；同一 TeX 可以多次引用同一个 key。
+- 如果截图只是来源记录、不需要显示在题面中，可以只在 `assets` 数组里关联，不写占位符；附件仍会保存在题库中。
+- 图片支持 PNG/JPEG，必须通过扩展名、MIME、文件签名和尺寸校验；单图 15 MiB、25 MP，单次最多 40 个附件。
+- 有可见题号时用 `source.label`；没有时使用「截图 + 日期」或简短摘要。
+- Agent 从截图读取答案时用 `solutionSource: "answer-book"`；模型生成用 `"agent"`；没有答案用 `"none"`。
+- 详情区的附件缩略图可以放大查看；缩略图不替代题面中的 `\includegraphics`。
+
+## 变式题
+
+变式题独立导入，不复用原题记录。用 `variantOf` 指向当前题库已有题目 ID：
+
+```json
+{
+  "schemaVersion": 1,
+  "batch": { "note": "变式：洛必达法则", "agent": "qoder" },
+  "books": [{ "title": "A 书" }],
+  "questions": [
+    {
+      "source": { "bookTitle": "A 书", "label": "变式 1" },
+      "tags": ["洛必达", "变式"],
+      "modules": {
+        "question": { "tex": "更换参数后的变式题面。" },
+        "solution": { "tex": "变式解析。" }
+      },
+      "solutionSource": "agent",
+      "variantOf": "原题 ID"
+    }
+  ]
+}
+```
+
+- 先通过 `lqb get <id>` 或 `lqb search` 取得原题 ID。
+- `variantOf` 必须指向当前题库已有题目；同一清单内新题之间不能互相引用，需要分两次导入。
+- 变式默认 `pending`、复习优先级未标记、`solutionSource: "agent"`。
+- 单题来源时设置 `variantOf`；按章节/考点批量生成时可以设为 `null`，用标签表达考点和考法。
+- 应用侧栏显示「变式」徽标；题目详情区显示原题来源链接，原题已删除时显示「原题已删除」。
 
 ## 撤销批次
 

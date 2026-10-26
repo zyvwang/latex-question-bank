@@ -1,6 +1,6 @@
 # Agent 导入与审阅优先级实施计划
 
-- 状态：Phase A+B+C 已实施（2026-10-26）；Phase D 待实施
+- 状态：Phase A+B+C+D 已实施（2026-10-26）
 - 日期：2026-10-25
 - 分支：feat/ui-layout-polish
 - 范围：第 1 部分「移除掌握程度/错误原因/热力图，新增复习优先级」；第 2 部分「外部 Agent 通过本地 CLI/API 导入题目并审阅」
@@ -919,6 +919,16 @@ export interface AgentImportQuestion {
 - 变式题有「变式」徽标和原题链接；原题删除后显示「原题已删除」。
 - `npm run screenshots:readme` 重新生成三张 1470×891 截图（主界面 + 审阅页 + 设置/书目，具体第三张在实施时按内容定），实际检查无回归。
 - `npm run verify`、`npm run test:desktop` 通过；文档无热力图/掌握历史残留。
+
+实施情况（2026-10-26）：
+
+- 详情区新增附件缩略图行和 focus-trapped 放大预览；没有 TeX 引用的附件也会展示。
+- 变式题在侧栏保留「变式」徽标；详情区显示原题来源链接，原题不存在时显示「原题已删除」，必要时从审阅页返回编辑页。
+- `capture-readme-screenshots.ts` 生成 `main.png`、`review.png`、`settings.png` 三张 1470×891 合成截图；审阅页含变式链接和截图附件，设置页含书目和导入记录。
+- Agent 文档补齐 `{{asset:key}}`、无占位符截图附件、变式清单和 `variantOf` 规则。
+- 验证：`npm run verify` 通过；桌面测试 18/18 通过；侧栏基准结果记录在 `docs/performance-baseline.md`。
+- 安全审计：`npm audit fix` 更新兼容依赖，Vitest/coverage 升到 5 后 `npm run audit:security` 为 0 漏洞。
+- 修复了空题目模块无法保存的问题：持久化校验允许空 `question/solution/note` 字符串，Agent manifest 仍拒绝空题面。
 
 ## 11. 测试计划
 

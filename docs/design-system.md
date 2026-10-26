@@ -32,6 +32,7 @@ No remote font dependency is required.
 - Wide desktop: the question navigation defaults to 288px, can be resized from 240px to 360px, and can collapse to a 48px rail. Workspace lifecycle controls live on the Bank Settings page rather than in the editor sidebar.
 - The active module gives source code about 55% of the editor width and preview about 45%. The separator keeps both panes usable, with a 35% to 65% source-width range and pixel minimums before the layout stacks.
 - The metadata panel keeps source (book + label), chapter, tags, review priority, pending status, and answer source visible without a collapsible “题目属性” drawer. Book and path management lives in Bank Settings; the read-only import log sits below it.
+- A secondary context row appears only when needed: variants show their original question source as a link (or “原题已删除”), and attached screenshots render as compact expandable thumbnails. Attachments remain visible even when no TeX module references them; the preview is a focus-trapped dialog, not a replacement for embedded `\includegraphics`.
 - Medium desktop: editor and preview stack vertically; metadata uses two columns.
 - Below 760px: navigation and workspace become a single column with a horizontal question strip.
 - The workspace uses focused editing with one active module at a time. Question, solution, and note switch through tabs, and the preview follows the active module.

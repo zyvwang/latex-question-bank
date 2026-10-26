@@ -65,6 +65,7 @@ React UI
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
 - `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览；变式原题链接在 `WorkspaceDetails.tsx` 的上下文行。
 - `src/hooks/useExternalBankSync.ts`：SSE 外部导入/撤销同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
 - `src/styles/controls.module.css`：共享按钮样式。
@@ -86,7 +87,7 @@ React UI
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
 - `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉、发布约定。改相关领域时同步更新。
 - `docs/agent-workflow.md`：Agent 安装、`lqb` 命令、清单、审阅和安全边界。
-- `docs/agent-workflow-plan.md`：外部 Agent 导入与审阅优先级的完整设计/实施计划。Phase A+B+C 已实施（2026-10-26）；D 按计划推进。
+- `docs/agent-workflow-plan.md`：外部 Agent 导入与审阅优先级的完整设计/实施计划。Phase A+B+C+D 已实施（2026-10-26）。
 
 避免手动编辑或提交生成目录：`node_modules/`、`build/`、`dist/`、`coverage/`、`release/`、`.tmp/`、`.app-data/`、`test-results/`、`public/vendor/`。`public/vendor/mathjax/` 由 `scripts/copy-mathjax.mjs` 在安装后复制生成。
 
@@ -163,9 +164,9 @@ Agent 导入边界：
 ### README 截图约定
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
-- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换 `docs/screenshots/main.png`；`setup.png` 只在首次启动界面变化时更新。
-- `main.png` 固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度。热力图和掌握历史已移除，不再生成对应截图；独立审阅页截图在后续阶段加入。
-- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查 `main.png`。除非用户明确修改截图方向，不要改回低密度两题样例。
+- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
+- `main.png`、`review.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；设置页展示书目与导入记录。热力图和掌握历史已移除，不再生成对应截图。
+- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定
 

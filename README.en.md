@@ -36,9 +36,10 @@ The application interface currently uses Simplified Chinese. This README provide
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, books, source labels, and multiple tags.
 - Mark each item with a review priority (skip / review again / must review).
-- Let an external agent import selected examples, exercises, screenshots, or a whole book into a new bank through the local `lqb` CLI; imported items enter pending review automatically.
+- Let an external agent import selected examples, exercises, screenshots, or variants through the local `lqb` CLI, or import a whole book into a new bank; imported items enter pending review automatically.
 - Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
 - Undo an agent import batch; approved or manually edited items are kept.
+- Variant questions link back to their original; screenshot attachments appear as expandable thumbnails in the details row.
 - Combine keyword, chapter, book, tag, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
 - Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
@@ -130,7 +131,11 @@ lqb import undo whole-book --json
 
 Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports and undos automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
 
-This version supports selected examples/exercises, screenshots, whole-book imports, new-bank creation, and batch undo. Variant relationships arrive in a later phase. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+![Review page with a variant link and screenshot attachment](docs/screenshots/review.png)
+
+![Books and import history in Bank Settings](docs/screenshots/settings.png)
+
+This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, and batch undo. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
 

@@ -60,6 +60,14 @@ lqb import --file manifest.json --json
 4. 如果不想自动切换，用 \`lqb bank create --name "B 书" --json\` 先建题库，再请用户在应用中打开，然后逐块导入。
 5. 一道编号题一条记录，章节只到顶级目录，小问留在 LaTeX；整书导入的题默认待审阅、优先级未标记。
 
+## 截图导入
+
+截图用顶层 \`assets\` 声明 key、\`originalName\` 和 \`filePath\`，题目用 \`assets: ["key"]\` 关联。需要显示在题面时，在 TeX 中使用 \`{{asset:key}}\`；只作为来源记录时可以只在 \`assets\` 中关联。图片支持 PNG/JPEG，详情区会显示可放大的缩略图。没有可见题号时用「截图 + 日期」作为 \`source.label\`。
+
+## 变式题
+
+变式独立导入，用 \`variantOf\` 指向当前题库已有题目 ID（先 \`lqb get <id>\`）。变式默认待审阅、优先级未标记、\`solutionSource: "agent"\`。同一清单内新题之间不能互相引用；按考点批量生成时可以不设 \`variantOf\`，用标签表达考点/考法。应用侧栏显示「变式」徽标，详情区可跳转原题；原题删除后显示「原题已删除」。
+
 ## 撤销导入批次
 
 \`\`\`bash
@@ -122,6 +130,20 @@ Use this skill when the user wants to add questions, wrong-problem notes, whole 
 4. Import chunks of about 50 questions with the same \`--batch-id\`. Use \`--create-bank --switch\` on the first chunk when the user agrees to switch, then import later chunks normally.
 5. If the user does not want to switch, run \`lqb bank create --name ...\` first and ask the user to open it before importing chunks.
 6. Imported questions are pending review with no review priority. Report the book, chapter count, question count, pending count, and batch ID.
+
+## Screenshots
+
+1. Declare each image in top-level \`assets\` with a key, original name, and relative file path, then reference it from the question's \`assets\` array.
+2. Use \`{{asset:key}}\` in the TeX when the image should appear in the question; attach it without a placeholder when it is only source evidence.
+3. Use a visible number for \`source.label\`, or a date-based label such as \`截图 2026-10-26\`.
+4. Screenshots are stored under \`assets/\` and shown as expandable thumbnails in the app.
+
+## Variants
+
+- Import variants as separate questions. Set \`variantOf\` to an existing question ID from the same bank (\`lqb get <id>\`).
+- Variants default to pending review, no review priority, and \`solutionSource: "agent"\`.
+- A new question cannot reference another new question in the same manifest; split those imports.
+- For topic-based variant sets, omit \`variantOf\` and express the topic with tags.
 
 ## Undo
 
