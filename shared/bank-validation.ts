@@ -1,23 +1,36 @@
-import { migrateLegacyBank } from "./bank-migration.js";
+import { migrateLegacyBank, migrateV2Bank } from "./bank-migration.js";
 import { normalizeChapterItemOrders } from "./chapter-order.js";
+import { hasUniqueNormalizedNames } from "./names.js";
 import {
-  hasUniqueNormalizedNames,
-  isHexColor,
-  MAX_MASTERY_HISTORY_ENTRIES,
-  normalizeReviewOptionOrder
-} from "./review-options.js";
+  normalizeSourceLabel,
+  sourceKey
+} from "./question-source.js";
+import {
+  isReservedTag,
+  isReviewPriority,
+  isReviewStatus,
+  isSolutionSource
+} from "./review-fields.js";
 import type {
   Bank,
+  BookRecord,
   Chapter,
+  ImportBatchRecord,
   LatexSettings,
   LegacyBank,
+  LegacyBankV2,
+  LegacyMasteryHistoryEntry,
   LegacyQuestionItem,
-  MasteryHistoryEntry,
+  LegacyQuestionItemV2,
+  LegacyReviewOption,
   ModuleKind,
   QuestionAsset,
   QuestionItem,
-  ReviewOption,
+  QuestionSource,
   ReviewPattern,
+  ReviewPriority,
+  ReviewStatus,
+  SolutionSource
 } from "./types.js";
 import {
   getOptionalStringField,
@@ -36,6 +49,9 @@ import {
   type ValidationResult
 } from "./validation-primitives.js";
 
+const MAX_LEGACY_MASTERY_HISTORY_ENTRIES = 5;
+const MAX_IMPORT_BATCHES = 50;
+
 export function validateBankPayload(value: unknown): ValidationResult<Bank> {
   try {
     return { ok: true, value: parseStoredBank(value) };
@@ -45,14 +61,81 @@ export function validateBankPayload(value: unknown): ValidationResult<Bank> {
   }
 }
 
-function parseStoredBank(value: unknown): Bank {
+export function parseStoredBank(value: unknown): Bank {
   if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
   if (value.version === 1) return migrateLegacyBank(parseLegacyBank(value));
-  if (value.version === 2) return parseV2Bank(value);
-  throw new ValidationError("题库版本必须为 1 或 2。");
+  if (value.version === 2) return migrateV2Bank(parseV2Bank(value));
+  if (value.version === 3) return parseV3Bank(value);
+  throw new ValidationError("题库版本必须为 1、2 或 3。");
 }
 
-export function parseV2Bank(value: unknown): Bank {
+export function parseV3Bank(value: unknown): Bank {
+  if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
+  if (value.version !== 3) throw new ValidationError("保存的题库版本必须为 3。");
+  if (!Array.isArray(value.chapters)) {
+    throw new ValidationError("题库 chapters 必须是数组。");
+  }
+  if (!Array.isArray(value.books)) {
+    throw new ValidationError("题库 books 必须是数组。");
+  }
+  if (!Array.isArray(value.imports)) {
+    throw new ValidationError("题库 imports 必须是数组。");
+  }
+  if (!Array.isArray(value.items)) throw new ValidationError("题库 items 必须是数组。");
+
+  const chapters = normalizeChapters(value.chapters.map(parseChapter));
+  const books = value.books.map(parseBookRecord);
+  const imports = value.imports.map(parseImportBatchRecord);
+  assertUniqueIds(chapters, "章节");
+  assertUniqueIds(books, "书目");
+  assertUniqueIds(imports, "导入批次");
+  if (!hasUniqueNormalizedNames(chapters)) {
+    throw new ValidationError("章节名称必须唯一且不能为空。");
+  }
+  if (!hasUniqueNormalizedNames(books.map((book) => ({ name: book.title })))) {
+    throw new ValidationError("书目名称必须唯一且不能为空。");
+  }
+  if (imports.length > MAX_IMPORT_BATCHES) {
+    throw new ValidationError(`导入记录最多保留 ${MAX_IMPORT_BATCHES} 条。`);
+  }
+
+  const chapterIds = new Set(chapters.map((chapter) => chapter.id));
+  const bookIds = new Set(books.map((book) => book.id));
+  const items = value.items.map(parseQuestionItem);
+  assertUniqueIds(items, "题目");
+  const sourceKeys = new Map<string, QuestionItem>();
+  for (const item of items) {
+    if (item.chapterId !== null && !chapterIds.has(item.chapterId)) {
+      throw new ValidationError(`题目引用了不存在的章节：${item.chapterId}`);
+    }
+    if (item.source?.bookId && !bookIds.has(item.source.bookId)) {
+      throw new ValidationError(`题目引用了不存在的书目：${item.source.bookId}`);
+    }
+    const key = item.source
+      ? sourceKey(item.source.bookId, item.source.label)
+      : null;
+    if (key) {
+      const existing = sourceKeys.get(key);
+      if (existing) {
+        throw new ValidationError(
+          `同一本书的题号重复：${item.source?.label ?? ""}`
+        );
+      }
+      sourceKeys.set(key, item);
+    }
+  }
+
+  return {
+    version: 3,
+    settings: parseLatexSettings(value.settings),
+    chapters,
+    books,
+    imports,
+    items: normalizeChapterItemOrders(items)
+  };
+}
+
+export function parseV2Bank(value: unknown): LegacyBankV2 {
   if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
   if (value.version !== 2) throw new ValidationError("保存的题库版本必须为 2。");
   if (!Array.isArray(value.chapters)) {
@@ -70,11 +153,11 @@ export function parseV2Bank(value: unknown): Bank {
   if (!Array.isArray(value.items)) throw new ValidationError("题库 items 必须是数组。");
 
   const chapters = normalizeChapters(value.chapters.map(parseChapter));
-  const masteryOptions = normalizeReviewOptionOrder(
-    value.masteryOptions.map((option) => parseReviewOption(option, "掌握程度"))
+  const masteryOptions = normalizeLegacyOptionOrder(
+    value.masteryOptions.map((option) => parseLegacyReviewOption(option, "掌握程度"))
   );
-  const errorReasonOptions = normalizeReviewOptionOrder(
-    value.errorReasonOptions.map((option) => parseReviewOption(option, "错误原因"))
+  const errorReasonOptions = normalizeLegacyOptionOrder(
+    value.errorReasonOptions.map((option) => parseLegacyReviewOption(option, "错误原因"))
   );
   assertUniqueIds(chapters, "章节");
   assertUniqueIds(masteryOptions, "掌握程度选项");
@@ -94,7 +177,7 @@ export function parseV2Bank(value: unknown): Bank {
   const errorReasonOptionIds = new Set(
     errorReasonOptions.map((option) => option.id)
   );
-  const items = value.items.map(parseQuestionItem);
+  const items = value.items.map(parseLegacyQuestionItemV2);
   assertUniqueIds(items, "题目");
   for (const item of items) {
     if (item.chapterId !== null && !chapterIds.has(item.chapterId)) {
@@ -115,10 +198,10 @@ export function parseV2Bank(value: unknown): Bank {
     }
   }
 
-  if (value.masteryHistory.length > MAX_MASTERY_HISTORY_ENTRIES) {
+  if (value.masteryHistory.length > MAX_LEGACY_MASTERY_HISTORY_ENTRIES) {
     throw new ValidationError("掌握历史最多保留五份。");
   }
-  const masteryHistory = value.masteryHistory.map(parseMasteryHistoryEntry);
+  const masteryHistory = value.masteryHistory.map(parseLegacyMasteryHistoryEntry);
   assertUniqueIds(masteryHistory, "掌握历史");
   if (!hasUniqueNormalizedNames(masteryHistory)) {
     throw new ValidationError("掌握历史名称必须唯一且不能为空。");
@@ -138,7 +221,7 @@ export function parseV2Bank(value: unknown): Bank {
     masteryOptions,
     errorReasonOptions,
     masteryHistory,
-    items: normalizeChapterItemOrders(items)
+    items
   };
 }
 
@@ -172,6 +255,28 @@ function parseLegacyQuestionItem(value: unknown): LegacyQuestionItem {
   };
 }
 
+function parseLegacyQuestionItemV2(value: unknown): LegacyQuestionItemV2 {
+  if (!isRecord(value)) throw new ValidationError("题目必须是对象。");
+  const sourceNumber = getOptionalStringField(value, "sourceNumber");
+  if (sourceNumber instanceof ValidationError) throw sourceNumber;
+  return {
+    id: requiredNonEmptyString(value, "id"),
+    sourceNumber,
+    chapterId: nullableId(value.chapterId, "chapterId"),
+    chapterOrder: requiredPositiveInteger(value, "chapterOrder"),
+    tags: parseStringArray(value.tags, "tags"),
+    masteryOptionId: nullableId(value.masteryOptionId, "masteryOptionId"),
+    errorReasonOptionIds: parseStringArray(
+      value.errorReasonOptionIds,
+      "errorReasonOptionIds"
+    ),
+    modules: parseModules(value),
+    assets: parseAssets(value.assets),
+    createdAt: requiredString(value, "createdAt"),
+    updatedAt: requiredString(value, "updatedAt")
+  };
+}
+
 function parseChapter(value: unknown): Chapter {
   if (!isRecord(value)) throw new ValidationError("章节必须是对象。");
   return {
@@ -181,10 +286,50 @@ function parseChapter(value: unknown): Chapter {
   };
 }
 
-function parseReviewOption(value: unknown, label: string): ReviewOption {
+function parseBookRecord(value: unknown): BookRecord {
+  if (!isRecord(value)) throw new ValidationError("书目必须是对象。");
+  return {
+    id: requiredNonEmptyString(value, "id"),
+    title: requiredNonEmptyString(value, "title").normalize("NFKC"),
+    filePath: optionalStringField(value, "filePath"),
+    fileHash: optionalHashField(value, "fileHash"),
+    answerBookPath: optionalStringField(value, "answerBookPath"),
+    answerBookHash: optionalHashField(value, "answerBookHash"),
+    createdAt: requiredString(value, "createdAt"),
+    updatedAt: requiredString(value, "updatedAt")
+  };
+}
+
+function parseImportBatchRecord(value: unknown): ImportBatchRecord {
+  if (!isRecord(value)) throw new ValidationError("导入记录必须是对象。");
+  const status = value.status;
+  if (status !== "completed" && status !== "partial" && status !== "undone") {
+    throw new ValidationError("导入记录状态无效。");
+  }
+  return {
+    id: requiredNonEmptyString(value, "id"),
+    createdAt: requiredString(value, "createdAt"),
+    note: optionalStringField(value, "note"),
+    bookTitles: parseStringArray(value.bookTitles, "bookTitles"),
+    newCount: requiredNonNegativeInteger(value, "newCount"),
+    updatedCount: requiredNonNegativeInteger(value, "updatedCount"),
+    skippedCount: requiredNonNegativeInteger(value, "skippedCount"),
+    conflictCount: requiredNonNegativeInteger(value, "conflictCount"),
+    itemIds: parseStringArray(value.itemIds, "itemIds"),
+    updatedItemIds: parseStringArray(value.updatedItemIds, "updatedItemIds"),
+    historySnapshot: optionalHistorySnapshot(value, "historySnapshot"),
+    status,
+    undoneAt: optionalStringField(value, "undoneAt")
+  };
+}
+
+function parseLegacyReviewOption(
+  value: unknown,
+  label: string
+): LegacyReviewOption {
   if (!isRecord(value)) throw new ValidationError(`${label}选项必须是对象。`);
   const color = requiredString(value, "color").toUpperCase();
-  if (!isHexColor(color)) {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
     throw new ValidationError(`${label}颜色必须使用 #RRGGBB 格式。`);
   }
   return {
@@ -210,25 +355,19 @@ function parseReviewPattern(value: unknown): ReviewPattern {
 
 export function parseQuestionItem(value: unknown): QuestionItem {
   if (!isRecord(value)) throw new ValidationError("题目必须是对象。");
-  const sourceNumber = getOptionalStringField(value, "sourceNumber");
-  if (sourceNumber instanceof ValidationError) throw sourceNumber;
-  const chapterId = nullableId(value.chapterId, "chapterId");
-  const masteryOptionId = nullableId(value.masteryOptionId, "masteryOptionId");
-  const errorReasonOptionIds = parseStringArray(
-    value.errorReasonOptionIds,
-    "errorReasonOptionIds"
-  );
-  if (new Set(errorReasonOptionIds).size !== errorReasonOptionIds.length) {
-    throw new ValidationError("errorReasonOptionIds 不得重复。");
-  }
   return {
     id: requiredNonEmptyString(value, "id"),
-    sourceNumber,
-    chapterId,
+    source: parseQuestionSource(value.source),
+    chapterId: nullableId(value.chapterId, "chapterId"),
     chapterOrder: requiredPositiveInteger(value, "chapterOrder"),
-    tags: parseStringArray(value.tags, "tags"),
-    masteryOptionId,
-    errorReasonOptionIds,
+    tags: parseTags(value.tags),
+    reviewPriority: parseReviewPriority(value.reviewPriority),
+    reviewStatus: parseReviewStatus(value.reviewStatus),
+    solutionSource: parseSolutionSource(value.solutionSource),
+    solutionRef: optionalStringField(value, "solutionRef"),
+    variantOf: optionalIdField(value, "variantOf"),
+    importBatchId: optionalIdField(value, "importBatchId"),
+    importedAt: optionalStringField(value, "importedAt"),
     modules: parseModules(value),
     assets: parseAssets(value.assets),
     createdAt: requiredString(value, "createdAt"),
@@ -236,7 +375,51 @@ export function parseQuestionItem(value: unknown): QuestionItem {
   };
 }
 
-function parseMasteryHistoryEntry(value: unknown): MasteryHistoryEntry {
+function parseQuestionSource(value: unknown): QuestionSource | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw new ValidationError("题目来源必须是对象或 null。");
+  const label = normalizeSourceLabel(requiredNonEmptyString(value, "label"));
+  if (!label) throw new ValidationError("题目来源题号不能为空。");
+  return {
+    bookId: optionalIdField(value, "bookId"),
+    label
+  };
+}
+
+function parseTags(value: unknown): string[] {
+  const tags = parseStringArray(value, "tags");
+  if (tags.some((tag) => isReservedTag(tag))) {
+    throw new ValidationError("「待审阅」是保留标签，请使用题目审阅状态。");
+  }
+  return tags;
+}
+
+function parseReviewPriority(value: unknown): ReviewPriority | null {
+  if (value === undefined || value === null) return null;
+  if (!isReviewPriority(value)) {
+    throw new ValidationError("reviewPriority 必须是 skip、recheck、must 或 null。");
+  }
+  return value;
+}
+
+function parseReviewStatus(value: unknown): ReviewStatus {
+  if (!isReviewStatus(value)) {
+    throw new ValidationError("reviewStatus 必须是 pending 或 approved。");
+  }
+  return value;
+}
+
+function parseSolutionSource(value: unknown): SolutionSource | null {
+  if (value === undefined || value === null) return null;
+  if (!isSolutionSource(value)) {
+    throw new ValidationError("solutionSource 取值无效。");
+  }
+  return value;
+}
+
+function parseLegacyMasteryHistoryEntry(
+  value: unknown
+): LegacyMasteryHistoryEntry {
   if (!isRecord(value)) throw new ValidationError("掌握历史必须是对象。");
   if (!Array.isArray(value.masteryOptions)) {
     throw new ValidationError("历史 masteryOptions 必须是数组。");
@@ -247,12 +430,14 @@ function parseMasteryHistoryEntry(value: unknown): MasteryHistoryEntry {
   if (!isRecord(value.itemStates)) {
     throw new ValidationError("历史 itemStates 必须是对象。");
   }
-  const masteryOptions = normalizeReviewOptionOrder(
-    value.masteryOptions.map((option) => parseReviewOption(option, "历史掌握程度"))
+  const masteryOptions = normalizeLegacyOptionOrder(
+    value.masteryOptions.map((option) =>
+      parseLegacyReviewOption(option, "历史掌握程度")
+    )
   );
-  const errorReasonOptions = normalizeReviewOptionOrder(
+  const errorReasonOptions = normalizeLegacyOptionOrder(
     value.errorReasonOptions.map((option) =>
-      parseReviewOption(option, "历史错误原因")
+      parseLegacyReviewOption(option, "历史错误原因")
     )
   );
   assertUniqueIds(masteryOptions, "历史掌握程度选项");
@@ -265,7 +450,7 @@ function parseMasteryHistoryEntry(value: unknown): MasteryHistoryEntry {
   }
   const masteryIds = new Set(masteryOptions.map((option) => option.id));
   const errorReasonIds = new Set(errorReasonOptions.map((option) => option.id));
-  const itemStates: MasteryHistoryEntry["itemStates"] = {};
+  const itemStates: LegacyMasteryHistoryEntry["itemStates"] = {};
   for (const [itemId, stateValue] of Object.entries(value.itemStates)) {
     if (!itemId || !isRecord(stateValue)) {
       throw new ValidationError("历史题目状态无效。");
@@ -278,10 +463,7 @@ function parseMasteryHistoryEntry(value: unknown): MasteryHistoryEntry {
       stateValue.errorReasonOptionIds,
       "errorReasonOptionIds"
     );
-    if (
-      masteryOptionId !== null &&
-      !masteryIds.has(masteryOptionId)
-    ) {
+    if (masteryOptionId !== null && !masteryIds.has(masteryOptionId)) {
       throw new ValidationError("历史题目引用了不存在的掌握程度。");
     }
     if (errorReasonOptionIds.some((id) => !errorReasonIds.has(id))) {
@@ -358,6 +540,7 @@ function parseQuestionAsset(value: unknown): QuestionAsset {
   if (relativePath !== `assets/${fileName}`) {
     throw new ValidationError("素材 relativePath 必须指向 assets 目录中的对应文件。");
   }
+  const sha256 = optionalHashField(value, "sha256");
   return {
     id: requiredString(value, "id"),
     fileName,
@@ -365,7 +548,8 @@ function parseQuestionAsset(value: unknown): QuestionAsset {
     relativePath,
     mimeType: requiredString(value, "mimeType"),
     size: requiredFiniteNumber(value, "size"),
-    uploadedAt: requiredString(value, "uploadedAt")
+    uploadedAt: requiredString(value, "uploadedAt"),
+    ...(sha256 ? { sha256 } : {})
   };
 }
 
@@ -394,9 +578,85 @@ function parseStarRating(value: unknown): LegacyQuestionItem["star"] {
   return rating as LegacyQuestionItem["star"];
 }
 
+function optionalStringField(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = getOptionalStringField(record, key);
+  if (value instanceof ValidationError) throw value;
+  return value ?? null;
+}
+
+function optionalIdField(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = record[key];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ValidationError(`${key} 必须是非空字符串或 null。`);
+  }
+  return value.trim();
+}
+
+function optionalHashField(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = optionalStringField(record, key);
+  if (value === null) return null;
+  const hash = value.toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(hash)) {
+    throw new ValidationError(`${key} 必须是 SHA-256 十六进制字符串。`);
+  }
+  return hash;
+}
+
+function optionalHistorySnapshot(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = optionalStringField(record, key);
+  if (value === null) return null;
+  if (
+    value === "." ||
+    value === ".." ||
+    hasControlCharacter(value) ||
+    value !== pathBaseName(value)
+  ) {
+    throw new ValidationError(`${key} 必须是不含路径的安全文件名。`);
+  }
+  return value;
+}
+
+function requiredNonNegativeInteger(
+  record: Record<string, unknown>,
+  key: string
+): number {
+  const value = requiredFiniteNumber(record, key);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new ValidationError(`${key} 必须是非负整数。`);
+  }
+  return value;
+}
+
+function normalizeLegacyOptionOrder(
+  options: LegacyReviewOption[]
+): LegacyReviewOption[] {
+  return [...options]
+    .sort(
+      (left, right) =>
+        left.order - right.order || left.id.localeCompare(right.id)
+    )
+    .map((option, index) => ({ ...option, order: index + 1 }));
+}
+
 function normalizeChapters(chapters: Chapter[]): Chapter[] {
   return [...chapters]
-    .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))
+    .sort(
+      (left, right) =>
+        left.order - right.order || left.id.localeCompare(right.id)
+    )
     .map((chapter, index) => ({ ...chapter, order: index + 1 }));
 }
 

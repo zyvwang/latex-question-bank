@@ -110,7 +110,11 @@ export async function saveBankSnapshot(request: SaveBankRequest): Promise<BankSn
   });
 }
 
-async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision: string) {
+export async function createHistorySnapshot(
+  dirs: WorkspaceDirs,
+  raw: string,
+  revision: string
+): Promise<string> {
   await assertRealWorkspaceSubdir(dirs.historyDir);
   await mkdir(dirs.historyDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -128,4 +132,5 @@ async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision:
       .slice(MAX_HISTORY_SNAPSHOTS)
       .map((file) => rm(path.join(dirs.historyDir, file), { force: true }))
   );
+  return fileName;
 }

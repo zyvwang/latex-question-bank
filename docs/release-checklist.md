@@ -38,22 +38,27 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - current-item compile, including a concurrent request receiving `LATEX_BUSY` without interrupting the active compile
    - successful same-name export replacement, failed replacement preservation, and startup recovery from an interrupted two-rename transaction
    - chapter creation/rename/reorder/delete and chapter-local question reorder
-   - review-option edit/reorder/delete, reference cleanup, and multi-tag comma input
-   - multi-value chapter/tag/mastery/error-reason filtering with OR within fields and AND across fields
+   - book creation/rename/path edit/protected delete and multi-tag comma input
+   - review-priority and pending-review metadata badges, including approval from the metadata panel
+   - multi-value chapter/tag/book/review-priority/review-status filtering with OR within fields and AND across fields
    - current/selected list switching, preserved filters, filter-independent export selection, and default select-all after workspace switch
-   - complete sidebar review marks, separate wrapping chapter/tag tokens, and matching editor metadata tokens
-   - normal export order follows chapter order and chapter-local order
-   - Heatmap mastery, error-reason, and combined modes, including patterns, three-stripe limit, `+N`, and the visible legend
-   - 200ms heatmap preview switching across Question, Solution, and Note with only one MathJax preview instance
+   - complete sidebar source labels, priority/pending/variant badges, separate wrapping chapter/tag tokens, and matching editor metadata tokens
+   - normal export order follows chapter order and chapter-local order; the export dock warns about selected pending-review items
    - rapid repeated edits to numbered or labelled equations, confirming one MathJax typeset at a time, stable final numbering, and no duplicate preview nodes
-   - two-pane heatmap layout without a chapter index, with chapter labels retained on each row
-   - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in both editor and heatmap previews
-   - Heatmap Arrow keys, Home, End, Enter, screen-reader names, visible focus, and editor-return restoration
-   - a production build with the 1000-item fixture, typing continuously in the active question before checking heatmap entry, mode switching, scrolling, and preview response without noticeable input blocking
-   - same-day mastery-history merging, cross-day creation, unique rename validation, detail viewing, deletion, and restore
-   - restoration keeps bodies, chapters, order, assets, and newer questions while recreating missing review options
-   - the sixth-history chooser defaults to the oldest record; canceling keeps all records and abandons the triggering review edit
-   - mastery history in `bank.json` is clearly distinguished from `.history/` disaster-recovery snapshots
+   - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in the editor preview
+   - a production build with the 1000-item fixture, typing continuously in the active question and checking sidebar/preview response without noticeable input blocking
+   - v1/v2 migration creates books/source labels, converts an existing “待审阅” tag to pending, drops legacy mastery/error/history, and keeps `.history/` recovery snapshots readable
+   - restoration keeps bodies, chapters, order, assets, books, and newer questions
+   - source uniqueness is enforced for book-linked items across the whole bank; bookless labels may repeat
+   - Agent discovery file is created with 0600 permissions; missing/wrong bearer tokens return `AGENT_UNAUTHORIZED`
+   - `lqb status`, `lqb link`, `lqb agent-init`, `lqb list/search/get`, `lqb book list`, and `lqb batch list` work with the app running
+   - agent dry-run writes nothing; commit creates pending items, import-log records, and a `.history/` snapshot
+   - approved duplicates are skipped with a partial result; `--overwrite` updates and returns them to pending
+   - screenshot assets are validated, written under `assets/`, substituted from `{{asset:key}}`, and content-hashed
+   - agent import rejects a stale `baseRevision`, a mismatched workspace, and an invalid manifest without partial writes
+   - the Review page approves, advances, bulk-approves, deletes with undo, shows the pending count, and handles empty/filtered-empty states
+   - idle external imports auto-refresh; focused drafts, uploads, saves, or workspace transitions show the external-update banner instead of overwriting
+   - `/api/events` sends `bank-changed` after a successful import and cleans up clients when the server closes
    - workspace create/open/switch/reorder/relocate/reveal/remove-from-list actions on Bank Settings, including staying on that page after a switch
    - removing the final workspace returns to Setup while its directory and `bank.json` remain on disk
    - a bank save beyond 64 MiB shows the persistent size error and leaves disk/revision unchanged; reducing content retries successfully

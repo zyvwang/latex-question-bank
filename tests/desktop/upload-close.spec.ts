@@ -20,7 +20,7 @@ test("returns to editing when closing during upload and saves the completed inse
   const requested = new Promise<void>((resolve) => { started = resolve; });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByLabel("原编号")).toBeVisible();
+    await expect(page.getByLabel("来源题号")).toBeVisible();
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = async (...args: [Electron.MessageBoxOptions] | [Electron.BaseWindow, Electron.MessageBoxOptions]) => {
         const options = args.length === 2 ? args[1] : args[0];
@@ -38,7 +38,7 @@ test("returns to editing when closing during upload and saves the completed inse
     await expect.poll(() => app.evaluate(() =>
       (globalThis as typeof globalThis & { __uploadCloseMessage?: string }).__uploadCloseMessage
     )).toContain("图片仍在上传");
-    await expect(page.getByLabel("原编号")).toBeVisible();
+    await expect(page.getByLabel("来源题号")).toBeVisible();
     resume();
     await expect(page.getByText("图片已插入当前模块。", { exact: true })).toBeVisible();
     const closed = app.waitForEvent("close");

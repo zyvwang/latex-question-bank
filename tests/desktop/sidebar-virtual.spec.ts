@@ -13,7 +13,7 @@ test("virtual sidebar preserves selection, focus, sticky handoff and drag after 
   bank.chapters = [{ id: "a", name: "第一章", order: 1 }, { id: "b", name: "第二章：含参数的分段函数连续性与极限的分类讨论", order: 2 }];
   bank.items = Array.from({ length: 1200 }, (_, i) => ({
     ...bank.items[0], id: `virtual-${i}`, chapterId: i < 600 ? "a" : "b",
-    chapterOrder: i % 600 + 1, sourceNumber: `V${i}`, assets: [],
+    chapterOrder: i % 600 + 1, source: { bookId: null, label: `V${i}` }, assets: [],
     tags: i % 10 === 0 ? ["目标", "这是需要完整换行显示的长方法标签"] : ["普通"]
   }));
   await writeFile(path.join(workspace, "bank.json"), JSON.stringify(bank));
@@ -55,7 +55,7 @@ test("virtual sidebar preserves selection, focus, sticky handoff and drag after 
     await page.mouse.down();
     await page.mouse.move(to.x + 20, to.y + to.height - 3);
     await page.mouse.up();
-    await expect(page.locator("#main-workspace").getByLabel("原编号", { exact: true })).toHaveValue("V1198");
+    await expect(page.locator("#main-workspace").getByLabel("来源题号", { exact: true })).toHaveValue("V1198");
     await list.getByRole("checkbox", { name: "选择导出 V1198", exact: true }).uncheck();
     const search = page.getByRole("textbox", { name: "搜索题目" });
     await search.fill("目标");

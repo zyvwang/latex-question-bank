@@ -139,7 +139,7 @@ it("serializes saves and coalesces edits made during an in-flight request", asyn
       })
     );
     await waitFor(() => expect(saveBodies).toHaveLength(2));
-    expect(saveBodies[1].bank.items[0].sourceNumber).toBe("最终修改");
+    expect(saveBodies[1].bank.items[0].source?.label).toBe("最终修改");
   });
 
 it("pauses a failed save and retries only the latest bank on demand", async () => {
@@ -175,7 +175,7 @@ it("pauses a failed save and retries only the latest bank on demand", async () =
 
     await user.click(await screen.findByRole("button", { name: "重试保存" }));
     await waitFor(() => expect(saveAttempts).toBe(2));
-    expect(saveBodies[1].items[0].sourceNumber).toBe("等待重试的最新版本");
+    expect(saveBodies[1].items[0].source?.label).toBe("等待重试的最新版本");
     expect(await screen.findByText("已保存")).toBeInTheDocument();
   });
 
@@ -279,7 +279,7 @@ it("overwrites a conflict with the latest disk revision and latest local bank", 
 
     await waitFor(() => expect(saveRequests).toHaveLength(2));
     expect(saveRequests[1].baseRevision).toBe("latest-disk-revision");
-    expect(saveRequests[1].bank.items[0].sourceNumber).toBe("最终本地版本");
+    expect(saveRequests[1].bank.items[0].source?.label).toBe("最终本地版本");
     expect(await screen.findByText("已保存")).toBeInTheDocument();
   });
 
@@ -289,7 +289,7 @@ it("can discard local conflict edits and resume from the latest disk revision", 
       ...bank,
       items: bank.items.map((item, index) =>
         index === 0
-          ? { ...item, sourceNumber: "磁盘版本" }
+          ? { ...item, source: { bookId: null, label: "磁盘版本" } }
           : item
       )
     };
@@ -360,7 +360,7 @@ it("can discard local conflict edits and resume from the latest disk revision", 
 
     await waitFor(() => expect(saveRequests).toHaveLength(2));
     expect(saveRequests[1].baseRevision).toBe("disk-revision");
-    expect(saveRequests[1].bank.items[0].sourceNumber).toBe(
+    expect(saveRequests[1].bank.items[0].source?.label).toBe(
       "磁盘基础上的新修改"
     );
   });
@@ -426,7 +426,7 @@ it("saves a conflicted local bank as a new independent workspace", async () => {
     }));
 
     await waitFor(() => expect(requestedBank).not.toBeNull());
-    expect(requestedBank!.items[0].sourceNumber).toBe(
+    expect(requestedBank!.items[0].source?.label).toBe(
       "需要另存的本地版本"
     );
     expect(await screen.findByText("conflict-copy")).toBeInTheDocument();

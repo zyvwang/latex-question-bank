@@ -46,7 +46,7 @@ beforeEach(() => {
 async function setup() {
   const hook = renderHook(useQuestionBankModel);
   await waitFor(() => expect(hook.result.current.questions.bank).not.toBeNull());
-  act(() => hook.result.current.questions.updateItem(bank.items[0].id, { sourceNumber: "保留" }));
+  act(() => hook.result.current.questions.updateItem(bank.items[0].id, { source: { bookId: null, label: "保留" } }));
   await waitFor(() => expect(hook.result.current.lifecycle.saveIssue?.kind).toBe("conflict"));
   return hook;
 }
@@ -62,7 +62,7 @@ it("serializes save-as and close, then flushes the new session", async () => {
   expect(result.current.lifecycle.isConflictDialogOpen).toBe(true);
   await act(async () => { directory.resolve("/synthetic/copy"); });
   expect(payloads).toHaveLength(1);
-  expect(payloads[0].bank.items[0].sourceNumber).toBe("保留");
+  expect(payloads[0].bank.items[0].source?.label).toBe("保留");
   let closed = false;
   let closing!: Promise<void>;
   act(() => { closing = result.current.lifecycle.flushPendingChanges().then(() => { closed = true; }); });
@@ -88,7 +88,7 @@ it("unlocks a cancelled directory picker without discarding the conflict", async
   expect(payloads).toEqual([]);
   expect(result.current.lifecycle.isSavingConflictAs).toBe(false);
   expect(result.current.lifecycle.saveIssue?.kind).toBe("conflict");
-  expect(result.current.questions.bank?.items[0].sourceNumber).toBe("保留");
+  expect(result.current.questions.bank?.items[0].source?.label).toBe("保留");
 });
 
 it("requires pending uploads to finish before copying a conflicted bank", async () => {

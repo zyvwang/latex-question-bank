@@ -71,7 +71,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
       delete testWindow.closeProbeCleanup;
     });
     await page.getByText("新增题目", { exact: true }).click();
-    await page.getByLabel("原编号").fill("desktop-close-save");
+    await page.getByLabel("来源题号").fill("desktop-close-save");
     await page.getByRole("button", { name: "题库设置" }).click();
     await page.getByLabel("latexmk 路径").fill("desktop-latexmk-close-flush");
     const exitPromise = new Promise<void>((resolve) => {
@@ -84,7 +84,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
         const saved = JSON.parse(
           await readFile(path.join(workspacePath, "bank.json"), "utf8")
         ) as Bank;
-        return saved.items[0]?.sourceNumber;
+        return saved.items[0]?.source?.label;
       })
       .toBe("desktop-close-save");
   } finally {
@@ -94,7 +94,7 @@ test("persists an edited item in the packaged desktop runtime", async () => {
   const restartedApp = await electron.launch(launchOptions);
   try {
     const restartedPage = await restartedApp.firstWindow();
-    await expect(restartedPage.getByLabel("原编号")).toHaveValue("desktop-close-save");
+    await expect(restartedPage.getByLabel("来源题号")).toHaveValue("desktop-close-save");
     await restartedPage.getByRole("button", { name: "题库设置" }).click();
     await expect(restartedPage.getByLabel("latexmk 路径"))
       .toHaveValue("desktop-latexmk-close-flush");

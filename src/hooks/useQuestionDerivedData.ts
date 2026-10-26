@@ -2,8 +2,7 @@ import { useDeferredValue, useMemo, useRef } from "react";
 import type { Bank, Chapter, QuestionItem } from "../../shared/types.js";
 import {
   orderItemsByChapter,
-  orderedChapters,
-  sourceNumberConflictGroups
+  orderedChapters
 } from "../../shared/chapter-order.js";
 import {
   buildQuestionSearchText,
@@ -22,7 +21,6 @@ export function useQuestionDerivedData(
 ) {
   const orderCacheRef = useRef<OrderCache | null>(null);
   const tagCacheRef = useRef<TagCache | null>(null);
-  const conflictCacheRef = useRef<ConflictCache | null>(null);
   const searchTextCacheRef = useRef(
     new WeakMap<QuestionItem, { chapterName: string; text: string }>()
   );
@@ -88,19 +86,22 @@ export function useQuestionDerivedData(
   }, [orderedItems]);
 
   const deferredSearch = useDeferredValue(filters.search);
+  const books = useMemo(() => bank?.books ?? [], [bank?.books]);
   const effectiveFilters = useMemo<QuestionFilters>(
     () => ({
       chapterFilters: filters.chapterFilters,
       tagFilters: filters.tagFilters,
-      masteryFilters: filters.masteryFilters,
-      errorReasonFilters: filters.errorReasonFilters,
+      bookFilters: filters.bookFilters,
+      reviewPriorityFilters: filters.reviewPriorityFilters,
+      reviewStatusFilters: filters.reviewStatusFilters,
       search: deferredSearch
     }),
     [
       deferredSearch,
+      filters.bookFilters,
       filters.chapterFilters,
-      filters.errorReasonFilters,
-      filters.masteryFilters,
+      filters.reviewPriorityFilters,
+      filters.reviewStatusFilters,
       filters.tagFilters
     ]
   );
@@ -114,19 +115,25 @@ export function useQuestionDerivedData(
       getSearchText: (candidate: QuestionItem, chapterName: string) => {
         const cached = searchTextCacheRef.current.get(candidate);
         if (cached?.chapterName === chapterName) return cached.text;
-        const text = buildQuestionSearchText(candidate, chapterName);
+        const text = buildQuestionSearchText(candidate, chapterName, books);
         searchTextCacheRef.current.set(candidate, { chapterName, text });
         return text;
       }
     }),
-    [searchTerm]
+    [books, searchTerm]
   );
 
   const filteredItems = useMemo(() => {
     return orderedItems.filter((item) =>
-      matchesQuestionFilters(item, effectiveFilters, chapterById, filterRuntime)
+      matchesQuestionFilters(
+        item,
+        effectiveFilters,
+        chapterById,
+        books,
+        filterRuntime
+      )
     );
-  }, [chapterById, effectiveFilters, filterRuntime, orderedItems]);
+  }, [books, chapterById, effectiveFilters, filterRuntime, orderedItems]);
 
   const listItems = useMemo(
     () =>
@@ -140,30 +147,6 @@ export function useQuestionDerivedData(
     return orderedItems.find((item) => item.id === activeId) ?? orderedItems[0] ?? null;
   }, [activeId, orderedItems]);
 
-  const conflictGroups = useMemo(() => {
-    const inputs = orderedItems.map((item) => ({
-      id: item.id,
-      chapterId: item.chapterId,
-      sourceNumber: item.sourceNumber
-    }));
-    const cache = conflictCacheRef.current;
-    if (cache && sameConflictInputs(cache.inputs, inputs)) {
-      if (cache.groupIds.length === 0) return cache.emptyGroups;
-      const itemById = new Map(orderedItems.map((item) => [item.id, item]));
-      return cache.groupIds.map((ids) => ids.flatMap((id) => {
-        const item = itemById.get(id);
-        return item ? [item] : [];
-      }));
-    }
-    const groups = sourceNumberConflictGroups(orderedItems);
-    conflictCacheRef.current = {
-      inputs,
-      groupIds: groups.map((group) => group.map((item) => item.id)),
-      emptyGroups: groups.length === 0 ? groups : []
-    };
-    return groups;
-  }, [orderedItems]);
-
   return {
     orderedItems,
     filteredItems,
@@ -172,8 +155,7 @@ export function useQuestionDerivedData(
     chapters,
     chapterById,
     tags,
-    activeItem,
-    conflictGroups
+    activeItem
   };
 }
 
@@ -203,18 +185,6 @@ interface TagInput {
 interface TagCache {
   inputs: TagInput[];
   tags: string[];
-}
-
-interface ConflictInput {
-  id: string;
-  chapterId: string | null;
-  sourceNumber?: string;
-}
-
-interface ConflictCache {
-  inputs: ConflictInput[];
-  groupIds: string[][];
-  emptyGroups: QuestionItem[][];
 }
 
 const EMPTY_NUMBER_BY_ID = new Map<string, number>();
@@ -265,15 +235,3 @@ function sameTagInputs(previous: TagInput[], next: TagInput[]): boolean {
   });
 }
 
-function sameConflictInputs(
-  previous: ConflictInput[],
-  next: ConflictInput[]
-): boolean {
-  return previous.length === next.length && previous.every((value, index) => {
-    const candidate = next[index];
-    return candidate !== undefined &&
-      value.id === candidate.id &&
-      value.chapterId === candidate.chapterId &&
-      value.sourceNumber === candidate.sourceNumber;
-  });
-}

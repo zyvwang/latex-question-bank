@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSampleBank } from "../../server/bank-schema.js";
+import type { Bank } from "../../shared/types.js";
 import {
   isRecord,
   validateBankPayload,
@@ -59,140 +60,51 @@ describe("shared validation", () => {
     ).toBe("seed");
   });
 
-  it("rejects structurally unsafe banks and unsupported layouts", () => {
+  it("accepts valid v3 banks and rejects unsafe v3 saves", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
-    const historyEntry = {
-      id: "history-one",
-      localDate: "2026-01-01",
-      name: "History one",
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      masteryOptions: bank.masteryOptions,
-      errorReasonOptions: bank.errorReasonOptions,
-      itemStates: {
-        [item.id]: {
-          masteryOptionId: bank.masteryOptions[0].id,
-          errorReasonOptionIds: [bank.errorReasonOptions[0].id]
-        }
-      }
-    };
-    const validSave = validateSaveBankRequest({
-      workspacePath: "/tmp/bank",
-      baseRevision: "a".repeat(64),
-      bank
-    });
-    expect(validSave.ok).toBe(true);
+
+    expect(validateBankPayload(bank).ok).toBe(true);
+    expect(validateBankPayload(bank).value?.version).toBe(3);
+    expect(
+      validateSaveBankRequest({
+        workspacePath: "/tmp/bank",
+        baseRevision: "a".repeat(64),
+        bank
+      }).ok
+    ).toBe(true);
     expect(validateSaveBankRequest(null).ok).toBe(false);
     expect(validateSaveBankRequest({ workspacePath: " ", baseRevision: "", bank }).ok).toBe(false);
     expect(validateSaveBankRequest({ workspacePath: "/tmp", baseRevision: 1, bank }).ok).toBe(false);
-    expect(validateSaveBankRequest({ workspacePath: "/tmp", baseRevision: "", bank: {} }).ok).toBe(false);
 
     const invalidBanks: unknown[] = [
       null,
-      { ...bank, version: 3 },
+      { ...bank, version: 2 },
       { ...bank, items: "not-array" },
+      { ...bank, books: "not-array" },
+      { ...bank, imports: "not-array" },
       { ...bank, settings: null },
       { ...bank, settings: { ...bank.settings, pageSize: "letter" } },
       { ...bank, items: [null] },
-      { ...bank, items: [{ ...item, sourceNumber: 5 }] },
+      { ...bank, items: [{ ...item, source: { bookId: null, label: 5 } }] },
+      { ...bank, items: [{ ...item, source: { bookId: null, label: " " } }] },
+      { ...bank, items: [{ ...item, source: { bookId: 5, label: "1" } }] },
+      { ...bank, items: [{ ...item, source: { bookId: "missing", label: "1" } }] },
       { ...bank, items: [{ ...item, id: 5 }] },
       { ...bank, items: [{ ...item, id: "" }] },
       { ...bank, items: [{ ...item, chapterOrder: Number.NaN }] },
       { ...bank, items: [{ ...item, chapterOrder: 0 }] },
       { ...bank, items: [{ ...item, chapterId: 5 }] },
+      { ...bank, items: [{ ...item, chapterId: "missing" }] },
       { ...bank, items: [{ ...item, tags: [5] }] },
-      { ...bank, items: [{ ...item, masteryOptionId: "missing" }] },
-      { ...bank, items: [{ ...item, errorReasonOptionIds: ["missing"] }] },
-      { ...bank, items: [{ ...item, errorReasonOptionIds: ["error-method", "error-method"] }] },
-      { ...bank, chapters: [{ ...bank.chapters[0], name: " " }] },
-      {
-        ...bank,
-        chapters: [
-          bank.chapters[0],
-          { ...bank.chapters[1], name: bank.chapters[0].name.toUpperCase() }
-        ]
-      },
-      {
-        ...bank,
-        masteryOptions: [{ ...bank.masteryOptions[0], color: "teal" }]
-      },
-      {
-        ...bank,
-        masteryHistory: [
-          historyEntry,
-          {
-            ...historyEntry,
-            id: "history-two",
-            localDate: "2026-01-02",
-            name: "  HISTORY ONE  "
-          }
-        ]
-      },
-      {
-        ...bank,
-        masteryHistory: [
-          historyEntry,
-          {
-            ...historyEntry,
-            id: "history-two",
-            name: "History two"
-          }
-        ]
-      },
-      {
-        ...bank,
-        masteryHistory: [{ ...historyEntry, localDate: "2026-02-30" }]
-      },
-      {
-        ...bank,
-        masteryHistory: [{
-          ...historyEntry,
-          itemStates: {
-            [item.id]: {
-              masteryOptionId: "missing",
-              errorReasonOptionIds: []
-            }
-          }
-        }]
-      },
-      {
-        ...bank,
-        masteryHistory: [{
-          ...historyEntry,
-          itemStates: {
-            [item.id]: {
-              masteryOptionId: null,
-              errorReasonOptionIds: ["missing"]
-            }
-          }
-        }]
-      },
-      {
-        ...bank,
-        masteryHistory: [{
-          ...historyEntry,
-          itemStates: {
-            [item.id]: {
-              masteryOptionId: null,
-              errorReasonOptionIds: [
-                bank.errorReasonOptions[0].id,
-                bank.errorReasonOptions[0].id
-              ]
-            }
-          }
-        }]
-      },
-      { ...bank, masteryHistory: Array.from({ length: 6 }, (_, index) => ({
-        id: `history-${index}`,
-        localDate: `2026-01-0${index + 1}`,
-        name: `History ${index}`,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        masteryOptions: bank.masteryOptions,
-        errorReasonOptions: bank.errorReasonOptions,
-        itemStates: {}
-      })) },
+      { ...bank, items: [{ ...item, tags: ["待审阅"] }] },
+      { ...bank, items: [{ ...item, reviewPriority: "urgent" }] },
+      { ...bank, items: [{ ...item, reviewStatus: "draft" }] },
+      { ...bank, items: [{ ...item, solutionSource: "book" }] },
+      { ...bank, items: [{ ...item, solutionRef: 5 }] },
+      { ...bank, items: [{ ...item, variantOf: 5 }] },
+      { ...bank, items: [{ ...item, importBatchId: 5 }] },
+      { ...bank, items: [{ ...item, importedAt: 5 }] },
       { ...bank, items: [{ ...item, modules: undefined }] },
       { ...bank, items: [{ ...item, modules: { ...item.modules, note: null } }] },
       {
@@ -203,64 +115,86 @@ describe("shared validation", () => {
       { ...bank, items: [{ ...item, assets: [null] }] },
       {
         ...bank,
-        items: [
-          {
-            ...item,
-            assets: [
-              {
-                id: "a",
-                fileName: "../escape.png",
-                originalName: "escape.png",
-                relativePath: "assets/escape.png",
-                mimeType: "image/png",
-                size: 1,
-                uploadedAt: item.createdAt
-              }
-            ]
-          }
+        items: [{
+          ...item,
+          assets: [{
+            id: "a",
+            fileName: "../escape.png",
+            originalName: "escape.png",
+            relativePath: "assets/escape.png",
+            mimeType: "image/png",
+            size: 1,
+            uploadedAt: item.createdAt
+          }]
+        }]
+      },
+      {
+        ...bank,
+        items: [{
+          ...item,
+          assets: [{
+            id: "a",
+            fileName: "safe.png",
+            originalName: "safe.png",
+            relativePath: "../safe.png",
+            mimeType: "image/png",
+            size: 1,
+            uploadedAt: item.createdAt
+          }]
+        }]
+      },
+      {
+        ...bank,
+        items: [{
+          ...item,
+          assets: [{
+            id: "a",
+            fileName: "safe.png",
+            originalName: "safe.png",
+            relativePath: "assets/safe.png",
+            mimeType: "image/png",
+            size: 1,
+            uploadedAt: item.createdAt,
+            sha256: "not-a-hash"
+          }]
+        }]
+      },
+      { ...bank, items: [item, { ...item }] },
+      { ...bank, items: [item, { ...item, id: "other" }] },
+      { ...bank, chapters: [{ ...bank.chapters[0], name: " " }] },
+      {
+        ...bank,
+        chapters: [
+          bank.chapters[0],
+          { ...bank.chapters[1], name: bank.chapters[0].name.toUpperCase() }
+        ]
+      },
+      { ...bank, books: [{ ...bank.books[0], fileHash: "bad" }] },
+      {
+        ...bank,
+        books: [
+          bank.books[0],
+          { ...bank.books[0], id: "book-other", title: `  ${bank.books[0].title.toUpperCase()}  ` }
         ]
       },
       {
         ...bank,
-        items: [
-          {
-            ...item,
-            assets: [
-              {
-                id: "a",
-                fileName: "safe.png",
-                originalName: "safe.png",
-                relativePath: "../safe.png",
-                mimeType: "image/png",
-                size: 1,
-                uploadedAt: item.createdAt
-              }
-            ]
-          }
-        ]
+        imports: Array.from({ length: 51 }, (_, index) => importRecord(index))
       },
-      {
-        ...bank,
-        items: [
-          {
-            ...item,
-            assets: [
-              {
-                id: "a",
-                fileName: "..",
-                originalName: "..",
-                relativePath: "assets/..",
-                mimeType: "image/png",
-                size: 1,
-                uploadedAt: item.createdAt
-              }
-            ]
-          }
-        ]
-      },
-      { ...bank, items: [item, { ...item }] }
+      { ...bank, imports: [{ ...importRecord(0), status: "unknown" }] },
+      { ...bank, imports: [{ ...importRecord(0), newCount: -1 }] },
+      { ...bank, imports: [{ ...importRecord(0), itemIds: [3] }] },
+      { ...bank, imports: [{ ...importRecord(0), historySnapshot: "../escape.json" }] }
     ];
-    invalidBanks.forEach((value) => expect(validateBankPayload(value).ok).toBe(false));
+    for (const value of invalidBanks) {
+      expect(
+        validateSaveBankRequest({
+          workspacePath: "/tmp/bank",
+          baseRevision: "a".repeat(64),
+          bank: value
+        }).ok
+      ).toBe(false);
+    }
 
     expect(
       validateBankPayload({
@@ -269,7 +203,7 @@ describe("shared validation", () => {
         items: [{
           id: item.id,
           order: 1,
-          sourceNumber: item.sourceNumber,
+          sourceNumber: "1",
           chapter: "旧章节",
           tags: item.tags,
           star: 3,
@@ -289,3 +223,21 @@ describe("shared validation", () => {
     expect(validateCompileItemRequest({ workspacePath: "/tmp/bank", item: bank.items[0], settings: bank.settings }).ok).toBe(true);
   });
 });
+
+function importRecord(index: number): Bank["imports"][number] {
+  return {
+    id: `import-${index}`,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    note: null,
+    bookTitles: ["示例题库"],
+    newCount: 1,
+    updatedCount: 0,
+    skippedCount: 0,
+    conflictCount: 0,
+    itemIds: [],
+    updatedItemIds: [],
+    historySnapshot: null,
+    status: "completed",
+    undoneAt: null
+  };
+}

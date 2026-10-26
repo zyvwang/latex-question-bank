@@ -48,25 +48,25 @@ test("packaged application loads bundled resources and persists edits through qu
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [target] });
     }, workspace);
     await page.getByRole("button", { name: "体验示例题库" }).click();
-    await expect(page.getByLabel("原编号")).toBeVisible();
+    await expect(page.getByLabel("来源题号")).toBeVisible();
     await expect.poll(() => page.locator('[role="tabpanel"] mjx-container').count()).toBeGreaterThan(0);
     await page.locator('input[type="file"]').setInputFiles({
       name: "pixel.png", mimeType: "image/png",
       buffer: validPng
     });
     await expect(page.getByText("图片已插入当前模块。", { exact: true })).toBeVisible();
-    await page.getByLabel("原编号").fill("packaged-save");
+    await page.getByLabel("来源题号").fill("packaged-save");
     await app!.context().tracing.stop({ path: testInfo.outputPath("first-session.zip") });
     const closing = app!.waitForEvent("close");
     await app!.evaluate(({ app }) => app.quit()).catch(() => undefined);
     await closing;
     app = undefined;
     const saved = JSON.parse(await readFile(path.join(workspace, "bank.json"), "utf8")) as Bank;
-    expect(saved.items[0].sourceNumber).toBe("packaged-save");
+    expect(saved.items[0].source?.label).toBe("packaged-save");
     expect(saved.items[0].assets).toHaveLength(1);
     await access(path.join(workspace, saved.items[0].assets[0].relativePath));
     page = await launch();
-    await expect(page.getByLabel("原编号")).toHaveValue("packaged-save");
+    await expect(page.getByLabel("来源题号")).toHaveValue("packaged-save");
     await expect.poll(() => page.locator('[role="tabpanel"] mjx-container').count()).toBeGreaterThan(0);
     expect(errors).toEqual([]);
     await app!.context().tracing.stop({ path: testInfo.outputPath("restart.zip") });

@@ -27,9 +27,7 @@ it("restores, adjusts, and collapses editor panes with the keyboard", async () =
       readUiLayoutPreferences: vi.fn().mockResolvedValue({
         questionSidebarWidth: 320,
         questionSidebarCollapsed: false,
-        moduleEditorPercent: 58,
-        heatmapPreviewWidth: 460,
-        heatmapPreviewCollapsed: false
+        moduleEditorPercent: 58
       }),
       saveUiLayoutPreferences
     };
@@ -96,9 +94,7 @@ it("keeps an early pane adjustment while desktop preferences are still loading",
     resolvePreferences({
       questionSidebarWidth: 240,
       questionSidebarCollapsed: false,
-      moduleEditorPercent: 50,
-      heatmapPreviewWidth: 380,
-      heatmapPreviewCollapsed: false
+      moduleEditorPercent: 50
     });
     await waitFor(() => expect(separator).toHaveAttribute("aria-valuenow", "360"));
     await waitFor(() => expect(saveUiLayoutPreferences).toHaveBeenLastCalledWith(
@@ -106,20 +102,17 @@ it("keeps an early pane adjustment while desktop preferences are still loading",
     ));
   });
 
-it("shows chapter headings and keeps review marks and tags on question rows", async () => {
+it("shows chapter headings and keeps review badges and tags on question rows", async () => {
     const statusBank: Bank = {
       ...bank,
       items: bank.items.map((item, index) => index === 0
         ? {
             ...item,
-            tags: ["极限", "含参数的分段函数连续性分类讨论"],
-            errorReasonOptionIds: ["error-calculation", "error-method"]
+            tags: ["极限", "含参数的分段函数连续性分类讨论"]
           }
         : {
             ...item,
-            chapterId: null,
-            masteryOptionId: null,
-            errorReasonOptionIds: []
+            chapterId: null
           })
     };
     vi.mocked(fetch).mockImplementation(async (input, init) => {
@@ -137,9 +130,8 @@ it("shows chapter headings and keeps review marks and tags on question rows", as
     await screen.findByText("2024-1");
     const first = document.getElementById("question-nav-limit");
     expect(first).not.toBeNull();
-    expect(within(first!).getByLabelText(
-      "掌握程度：太难了；错误原因：计算问题、方法问题"
-    )).toBeInTheDocument();
+    expect(within(first!).getByText("必须看")).toBeInTheDocument();
+    expect(within(first!).queryByText("待审阅")).not.toBeInTheDocument();
     expect(within(first!).queryByText("高等数学/极限")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "高等数学/极限" })).toBeInTheDocument();
     expect(within(first!).getByText("极限")).toBeInTheDocument();
@@ -149,9 +141,8 @@ it("shows chapter headings and keeps review marks and tags on question rows", as
 
     const second = document.getElementById("question-nav-matrix");
     expect(second).not.toBeNull();
-    expect(within(second!).getByLabelText(
-      "掌握程度：未设置；错误原因：未设置"
-    )).toBeInTheDocument();
+    expect(within(second!).getByText("待审阅")).toBeInTheDocument();
+    expect(within(second!).getByText("不用看")).toBeInTheDocument();
     expect(within(second!).queryByText("未分类")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "未分类" })).toBeInTheDocument();
   });

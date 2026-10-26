@@ -24,7 +24,7 @@ test("keeps one desktop instance and restores the existing window", async () => 
   try {
     const page = await electronApp.firstWindow();
     await page.getByText("新增题目", { exact: true }).click();
-    await page.getByLabel("原编号").fill("single-instance-save");
+    await page.getByLabel("来源题号").fill("single-instance-save");
     await electronApp.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];
       if (!window) throw new Error("主窗口不存在。");
@@ -91,7 +91,7 @@ test("keeps one desktop instance and restores the existing window", async () => 
       const saved = JSON.parse(
         await readFile(path.join(workspacePath, "bank.json"), "utf8")
       ) as Bank;
-      return saved.items[0]?.sourceNumber;
+      return saved.items[0]?.source?.label;
     }).toBe("single-instance-save");
   } finally {
     await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);

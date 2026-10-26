@@ -12,7 +12,16 @@ import {
 } from "./http/middleware.js";
 import { createBankRouter } from "./routes/bank-routes.js";
 import { createDocumentRouter } from "./routes/document-routes.js";
+import { createAgentRouter } from "./routes/agent-routes.js";
+import { createEventsRouter } from "./routes/events-routes.js";
 import { createWorkspaceRouter } from "./routes/workspace-routes.js";
+import {
+  configureAgentDiscovery,
+  refreshAgentDiscovery,
+  removeAgentDiscovery
+} from "./agent-discovery.js";
+import { getAgentToken } from "./agent-auth.js";
+import { closeEventClients } from "./events.js";
 import { ensureProjectDirs } from "./workspace-storage.js";
 import {
   BANK_SAVE_BODY_LIMIT_BYTES,
@@ -22,6 +31,7 @@ import {
 export interface ApiServerOptions {
   host?: string;
   port?: number;
+  appVersion?: string;
 }
 
 export interface ApiAppOptions {
@@ -42,6 +52,7 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
     options.bankBodyLimitBytes ?? BANK_SAVE_BODY_LIMIT_BYTES;
   const jsonBodyLimitBytes =
     options.jsonBodyLimitBytes ?? DEFAULT_JSON_BODY_LIMIT_BYTES;
+  getAgentToken();
   app.use(rejectForeignHosts);
   app.use(contentSecurityPolicy);
   app.use(rejectForeignMutatingOrigins);
@@ -56,6 +67,8 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
     createBankRouter({ bankBodyLimitBytes, jsonBodyLimitBytes })
   );
   app.use("/api", createDocumentRouter({ jsonBodyLimitBytes }));
+  app.use("/api", createAgentRouter({ jsonBodyLimitBytes }));
+  app.use("/api", createEventsRouter());
   installFrontend(app);
   app.use(apiErrorHandler);
   return app;
@@ -74,10 +87,21 @@ export async function startApiServer(
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : requestedPort;
       const url = `http://${host}:${port}`;
+      configureAgentDiscovery({
+        port,
+        appVersion: options.appVersion
+      });
+      void refreshAgentDiscovery().catch((error) => {
+        console.warn("写入 Agent 发现文件失败。", error);
+      });
       console.log(`API server listening on ${url}`);
       resolve({ app, server, url, port });
     });
     server.on("error", reject);
+    server.on("close", () => {
+      closeEventClients();
+      void removeAgentDiscovery();
+    });
   });
 }
 

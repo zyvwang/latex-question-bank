@@ -1,15 +1,18 @@
 .modulePanel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
-.modulePanel > header {
+.panelHead {
+  min-width: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel);
+}
+.panelHead > header {
   min-height: 46px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 12px 0 15px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--panel);
 }
-.modulePanel > header > div:first-child { margin-right: auto; }
-.modulePanel header span { color: var(--muted); font-size: 11px; }
+.panelHead > header > div:first-child { margin-right: auto; }
+.panelHead header span { color: var(--muted); font-size: 11px; }
 .modulePanel h2 {
   margin: 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;
@@ -17,6 +20,33 @@
   line-height: 1.1;
 }
 .miniStatus { color: var(--muted); font-size: 13px; }
+.solutionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px 8px 15px;
+}
+.solutionMeta label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.solutionMeta select,
+.solutionMeta input {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 13px;
+}
+.solutionMeta input { width: 180px; }
 .moduleGrid {
   min-height: 0;
   display: grid;

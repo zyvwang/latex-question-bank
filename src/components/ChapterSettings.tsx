@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
-import { useReview } from "../context/questionBankContexts.js";
+import { useBankSettings } from "../context/questionBankContexts.js";
 import controls from "../styles/controls.module.css";
 import styles from "./SettingsScreen.module.css";
 
 export function ChapterSettings() {
-  const review = useReview();
+  const settings = useBankSettings();
   const [newName, setNewName] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
   function createChapter() {
-    if (review.createChapter(newName)) setNewName("");
+    if (settings.createChapter(newName)) setNewName("");
   }
 
   return (
@@ -40,12 +40,12 @@ export function ChapterSettings() {
         </div>
       </header>
       <div className={styles.rows}>
-        {review.chapters.map((chapter, index) => (
+        {settings.chapters.map((chapter, index) => (
           <ChapterRow
             key={chapter.id}
             chapter={chapter}
             index={index}
-            total={review.chapters.length}
+            total={settings.chapters.length}
             draggedId={draggedId}
             setDraggedId={setDraggedId}
           />
@@ -67,19 +67,19 @@ function ChapterRow({
   draggedId,
   setDraggedId
 }: {
-  chapter: ReturnType<typeof useReview>["chapters"][number];
+  chapter: ReturnType<typeof useBankSettings>["chapters"][number];
   index: number;
   total: number;
   draggedId: string | null;
   setDraggedId: (id: string | null) => void;
 }) {
-  const review = useReview();
+  const settings = useBankSettings();
   const [draft, setDraft] = useState(chapter.name);
 
   useEffect(() => setDraft(chapter.name), [chapter.name]);
 
   function commit() {
-    if (!review.renameChapter(chapter.id, draft)) setDraft(chapter.name);
+    if (!settings.renameChapter(chapter.id, draft)) setDraft(chapter.name);
   }
 
   return (
@@ -91,8 +91,8 @@ function ChapterRow({
       onDragOver={(event) => event.preventDefault()}
       onDrop={() => {
         if (!draggedId || draggedId === chapter.id) return;
-        const to = review.chapters.findIndex((candidate) => candidate.id === chapter.id);
-        review.moveChapterToIndex(draggedId, to);
+        const to = settings.chapters.findIndex((candidate) => candidate.id === chapter.id);
+        settings.moveChapterToIndex(draggedId, to);
         setDraggedId(null);
       }}
     >
@@ -114,19 +114,19 @@ function ChapterRow({
       <div className={styles.rowActions}>
         <button
           className={controls.iconButton}
-          onClick={() => review.moveChapter(chapter.id, -1)}
+          onClick={() => settings.moveChapter(chapter.id, -1)}
           disabled={index === 0}
           aria-label={`上移章节 ${chapter.name}`}
         ><ArrowUp size={16} /></button>
         <button
           className={controls.iconButton}
-          onClick={() => review.moveChapter(chapter.id, 1)}
+          onClick={() => settings.moveChapter(chapter.id, 1)}
           disabled={index === total - 1}
           aria-label={`下移章节 ${chapter.name}`}
         ><ArrowDown size={16} /></button>
         <button
           className={`${controls.iconButton} ${controls.danger}`}
-          onClick={() => review.deleteChapter(chapter.id)}
+          onClick={() => settings.deleteChapter(chapter.id)}
           aria-label={`删除章节 ${chapter.name}`}
         ><Trash2 size={16} /></button>
       </div>

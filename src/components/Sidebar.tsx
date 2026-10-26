@@ -1,5 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
+  useAppView,
   useQuestions,
   useSelection,
   useWorkspaceUi
@@ -18,6 +19,12 @@ export function Sidebar({
   const questions = useQuestions();
   const selection = useSelection();
   const ui = useWorkspaceUi();
+  const appView = useAppView();
+  const reviewMode = appView.activeView === "review";
+  const pendingCount =
+    questions.bank?.items.filter(
+      (item) => item.reviewStatus === "pending"
+    ).length ?? 0;
   if (collapsed) {
     return (
       <aside
@@ -44,7 +51,9 @@ export function Sidebar({
           <div>
             <h2>题目</h2>
             <p>
-              {questions.orderedItems.length} 题 · 已选 {selection.selectedIds.size}
+              {reviewMode
+                ? `${pendingCount} 道待审阅`
+                : `${questions.orderedItems.length} 题 · 已选 ${selection.selectedIds.size}`}
             </p>
           </div>
         </div>

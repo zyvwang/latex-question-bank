@@ -27,6 +27,8 @@ React UI
 - 仅 API：`npm run dev:api`
 - 仅 Vite Web：`npm run dev:web`
 - Electron 开发版：`npm run desktop:dev`
+- 构建本地 Agent CLI：`npm run build:cli`
+- 安装/链接本地 Agent CLI：`npm run link:cli`
 - 重新生成 README 实际界面截图：`npm run screenshots:readme`
 - 类型检查：`npm run typecheck`
 - Lint：`npm run lint`
@@ -58,14 +60,20 @@ React UI
 - `src/api/client.ts`：前端唯一的应用 API 请求入口。新增应用 API 调用时放在这里。
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
-- `src/hooks/useAppView.ts`：顶层 editor、heatmap、settings 视图及热力图会话状态。
+- `src/hooks/useAppView.ts`：顶层 editor、review、settings 视图及页面重置。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
+- `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/hooks/useExternalBankSync.ts`：SSE 外部导入同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
 - `src/styles/controls.module.css`：共享按钮样式。
+- `cli/`：本地 Agent CLI（`lqb`），只通过本地 API 写入，不直接改 `bank.json`。
+- `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-service.ts`：Agent token、发现文件、manifest 导入与附件。
+- `server/routes/events-routes.ts`、`server/events.ts`：本地 SSE 广播。
+- `shared/agent-manifest.ts`：Agent 导入清单契约与校验。
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
-- `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export 分组。
+- `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export、agent/events 分组。
 - `server/http/`：共享 middleware 和 API 错误响应。
 - `server/bank-schema.ts`：默认题库和示例题库创建。
 - `server/*-storage.ts`、`server/json-file.ts`：workspace 生命周期、原子 JSON 写入、revision 检查、恢复与历史快照。
@@ -76,13 +84,34 @@ React UI
 - `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验；`shared/validation.ts` 仅为兼容 barrel。
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
-- `docs/architecture.md`、`docs/design-system.md`、`docs/mastery-heatmap.md`、`docs/release-checklist.md`：架构、视觉、热力图与掌握历史、发布约定。改相关领域时同步更新。
+- `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉、发布约定。改相关领域时同步更新。
+- `docs/agent-workflow.md`：Agent 安装、`lqb` 命令、清单、审阅和安全边界。
+- `docs/agent-workflow-plan.md`：外部 Agent 导入与审阅优先级的完整设计/实施计划。Phase A+B 已实施；C/D 按计划推进。
 
 避免手动编辑或提交生成目录：`node_modules/`、`build/`、`dist/`、`coverage/`、`release/`、`.tmp/`、`.app-data/`、`test-results/`、`public/vendor/`。`public/vendor/mathjax/` 由 `scripts/copy-mathjax.mjs` 在安装后复制生成。
 
 ## 数据模型与安全
 
-当前写入的 workspace schema 是 `version: 2`；`version: 1` 仅作为只读迁移输入。每道题的 LaTeX 内容存在：
+当前写入的 workspace schema 是 `version: 3`；`version: 1` 和 `version: 2` 仅作为只读迁移输入。v3 的题目字段包括：
+
+- `source: { bookId, label } | null`：书目 + 规范化题号，有书目时 `(bookId,label)` 全库唯一；不再有 `sourceNumber`。
+- `reviewPriority: "skip" | "recheck" | "must" | null`：界面「复习优先级」。
+- `reviewStatus: "pending" | "approved"`：Agent 导入的题默认 pending。
+- `solutionSource: "answer-book" | "agent" | "user" | "none" | null`、`solutionRef`。
+- `variantOf`、`importBatchId`、`importedAt`。
+
+`Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留标签，不能作为普通 `tags` 保存。迁移逻辑在 `shared/bank-migration.ts`，来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`。
+
+Agent 导入边界：
+
+- 应用运行时把端口、随机 token 和当前工作区写入 `~/.lqb/agent.json`（目录 0700、文件 0600）；`LQB_AGENT_DISCOVERY_FILE` 可覆盖。
+- 所有 `/api/agent/*` 写接口要求 `Authorization: Bearer <token>`；Host/Origin 检查不放松。
+- Agent 导入通过 `server/agent-import-service.ts` 在 workspace 写锁内原子提交：dry-run 不写；正式导入先校验清单和附件，再写 `.history/` 快照、导入记录和 bank。
+- 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256；TeX 中的 `{{asset:key}}` 由服务端替换为最终 `assets/...` 路径。
+- 不读取书目的 PDF 路径，只保存路径和哈希；Agent 不直接修改 `bank.json`。
+- 外部导入成功后通过 `/api/events` 广播；渲染端空闲时自动重载，有草稿时显示横幅，不静默覆盖。
+
+每道题的 LaTeX 内容存在：
 
 - `modules.question.tex`
 - `modules.solution.tex`
@@ -119,7 +148,7 @@ React UI
 ## 前端约定
 
 - React 组件和 hooks 使用 TypeScript strict 模式。
-- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、review。
+- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、bank settings。
 - 新增应用 API 请求只通过 `src/api/client.ts`。
 - CodeMirror 封装在 `src/components/LatexEditor.tsx`，不要在其他组件散落编辑器配置。
 - 样式优先使用 CSS Modules；全局 token 只放 `src/styles/foundation.css`。
@@ -132,9 +161,9 @@ React UI
 ### README 截图约定
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
-- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换 `docs/screenshots/main.png`、`heatmap.png`、`history.png`。
-- 三张图固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度；热力图使用 13、4、19、7、15、11 的不等长章节和掌握程度模式，三档掌握状态只用纯色色块；历史页保留五份记录和左右双栏。
-- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查三张图。除非用户明确修改截图方向，不要改回等长章节、组合模式、纹理掌握色块或低密度两题样例。
+- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换 `docs/screenshots/main.png`；`setup.png` 只在首次启动界面变化时更新。
+- `main.png` 固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度。热力图和掌握历史已移除，不再生成对应截图；独立审阅页截图在后续阶段加入。
+- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查 `main.png`。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定
 
@@ -166,8 +195,9 @@ React UI
 
 - 纯领域逻辑、排序、校验、storage helper：`npm run test:unit`
 - API route、workspace、保存、恢复、上传、导出接口：`npm run test:api`
+- Agent token、manifest 导入、冲突/覆盖、附件、SSE：`npm run test:api`；CLI 冒烟需启动应用或 headless API
 - Electron 主进程、preload、CSP、导航或 IPC：`npm run test:electron`
-- React 组件、hooks、自动保存、交互状态：`npm run test:ui`
+- React 组件、hooks、自动保存、交互状态、审阅页、外部同步：`npm run test:ui`
 - 端到端桌面行为：先 `npm run build`，再 `npm run test:desktop`
 - 发布或跨层改动：`npm run verify`
 
@@ -185,14 +215,14 @@ React UI
 
 开始前：
 
-- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/mastery-heatmap.md` 片段。
+- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/agent-workflow-plan.md` 片段。
 - 确认是否涉及 workspace 持久化、schema、Electron IPC、TeX 执行或文件路径安全。
 - 检查工作区是否已有用户改动，不要回退无关变更。
 
 完成后：
 
 - 运行与改动范围匹配的测试或说明未运行原因。
-- 如果改了用户可见行为，同步 README 或 docs；布局变化还要运行 `npm run screenshots:readme`，并检查 README 实际引用的三张界面图片。
+- 如果改了用户可见行为，同步 README 或 docs；布局变化还要运行 `npm run screenshots:readme`，并检查 README 实际引用的界面图片。
 - 如果改了 schema 或示例数据，同步迁移脚本、样例和测试。
 - 如果改了导出或编译，确认失败时不会破坏上一次成功输出。
 - 不要提交用户 workspace 内容、生成产物、覆盖率结果或本地应用数据。

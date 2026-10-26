@@ -300,7 +300,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .send({ candidateId: "bank.json.bak", workspacePath })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
-    expect(await readFile(externalFile, "utf8")).toContain('"version":2');
+    expect(await readFile(externalFile, "utf8")).toContain('"version":3');
   });
 
   it("revalidates a history candidate when it becomes a symlink before restore", async () => {
@@ -328,7 +328,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
       .send({ candidateId, workspacePath })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("RECOVERY_CANDIDATE_INVALID"));
-    expect(await readFile(externalFile, "utf8")).toContain('"version":2');
+    expect(await readFile(externalFile, "utf8")).toContain('"version":3');
   });
 
   it("rejects save-as when a referenced asset file is a symlink", async () => {

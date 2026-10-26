@@ -2,6 +2,7 @@
 node_modules/
 build/
 dist/
+dist-cli/
 release/
 .app-data/
 .tmp/

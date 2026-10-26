@@ -1,3 +1,4 @@
+import { sourceKey } from "./question-source.js";
 import type { Bank, Chapter, QuestionItem } from "./types.js";
 
 export function orderedChapters(chapters: Chapter[]): Chapter[] {
@@ -119,37 +120,21 @@ export function reorderItemWithinChapterByDrop(
   return items.map((item) => replacement.get(item.id) ?? item);
 }
 
-export function findSourceNumberConflict(
+export function findSourceConflict(
   items: QuestionItem[],
   itemId: string,
-  chapterId: string | null,
-  sourceNumber: string | undefined
+  source: QuestionItem["source"]
 ): QuestionItem | null {
-  const normalizedSource = sourceNumber?.trim();
-  if (!normalizedSource) return null;
+  const key = source ? sourceKey(source.bookId, source.label) : null;
+  if (!key) return null;
   return (
     items.find(
       (item) =>
         item.id !== itemId &&
-        item.chapterId === chapterId &&
-        item.sourceNumber?.trim() === normalizedSource
+        item.source !== null &&
+        sourceKey(item.source.bookId, item.source.label) === key
     ) ?? null
   );
-}
-
-export function sourceNumberConflictGroups(
-  items: QuestionItem[]
-): QuestionItem[][] {
-  const groups = new Map<string, QuestionItem[]>();
-  for (const item of items) {
-    const sourceNumber = item.sourceNumber?.trim();
-    if (!sourceNumber) continue;
-    const key = `${item.chapterId ?? "__uncategorized__"}\u0000${sourceNumber}`;
-    const group = groups.get(key) ?? [];
-    group.push(item);
-    groups.set(key, group);
-  }
-  return [...groups.values()].filter((group) => group.length > 1);
 }
 
 export function normalizeBankOrder(bank: Bank): Bank {

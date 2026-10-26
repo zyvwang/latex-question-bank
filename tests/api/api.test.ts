@@ -498,21 +498,11 @@ describe("API validation", () => {
       .send({
         workspacePath,
         baseRevision: initial.body.revision,
-        bank: { ...createSampleBank(), version: 3 }
+        bank: { ...createSampleBank(), version: 2 }
       })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
     const sample = createSampleBank();
-    const historyEntry = {
-      id: "history-one",
-      localDate: "2026-01-01",
-      name: "History one",
-      createdAt: sample.items[0].createdAt,
-      updatedAt: sample.items[0].updatedAt,
-      masteryOptions: sample.masteryOptions,
-      errorReasonOptions: sample.errorReasonOptions,
-      itemStates: {}
-    };
     await request(app)
       .put("/api/bank")
       .send({
@@ -520,32 +510,7 @@ describe("API validation", () => {
         baseRevision: initial.body.revision,
         bank: {
           ...sample,
-          masteryHistory: Array.from({ length: 6 }, (_, index) => ({
-            ...historyEntry,
-            id: `history-${index}`,
-            localDate: `2026-01-0${index + 1}`,
-            name: `History ${index}`
-          }))
-        }
-      })
-      .expect(400)
-      .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
-    await request(app)
-      .put("/api/bank")
-      .send({
-        workspacePath,
-        baseRevision: initial.body.revision,
-        bank: {
-          ...sample,
-          masteryHistory: [
-            historyEntry,
-            {
-              ...historyEntry,
-              id: "history-two",
-              localDate: "2026-01-02",
-              name: " history ONE "
-            }
-          ]
+          items: [{ ...sample.items[0], reviewStatus: "draft" }]
         }
       })
       .expect(400)
@@ -652,7 +617,7 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_MIME_MISMATCH"));
   });
 
-  it("reads v1 without rewriting it and preserves v1 before the first v2 save", async () => {
+  it("reads v1 without rewriting it and preserves v1 before the first v3 save", async () => {
     const app = createApiApp();
     await request(app)
       .post("/api/workspaces/create-empty")
@@ -666,14 +631,17 @@ describe("API validation", () => {
     const loaded = await request(app).get("/api/bank").expect(200);
     expect(loaded.body.revision).toBe(revisionForContent(raw));
     expect(loaded.body.bank).toMatchObject({
-      version: 2,
-      masteryHistory: []
+      version: 3,
+      books: [],
+      imports: []
     });
     expect(loaded.body.bank.items[0]).toMatchObject({
       id: "legacy-b",
       chapterOrder: 1,
-      masteryOptionId: null,
-      errorReasonOptionIds: []
+      source: { bookId: null, label: "1" },
+      reviewPriority: null,
+      reviewStatus: "approved",
+      solutionSource: null
     });
     expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(1);
 
@@ -699,7 +667,7 @@ describe("API validation", () => {
         await readFile(path.join(workspacePath, ".history", historyFiles[0]), "utf8")
       ).version
     ).toBe(1);
-    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(2);
+    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(3);
   });
 
   it("keeps the previous export when a replacement compile fails", async () => {

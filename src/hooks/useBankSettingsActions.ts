@@ -5,30 +5,24 @@ import {
 } from "../../shared/chapter-order.js";
 import {
   hasUniqueNormalizedNames,
-  isHexColor,
-  normalizeReviewOptionOrder,
   normalizeUniqueName
-} from "../../shared/review-options.js";
+} from "../../shared/names.js";
 import type {
   Bank,
-  Chapter,
-  ReviewOption
+  BookRecord,
+  Chapter
 } from "../../shared/types.js";
 import type { Notice } from "./controllerTypes.js";
-
-type ReviewKind = "mastery" | "errorReason";
 
 interface BankSettingsActionsOptions {
   bank: Bank | null;
   updateBank: (updater: (current: Bank) => Bank) => void;
-  updateReviewBank: (updater: (current: Bank) => Bank) => boolean;
   setNotice: (notice: Notice | null) => void;
 }
 
 export function useBankSettingsActions({
   bank,
   updateBank,
-  updateReviewBank,
   setNotice
 }: BankSettingsActionsOptions) {
   const createChapter = useCallback((name: string): string | null => {
@@ -119,28 +113,6 @@ export function useBankSettingsActions({
     const chapter = bank.chapters.find((candidate) => candidate.id === id);
     if (!chapter) return;
     const movedItems = itemsInChapter(bank.items, id);
-    if (
-      movedItems.some((item, index) => {
-        const source = item.sourceNumber?.trim();
-        if (!source) return false;
-        return (
-          bank.items.some(
-            (candidate) =>
-              candidate.chapterId === null &&
-              candidate.sourceNumber?.trim() === source
-          ) ||
-          movedItems
-            .slice(0, index)
-            .some((candidate) => candidate.sourceNumber?.trim() === source)
-        );
-      })
-    ) {
-      setNotice({
-        type: "error",
-        text: "删除后会在未分类题目中造成原编号冲突，请先调整冲突编号。"
-      });
-      return;
-    }
     const suffix = movedItems.length
       ? `\n\n其中 ${movedItems.length} 道题将移入未分类。`
       : "";
@@ -169,166 +141,119 @@ export function useBankSettingsActions({
     setNotice({ type: "ok", text: "章节已删除，相关题目已移入未分类。" });
   }, [bank, setNotice, updateBank]);
 
-  const createReviewOption = useCallback((
-    kind: ReviewKind,
-    option: Pick<ReviewOption, "name" | "color" | "pattern">
-  ): boolean => {
-    if (!bank) return false;
-    const currentOptions = optionsForKind(bank, kind);
-    const name = option.name.trim().normalize("NFKC");
-    const color = option.color.toUpperCase();
-    if (
-      !name ||
-      currentOptions.some(
-        (candidate) =>
-          normalizeUniqueName(candidate.name) === normalizeUniqueName(name)
-      )
-    ) {
-      setNotice({ type: "error", text: "选项名称不能为空且必须唯一。" });
-      return false;
+  const createBook = useCallback((title: string): string | null => {
+    if (!bank) return null;
+    const normalized = normalizeUniqueName(title);
+    if (!normalized) {
+      setNotice({ type: "error", text: "书目名称不能为空。" });
+      return null;
     }
-    if (!isHexColor(color)) {
-      setNotice({ type: "error", text: "颜色必须使用 #RRGGBB 格式。" });
-      return false;
+    if (bank.books.some((book) => normalizeUniqueName(book.title) === normalized)) {
+      setNotice({ type: "error", text: "书目名称已存在。" });
+      return null;
     }
-    const next: ReviewOption = {
+    const now = new Date().toISOString();
+    const book: BookRecord = {
       id: crypto.randomUUID(),
-      name,
-      color,
-      pattern: option.pattern,
-      order: currentOptions.length + 1
+      title: title.trim().normalize("NFKC"),
+      filePath: null,
+      fileHash: null,
+      answerBookPath: null,
+      answerBookHash: null,
+      createdAt: now,
+      updatedAt: now
     };
-    // 选项定义的增改排序不改变任何题目的复习状态,不记入当天掌握历史,
-    // 也就不会在历史满五份时把用户拦在删除对话框前。
-    updateBank((current) => replaceOptions(
-      current,
-      kind,
-      [...optionsForKind(current, kind), next]
-    ));
-    setNotice({ type: "ok", text: `已创建选项“${name}”。` });
-    return true;
+    updateBank((current) => ({
+      ...current,
+      books: [...current.books, book]
+    }));
+    setNotice({ type: "ok", text: `已创建书目“${book.title}”。` });
+    return book.id;
   }, [bank, setNotice, updateBank]);
 
-  const updateReviewOption = useCallback((
-    kind: ReviewKind,
-    id: string,
-    patch: Partial<Pick<ReviewOption, "name" | "color" | "pattern">>
-  ): boolean => {
+  const renameBook = useCallback((id: string, title: string): boolean => {
     if (!bank) return false;
-    const options = optionsForKind(bank, kind);
-    const nextOptions = options.map((option) =>
-      option.id === id
-        ? {
-            ...option,
-            ...patch,
-            name: patch.name === undefined
-              ? option.name
-              : patch.name.trim().normalize("NFKC"),
-            color: patch.color === undefined
-              ? option.color
-              : patch.color.toUpperCase()
-          }
-        : option
+    const normalized = normalizeUniqueName(title);
+    const candidate = bank.books.map((book) =>
+      book.id === id
+        ? { ...book, title: title.trim().normalize("NFKC") }
+        : book
     );
-    const changed = nextOptions.find((option) => option.id === id);
-    if (!changed || !hasUniqueNormalizedNames(nextOptions)) {
-      setNotice({ type: "error", text: "选项名称不能为空且必须唯一。" });
-      return false;
-    }
-    if (!isHexColor(changed.color)) {
-      setNotice({ type: "error", text: "颜色必须使用 #RRGGBB 格式。" });
-      return false;
-    }
-    updateBank((current) => replaceOptions(current, kind, nextOptions));
-    setNotice({ type: "ok", text: "选项已更新。" });
-    return true;
-  }, [bank, setNotice, updateBank]);
-
-  const moveReviewOption = useCallback((
-    kind: ReviewKind,
-    id: string,
-    direction: -1 | 1
-  ) => {
-    if (!bank) return;
-    const options = normalizeReviewOptionOrder(optionsForKind(bank, kind));
-    const index = options.findIndex((option) => option.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= options.length) return;
-    [options[index], options[target]] = [options[target], options[index]];
-    updateBank((current) => replaceOptions(
-      current,
-      kind,
-      options.map((option, optionIndex) => ({
-        ...option,
-        order: optionIndex + 1
-      }))
-    ));
-  }, [bank, updateBank]);
-
-  const moveReviewOptionToIndex = useCallback((
-    kind: ReviewKind,
-    id: string,
-    targetIndex: number
-  ) => {
-    if (!bank) return;
-    const options = normalizeReviewOptionOrder(optionsForKind(bank, kind));
-    const index = options.findIndex((option) => option.id === id);
-    if (index < 0 || targetIndex < 0 || targetIndex >= options.length) return;
-    const [option] = options.splice(index, 1);
-    options.splice(targetIndex, 0, option);
-    updateBank((current) => replaceOptions(
-      current,
-      kind,
-      options.map((candidate, optionIndex) => ({
-        ...candidate,
-        order: optionIndex + 1
-      }))
-    ));
-  }, [bank, updateBank]);
-
-  const deleteReviewOption = useCallback((kind: ReviewKind, id: string) => {
-    if (!bank) return;
-    const option = optionsForKind(bank, kind).find((candidate) => candidate.id === id);
-    if (!option) return;
-    const affectedCount = bank.items.filter((item) =>
-      kind === "mastery"
-        ? item.masteryOptionId === id
-        : item.errorReasonOptionIds.includes(id)
-    ).length;
     if (
-      !window.confirm(
-        `确定删除“${option.name}”吗？\n\n将清除 ${affectedCount} 道题中的对应引用。`
-      )
+      !normalized ||
+      !hasUniqueNormalizedNames(candidate.map((book) => ({ name: book.title })))
     ) {
-      return;
+      setNotice({
+        type: "error",
+        text: normalized ? "书目名称已存在。" : "书目名称不能为空。"
+      });
+      return false;
     }
-    // 与增改排序不同:删除会清掉题目上的 masteryOptionId / errorReasonOptionIds,
-    // 属于题目复习状态变更,必须记入当天掌握历史。
-    const applied = updateReviewBank((current) => ({
-      ...replaceOptions(
-        current,
-        kind,
-        optionsForKind(current, kind).filter((candidate) => candidate.id !== id)
-      ),
-      items: current.items.map((item) =>
-        kind === "mastery"
+    updateBank((current) => ({
+      ...current,
+      books: current.books.map((book) =>
+        book.id === id
           ? {
-              ...item,
-              masteryOptionId:
-                item.masteryOptionId === id ? null : item.masteryOptionId
+              ...book,
+              title: title.trim().normalize("NFKC"),
+              updatedAt: new Date().toISOString()
             }
-          : {
-              ...item,
-              errorReasonOptionIds: item.errorReasonOptionIds.filter(
-                (optionId) => optionId !== id
-              )
-            }
+          : book
       )
     }));
-    if (applied) {
-      setNotice({ type: "ok", text: "选项已删除，题目引用已清除。" });
+    setNotice({ type: "ok", text: "书目名称已更新。" });
+    return true;
+  }, [bank, setNotice, updateBank]);
+
+  const setBookPaths = useCallback((
+    id: string,
+    patch: Pick<BookRecord, "filePath" | "answerBookPath">
+  ) => {
+    if (!bank) return;
+    const now = new Date().toISOString();
+    updateBank((current) => ({
+      ...current,
+      books: current.books.map((book) => {
+        if (book.id !== id) return book;
+        const nextFilePath = patch.filePath?.trim() || null;
+        const nextAnswerBookPath = patch.answerBookPath?.trim() || null;
+        return {
+          ...book,
+          filePath: nextFilePath,
+          fileHash:
+            nextFilePath === book.filePath ? book.fileHash : null,
+          answerBookPath: nextAnswerBookPath,
+          answerBookHash:
+            nextAnswerBookPath === book.answerBookPath
+              ? book.answerBookHash
+              : null,
+          updatedAt: now
+        };
+      })
+    }));
+  }, [bank, updateBank]);
+
+  const deleteBook = useCallback((id: string) => {
+    if (!bank) return;
+    const book = bank.books.find((candidate) => candidate.id === id);
+    if (!book) return;
+    const referenced = bank.items.filter(
+      (item) => item.source?.bookId === id
+    ).length;
+    if (referenced > 0) {
+      setNotice({
+        type: "error",
+        text: `书目“${book.title}”仍被 ${referenced} 道题引用，无法删除。`
+      });
+      return;
     }
-  }, [bank, setNotice, updateReviewBank]);
+    if (!window.confirm(`确定删除书目“${book.title}”吗？`)) return;
+    updateBank((current) => ({
+      ...current,
+      books: current.books.filter((candidate) => candidate.id !== id)
+    }));
+    setNotice({ type: "ok", text: "书目已删除。" });
+  }, [bank, setNotice, updateBank]);
 
   return {
     createChapter,
@@ -336,25 +261,9 @@ export function useBankSettingsActions({
     moveChapter,
     moveChapterToIndex,
     deleteChapter,
-    createReviewOption,
-    updateReviewOption,
-    moveReviewOption,
-    moveReviewOptionToIndex,
-    deleteReviewOption
+    createBook,
+    renameBook,
+    setBookPaths,
+    deleteBook
   };
-}
-
-function optionsForKind(bank: Bank, kind: ReviewKind): ReviewOption[] {
-  return kind === "mastery" ? bank.masteryOptions : bank.errorReasonOptions;
-}
-
-function replaceOptions(
-  bank: Bank,
-  kind: ReviewKind,
-  options: ReviewOption[]
-): Bank {
-  const normalized = normalizeReviewOptionOrder(options);
-  return kind === "mastery"
-    ? { ...bank, masteryOptions: normalized }
-    : { ...bank, errorReasonOptions: normalized };
 }

@@ -8,8 +8,9 @@ import { useQuestionDerivedData } from "../../src/hooks/useQuestionDerivedData.j
 const emptyFilters: QuestionFilters = {
   chapterFilters: [],
   tagFilters: [],
-  masteryFilters: [],
-  errorReasonFilters: [],
+  bookFilters: [],
+  reviewPriorityFilters: [],
+  reviewStatusFilters: [],
   search: ""
 };
 
@@ -28,7 +29,6 @@ describe("question derived data hot path", () => {
     );
     const firstNumberById = result.current.numberById;
     const firstTags = result.current.tags;
-    const firstConflictGroups = result.current.conflictGroups;
     const active = bank.items[0];
     if (!active) throw new Error("测试题库缺少题目");
 
@@ -49,7 +49,6 @@ describe("question derived data hot path", () => {
 
     expect(result.current.numberById).toBe(firstNumberById);
     expect(result.current.tags).toBe(firstTags);
-    expect(result.current.conflictGroups).toBe(firstConflictGroups);
   });
 
   it("rebuilds full-text search only for the changed item in a 1000-item bank", () => {
@@ -116,12 +115,17 @@ function countedItem(
   };
   return {
     id: `item-${index}`,
-    sourceNumber: `S-${index}`,
+    source: { bookId: null, label: `S-${index}` },
     chapterId,
     chapterOrder: index + 1,
     tags: [index % 2 === 0 ? "偶数" : "奇数"],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "none",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: tex(questionTex),
       solution: tex(`solution ${index}`),

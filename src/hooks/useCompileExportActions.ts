@@ -74,7 +74,9 @@ export function useCompileExportActions({
   const workspaceGeneration = captureSaveSession().generation;
 
   const currentContentVersion = useMemo(
-    () => activeItem && bank ? compileContentVersion(activeItem, bank.settings) : null,
+    () => activeItem && bank
+      ? compileContentVersion(activeItem, bank.settings, bank.books)
+      : null,
     [activeItem, bank]
   );
   const compileStatus = useMemo(() => {
@@ -203,7 +205,7 @@ export function useCompileExportActions({
     const settings = bank.settings;
     const target = {
       itemId: item.id,
-      contentVersion: compileContentVersion(item, settings)
+      contentVersion: compileContentVersion(item, settings, bank.books)
     };
     const session = captureSaveSession();
     const generation = ++compileGenerationRef.current;

@@ -34,7 +34,7 @@ test("pauses on a real disk conflict and blocks close without overwriting either
 
   try {
     const page = await electronApp.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
+    await expect(page.getByLabel("来源题号")).toHaveValue("示例 1");
     const externalBank = {
       ...initialBank,
       settings: {
@@ -48,20 +48,20 @@ test("pauses on a real disk conflict and blocks close without overwriting either
       "utf8"
     );
 
-    await page.getByLabel("原编号").fill("desktop-local-conflict");
-    await page.getByLabel("原编号").press("Tab");
+    await page.getByLabel("来源题号").fill("desktop-local-conflict");
+    await page.getByLabel("来源题号").press("Tab");
     await expect(page.getByRole("dialog", {
       name: "题库保存冲突"
     })).toBeVisible();
     await page.getByRole("button", { name: "暂时关闭" }).click();
 
-    await page.getByLabel("原编号").fill("desktop-local-latest");
-    await page.getByLabel("原编号").press("Tab");
+    await page.getByLabel("来源题号").fill("desktop-local-latest");
+    await page.getByLabel("来源题号").press("Tab");
     await page.waitForTimeout(800);
     const diskAfterFurtherEditing = JSON.parse(
       await readFile(bankPath, "utf8")
     ) as Bank;
-    expect(diskAfterFurtherEditing.items[0].sourceNumber).toBe("示例 1");
+    expect(diskAfterFurtherEditing.items[0].source?.label).toBe("示例 1");
     expect(diskAfterFurtherEditing.settings.preamble).toContain(
       "% external edit"
     );
@@ -103,32 +103,34 @@ test("blocks the quit and explains why when a focused draft fails validation", a
 
   try {
     const page = await electronApp.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue("");
+    await expect(page.getByLabel("来源题号")).toHaveValue("");
 
     // 对话框是模态的,真弹出来会把测试挂到超时;换成记录调用参数的桩。
     await installMessageBoxRecorder(electronApp, 0);
 
-    // 同章节(都在未分类)已存在「冲突编号」,这里输入后不失焦、直接退出。
-    await page.getByLabel("原编号").fill("冲突编号");
+    // 同一本书已存在「冲突编号」,这里输入后不失焦、直接退出。
+    await page.getByLabel("来源书目").selectOption("book-conflict");
+    await page.getByLabel("来源题号").fill("冲突编号");
     await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
 
     await expect.poll(() => readMessageBoxCalls(electronApp)).toHaveLength(1);
     const [dialog] = await readMessageBoxCalls(electronApp);
     expect(dialog.message).toBe("最后的修改未能保存。");
-    expect(dialog.detail).toContain("原编号“冲突编号”在当前章节中已被使用");
+    expect(dialog.detail).toContain("来源题号“冲突编号”已被其他题目使用");
     expect(dialog.buttons).toEqual(["返回继续编辑", "放弃未保存修改"]);
 
     // 选了「返回继续编辑」:窗口留着,应用内也说明了原因,磁盘没有被改写。
-    await expect(page.getByText(/在当前章节中已被使用/)).toBeVisible();
+    await expect(page.getByText(/已被其他题目使用/)).toBeVisible();
     const kept = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
-    expect(kept.items[0].sourceNumber).toBe("");
+    expect(kept.items[0].source).toBeNull();
 
     // 换成「放弃未保存修改」,退出必须真的发生,否则用户会被自己的编辑困住。
     await installMessageBoxRecorder(electronApp, 1);
     const exitPromise = new Promise<void>((resolve) => {
       electronApp.process().once("exit", () => resolve());
     });
-    await page.getByLabel("原编号").fill("冲突编号");
+    await page.getByLabel("来源书目").selectOption("book-conflict");
+    await page.getByLabel("来源题号").fill("冲突编号");
     await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
     await exitPromise;
   } finally {
@@ -136,7 +138,7 @@ test("blocks the quit and explains why when a focused draft fails validation", a
   }
 
   const finalBank = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
-  expect(finalBank.items[0].sourceNumber).toBe("");
+  expect(finalBank.items[0].source).toBeNull();
 });
 
 test("shows only one unsaved dialog when a second close response arrives", async () => {
@@ -165,18 +167,20 @@ test("shows only one unsaved dialog when a second close response arrives", async
     const browserWindow = await electronApp.firstWindow().then(() =>
       electronApp.browserWindow(page)
     );
-    await expect(page.getByLabel("原编号")).toHaveValue("");
+    await expect(page.getByLabel("来源题号")).toHaveValue("");
 
     // 对话框挂住不返回,模拟用户还没点按钮的那段时间 —— 缺陷正是在这段窗口里。
     await installHangingMessageBoxRecorder(electronApp);
 
-    await page.getByLabel("原编号").fill("冲突编号");
+    await page.getByLabel("来源书目").selectOption("book-conflict");
+    await page.getByLabel("来源题号").fill("冲突编号");
     await electronApp.evaluate(({ app }) => app.quit()).catch(() => undefined);
     await expect.poll(() => readMessageBoxCalls(electronApp)).toHaveLength(1);
 
     // 第一个对话框还挂着,再来一次关闭检查。重新填草稿是为了让这次回复同样是
     // {ok:false},走到弹框那一支。
-    await page.getByLabel("原编号").fill("冲突编号");
+    await page.getByLabel("来源书目").selectOption("book-conflict");
+    await page.getByLabel("来源题号").fill("冲突编号");
     await page.evaluate(() => {
       document.body.dataset.secondCloseProbe = "";
       const testWindow = window as Window & { closeProbeCleanup?: () => void };
@@ -212,7 +216,7 @@ test("ignores a late success from a timed-out close round", async () => {
   } });
   try {
     const page = await electronApp.firstWindow();
-    await expect(page.getByLabel("原编号")).toBeVisible();
+    await expect(page.getByLabel("来源题号")).toBeVisible();
     await installMessageBoxRecorder(electronApp, 0);
     await electronApp.evaluate(({ BrowserWindow }) => {
       const window = BrowserWindow.getAllWindows()[0];

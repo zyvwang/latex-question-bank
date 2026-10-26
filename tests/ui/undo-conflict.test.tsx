@@ -11,8 +11,16 @@ it("retains a rejected undo for retry without changing the bank or selection", (
   vi.spyOn(window, "confirm").mockReturnValue(true);
   const notice = vi.fn();
   const initial = createSampleBank();
-  const deleted = { ...initial.items[0], sourceNumber: "42" };
-  const replacement = { ...deleted, id: "replacement", sourceNumber: "43", chapterOrder: 2 };
+  const deleted = {
+    ...initial.items[0],
+    source: { bookId: "book-sample", label: "42" }
+  };
+  const replacement = {
+    ...deleted,
+    id: "replacement",
+    source: { bookId: "book-sample", label: "43" },
+    chapterOrder: 2
+  };
   const { result } = renderHook(() => {
     const [bank, setBank] = useState<Bank>({ ...initial, items: [deleted, replacement] });
     const [activeId, setActiveId] = useState<string | null>(deleted.id);
@@ -25,16 +33,16 @@ it("retains a rejected undo for retry without changing the bank or selection", (
     return { bank, setBank, activeId, selectedIds, actions };
   });
   act(() => result.current.actions.deleteItem(deleted.id));
-  act(() => result.current.setBank((bank) => ({ ...bank, items: bank.items.map((item) => ({ ...item, sourceNumber: "42" })) })));
+  act(() => result.current.setBank((bank) => ({ ...bank, items: bank.items.map((item) => ({ ...item, source: { bookId: "book-sample", label: "42" } })) })));
   const before = result.current.bank;
   act(() => result.current.actions.undoDelete());
   expect(result.current.bank).toBe(before);
   expect(result.current.selectedIds.has(deleted.id)).toBe(false);
   expect(result.current.actions.canUndoDelete).toBe(true);
   expect(notice).toHaveBeenLastCalledWith({ type: "error", text: expect.stringContaining("42") });
-  act(() => result.current.setBank((bank) => ({ ...bank, items: bank.items.map((item) => ({ ...item, sourceNumber: "43" })) })));
+  act(() => result.current.setBank((bank) => ({ ...bank, items: bank.items.map((item) => ({ ...item, source: { bookId: "book-sample", label: "43" } })) })));
   act(() => result.current.actions.undoDelete());
-  expect(result.current.bank.items.map((item) => item.sourceNumber).sort()).toEqual(["42", "43"]);
+  expect(result.current.bank.items.map((item) => item.source?.label).sort()).toEqual(["42", "43"]);
   expect(result.current.selectedIds.has(deleted.id)).toBe(true);
   expect(result.current.activeId).toBe(deleted.id);
   expect(result.current.actions.canUndoDelete).toBe(false);

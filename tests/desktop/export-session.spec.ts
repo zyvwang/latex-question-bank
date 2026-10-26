@@ -12,7 +12,7 @@ test("cancels a delayed export when the user switches workspaces", async () => {
   await rm(root, { recursive: true, force: true });
   const original = createSampleBank();
   const other = createSampleBank();
-  other.items[0].sourceNumber = "B-only";
+  other.items[0].source = { bookId: null, label: "B-only" };
   for (const [workspace, bank] of [[a, original], [b, other]] as const) {
     await mkdir(workspace, { recursive: true });
     await writeFile(path.join(workspace, "bank.json"), JSON.stringify(bank));
@@ -29,7 +29,7 @@ test("cancels a delayed export when the user switches workspaces", async () => {
   const delayedName = new Promise<void>((resolve) => { releaseName = resolve; });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
+    await expect(page.getByLabel("来源题号")).toHaveValue("示例 1");
     await expect(page.getByLabel("导出名")).not.toHaveValue("");
     const writes: SaveBankRequest[] = [];
     let exportRequests = 0;
@@ -53,7 +53,7 @@ test("cancels a delayed export when the user switches workspaces", async () => {
     await page.getByRole("button", { name: "题库设置", exact: true }).click();
     await page.getByRole("button", { name: "B 本地工作区", exact: true }).click();
     await page.getByRole("button", { name: "编辑", exact: true }).click();
-    await expect(page.getByLabel("原编号")).toHaveValue("B-only");
+    await expect(page.getByLabel("来源题号")).toHaveValue("B-only");
     const oldResponse = page.waitForResponse(async (response) => response.url().endsWith("/api/exports/default-name") && (await response.json()).exportName === "stale-export");
     releaseName();
     await oldResponse;

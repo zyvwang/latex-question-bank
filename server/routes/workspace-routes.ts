@@ -7,6 +7,7 @@ import {
   validateWorkspaceRelocateRequest
 } from "../../shared/validation.js";
 import { updateTexPathOverride } from "../app-state.js";
+import { refreshAgentDiscovery } from "../agent-discovery.js";
 import { buildAppInfo } from "../app-info.js";
 import { saveBankAsWorkspace } from "../workspace-save-as.js";
 import { sendApiError } from "../http/api-response.js";
@@ -61,10 +62,7 @@ export function createWorkspaceRouter(options: {
           return;
         }
         const transition = await saveBankAsWorkspace(validation.value);
-        response.json({
-          appInfo: await buildAppInfo(transition.appState),
-          snapshot: transition.snapshot
-        });
+        response.json(await buildWorkspaceTransitionResponse(transition));
       } catch (error) {
         next(error);
       }
@@ -184,6 +182,11 @@ function registerWorkspaceTransitionRoute(
 async function buildWorkspaceTransitionResponse(
   transition: WorkspaceTransition
 ) {
+  await refreshAgentDiscovery(
+    transition.appState.currentWorkspacePath
+  ).catch((error) => {
+    console.warn("刷新 Agent 发现文件失败。", error);
+  });
   return {
     appInfo: await buildAppInfo(transition.appState),
     snapshot: transition.snapshot

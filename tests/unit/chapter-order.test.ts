@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  findSourceNumberConflict,
+  findSourceConflict,
   moveItemWithinChapter,
   orderItemsByChapter,
   reorderItemWithinChapterByDrop
@@ -47,17 +47,20 @@ describe("chapter-local question order", () => {
     ).toBe(items);
   });
 
-  it("finds non-empty source-number conflicts only in the target chapter", () => {
+  it("finds book-linked source conflicts across the whole bank", () => {
     const items = [
-      { ...item("a-1", "chapter-a", 1), sourceNumber: "12" },
-      { ...item("a-2", "chapter-a", 2), sourceNumber: "" },
-      { ...item("b-1", "chapter-b", 1), sourceNumber: "12" }
+      { ...item("a-1", "chapter-a", 1), source: { bookId: "book-1", label: "12" } },
+      { ...item("a-2", "chapter-a", 2), source: { bookId: "book-1", label: "13" } },
+      { ...item("b-1", "chapter-b", 1), source: { bookId: "book-1", label: "12" } }
     ];
     expect(
-      findSourceNumberConflict(items, "a-2", "chapter-a", "12")?.id
+      findSourceConflict(items, "a-2", { bookId: "book-1", label: "12" })?.id
     ).toBe("a-1");
     expect(
-      findSourceNumberConflict(items, "a-2", null, "12")
+      findSourceConflict(items, "a-2", { bookId: null, label: "12" })
+    ).toBeNull();
+    expect(
+      findSourceConflict(items, "b-1", { bookId: "book-2", label: "12" })
     ).toBeNull();
   });
 });
@@ -69,12 +72,17 @@ function item(
 ): QuestionItem {
   return {
     id,
-    sourceNumber: id,
+    source: { bookId: null, label: id },
     chapterId,
     chapterOrder,
     tags: [],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "none",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: { tex: id },
       solution: { tex: "" },

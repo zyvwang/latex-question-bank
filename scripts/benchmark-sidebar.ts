@@ -19,7 +19,7 @@ function createBank(count: number): Bank {
   return {
     ...bank, chapters,
     items: Array.from({ length: count }, (_, index) => ({
-      ...bank.items[0], id: `benchmark-${index}`, sourceNumber: `性能题 ${index + 1}`,
+      ...bank.items[0], id: `benchmark-${index}`, source: { bookId: null, label: `性能题 ${index + 1}` },
       chapterId: chapters[Math.floor(index / (count / 10))].id,
       chapterOrder: index % (count / 10) + 1,
       tags: [index % 10 === 0 ? "基准命中" : "普通题", "求极限"],
@@ -106,7 +106,7 @@ async function run(root: string, count: number, sample: number) {
     });
     const switchItem = await measure(page, async () => {
       await page.locator("#question-nav-benchmark-1").click();
-      await expect(page.locator("#main-workspace").getByLabel("原编号", { exact: true })).toHaveValue("性能题 2");
+      await expect(page.locator("#main-workspace").getByLabel("来源题号", { exact: true })).toHaveValue("性能题 2");
     });
     const scroll = await measure(page, async () => {
       await page.locator('[aria-label="题目列表"]').evaluate(async (element) => {

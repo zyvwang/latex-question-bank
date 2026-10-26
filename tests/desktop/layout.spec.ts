@@ -3,7 +3,7 @@ import path from "node:path";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createSampleBank } from "../../server/bank-schema.js";
 
-import { closeDesktopApp, isMissingFile, createLargeHeatmapBank, installMessageBoxRecorder, readMessageBoxCalls } from "../fixtures/desktop-app.js";
+import { closeDesktopApp, isMissingFile, createLargeQuestionBank, installMessageBoxRecorder, readMessageBoxCalls } from "../fixtures/desktop-app.js";
 
 test("restores adjusted and collapsed panes after a desktop restart", async () => {
   const workspacePath = path.resolve(".tmp/playwright-layout-workspace");
@@ -35,13 +35,6 @@ test("restores adjusted and collapsed panes after a desktop restart", async () =
     await sidebarSeparator.press("End");
     await page.getByRole("separator", { name: "调整代码与预览比例" }).press("Home");
 
-    await page.getByRole("button", { name: "热力图" }).click();
-    const previewSeparator = page.getByRole("separator", {
-      name: "调整热力图题目预览宽度"
-    });
-    await previewSeparator.press("End");
-    await page.getByRole("button", { name: "收起热力图题目预览" }).click();
-
     await expect.poll(async () => {
       try {
         const state = JSON.parse(
@@ -54,9 +47,7 @@ test("restores adjusted and collapsed panes after a desktop restart", async () =
       }
     }).toMatchObject({
       questionSidebarWidth: 360,
-      moduleEditorPercent: 35,
-      heatmapPreviewWidth: 520,
-      heatmapPreviewCollapsed: true
+      moduleEditorPercent: 35
     });
   } finally {
     await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
@@ -71,15 +62,6 @@ test("restores adjusted and collapsed panes after a desktop restart", async () =
     await expect(page.getByRole("separator", {
       name: "调整代码与预览比例"
     })).toHaveAttribute("aria-valuenow", "35");
-
-    await page.getByRole("button", { name: "热力图" }).click();
-    await expect(page.getByRole("button", {
-      name: "展开热力图题目预览"
-    })).toBeVisible();
-    await page.getByRole("button", { name: "展开热力图题目预览" }).click();
-    await expect(page.getByRole("separator", {
-      name: "调整热力图题目预览宽度"
-    })).toHaveAttribute("aria-valuenow", "520");
   } finally {
     await restartedApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }
@@ -91,7 +73,7 @@ test("sidebar chapter headings stick, hand off, and preserve keyboard and drag t
   await rm(workspacePath, { recursive: true, force: true });
   await rm(appDataPath, { recursive: true, force: true, maxRetries: 3 });
   await mkdir(workspacePath, { recursive: true });
-  const bank = createLargeHeatmapBank();
+  const bank = createLargeQuestionBank();
   bank.chapters = bank.chapters.slice(0, 3);
   bank.chapters[1].name = "第二章：含参数的分段函数连续性与极限的分类讨论";
   bank.items = bank.items.filter((item) =>

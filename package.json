@@ -10,6 +10,9 @@
   "license": "MIT",
   "main": "build/electron/main.js",
   "type": "module",
+  "bin": {
+    "lqb": "bin/lqb.mjs"
+  },
   "scripts": {
     "postinstall": "node scripts/copy-mathjax.mjs",
     "dev": "concurrently -k -n api,web -c cyan,green \"cross-env LQB_DEV_SERVER_URL=http://127.0.0.1:5173 tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
@@ -19,7 +22,9 @@
     "screenshots:readme": "npm run build && tsx scripts/capture-readme-screenshots.ts",
     "typecheck": "tsc -b && tsc -p tsconfig.desktop.json --noEmit",
     "build:desktop": "tsc -p tsconfig.desktop.json",
-    "build": "npm run typecheck && vite build && npm run build:desktop",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "link:cli": "npm run build:cli && npm link",
+    "build": "npm run typecheck && vite build && npm run build:desktop && npm run build:cli",
     "lint": "eslint .",
     "audit:security": "npm audit --audit-level=moderate",
     "start": "tsx server/index.ts",

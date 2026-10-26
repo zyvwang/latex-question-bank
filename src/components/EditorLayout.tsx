@@ -8,7 +8,11 @@ import { Sidebar } from "./Sidebar.js";
 import { WorkspaceView } from "./WorkspaceView.js";
 import styles from "./EditorLayout.module.css";
 
-export function EditorLayout() {
+export function EditorLayout({
+  mode = "editor"
+}: {
+  mode?: "editor" | "review";
+}) {
   const { preferences, updatePreferences } = useLayoutPreferences();
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const collapsed = preferences.questionSidebarCollapsed;
@@ -46,7 +50,7 @@ export function EditorLayout() {
           }
         />
       )}
-      <WorkspaceView />
+      <WorkspaceView mode={mode} />
     </div>
   );
 }

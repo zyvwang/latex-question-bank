@@ -67,8 +67,14 @@ export function createDocumentRouter(options: {
       }
       const { workspaceDir, tempDir } = await requireCurrentWorkspace(validation.value.workspacePath);
       const { item, settings } = validation.value;
+      const snapshot = await readBankSnapshot();
       const result = await withLatexExecutionSlot(async (session) => {
-        const texPath = await writeCurrentItemCheck(item, settings, workspaceDir);
+        const texPath = await writeCurrentItemCheck(
+          item,
+          settings,
+          workspaceDir,
+          snapshot.bank.books
+        );
         return compileLatex(texPath, path.dirname(texPath), 45_000, session);
       });
       response.status(result.ok ? 200 : 422).json({

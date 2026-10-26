@@ -86,15 +86,26 @@ export function createConflictingDesktopBank(): Bank {
   const base = createSampleBank();
   const template = base.items[0];
   const timestamp = "2026-07-26T08:00:00.000Z";
-  // 两道题都落在未分类;原编号唯一性按章节判定,chapterId 同为 null 即同章节。
   return {
     ...base,
     chapters: [],
+    books: [
+      {
+        id: "book-conflict",
+        title: "冲突书",
+        filePath: null,
+        fileHash: null,
+        answerBookPath: null,
+        answerBookHash: null,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }
+    ],
     items: [
       {
         ...template,
         id: "conflict-target",
-        sourceNumber: "",
+        source: null,
         chapterId: null,
         chapterOrder: 1,
         createdAt: timestamp,
@@ -103,7 +114,7 @@ export function createConflictingDesktopBank(): Bank {
       {
         ...template,
         id: "conflict-owner",
-        sourceNumber: "冲突编号",
+        source: { bookId: "book-conflict", label: "冲突编号" },
         chapterId: null,
         chapterOrder: 2,
         createdAt: timestamp,
@@ -143,7 +154,7 @@ export function createLegacyDesktopBank(): LegacyBank {
   };
 }
 
-export function createLargeHeatmapBank(): Bank {
+export function createLargeQuestionBank(): Bank {
   const base = createSampleBank();
   const chapters = Array.from({ length: 10 }, (_, index) => ({
     id: `large-chapter-${index + 1}`,
@@ -155,7 +166,7 @@ export function createLargeHeatmapBank(): Bank {
     Array.from({ length: 100 }, (_, index) => ({
       ...template,
       id: `large-${chapter.order}-${index + 1}`,
-      sourceNumber: `${chapter.order}-${index + 1}`,
+      source: { bookId: null, label: `${chapter.order}-${index + 1}` },
       chapterId: chapter.id,
       chapterOrder: index + 1,
       modules: {

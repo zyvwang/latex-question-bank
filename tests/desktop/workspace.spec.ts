@@ -32,14 +32,14 @@ test("starts in Setup, creates a workspace, and removes only its recent-list ent
     await page.getByRole("button", { name: "新建空白题库" }).click();
     await expect(page.getByText("当前工作区还没有题目")).toBeVisible();
     await expect.poll(async () => readFile(path.join(workspacePath, "bank.json"), "utf8"))
-      .toContain('"version": 2');
+      .toContain('"version": 3');
 
     await page.getByRole("button", { name: "题库设置" }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "从列表移除工作区" }).click();
     await expect(page.getByText("建立你的第一个题库")).toBeVisible();
     await expect(readFile(path.join(workspacePath, "bank.json"), "utf8"))
-      .resolves.toContain('"version": 2');
+      .resolves.toContain('"version": 3');
   } finally {
     await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }
@@ -97,7 +97,7 @@ test("switches away from a missing current workspace without changing disk data"
     await page.getByRole("button", {
       name: `切换到 ${path.basename(availableWorkspacePath)}`
     }).click();
-    await expect(page.getByLabel("原编号")).toHaveValue("示例 1");
+    await expect(page.getByLabel("来源题号")).toHaveValue("示例 1");
     await expect.poll(async () => {
       const state = JSON.parse(
         await readFile(path.join(appDataPath, "app-state.json"), "utf8")
@@ -112,7 +112,7 @@ test("switches away from a missing current workspace without changing disk data"
   }
 });
 
-test("opens v1, saves the first edit as v2 on close, and restarts from v2", async () => {
+test("opens v1, saves the first edit as v3 on close, and restarts from v3", async () => {
   const workspacePath = path.resolve(".tmp/playwright-v1-workspace");
   const appDataPath = path.resolve(".tmp/playwright-v1-app-data");
   await rm(workspacePath, { recursive: true, force: true });
@@ -136,10 +136,13 @@ test("opens v1, saves the first edit as v2 on close, and restarts from v2", asyn
 
   try {
     const page = await electronApp.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue("旧题 1");
+    await expect(page.getByLabel("来源题号")).toHaveValue("1");
+    await expect(
+      page.getByLabel("来源书目").locator("option:checked")
+    ).toHaveText("旧题");
     expect(JSON.parse(await readFile(path.join(workspacePath, "bank.json"), "utf8")).version)
       .toBe(1);
-    await page.getByLabel("原编号").fill("旧题 1（已编辑）");
+    await page.getByLabel("来源题号").fill("旧题 1（已编辑）");
 
     const exitPromise = new Promise<void>((resolve) => {
       electronApp.process().once("exit", () => resolve());
@@ -153,11 +156,12 @@ test("opens v1, saves the first edit as v2 on close, and restarts from v2", asyn
   const savedBank = JSON.parse(
     await readFile(path.join(workspacePath, "bank.json"), "utf8")
   ) as Bank;
-  expect(savedBank.version).toBe(2);
+  expect(savedBank.version).toBe(3);
   expect(savedBank.items[0]).toMatchObject({
-    sourceNumber: "旧题 1（已编辑）",
-    masteryOptionId: null,
-    errorReasonOptionIds: []
+    source: { bookId: expect.any(String), label: "旧题 1(已编辑)" },
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: null
   });
   expect(
     JSON.parse(await readFile(path.join(workspacePath, "bank.json.bak"), "utf8")).version
@@ -166,7 +170,7 @@ test("opens v1, saves the first edit as v2 on close, and restarts from v2", asyn
   const restartedApp = await electron.launch(launchOptions);
   try {
     const restartedPage = await restartedApp.firstWindow();
-    await expect(restartedPage.getByLabel("原编号")).toHaveValue("旧题 1（已编辑）");
+    await expect(restartedPage.getByLabel("来源题号")).toHaveValue("旧题 1(已编辑)");
   } finally {
     await restartedApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }

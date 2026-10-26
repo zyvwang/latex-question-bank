@@ -20,27 +20,36 @@ it("combines multi-value review filters with OR inside fields and AND across fie
     render(<App />);
     await screen.findByText("2024-1");
 
-    const masterySummary = screen.getByLabelText("掌握程度筛选，已选 0 项");
-    await user.click(masterySummary);
-    const masteryMenu = masterySummary.closest("details");
-    expect(masteryMenu).not.toBeNull();
-    await user.click(within(masteryMenu!).getByRole("checkbox", { name: "太难了" }));
+    const prioritySummary = screen.getByLabelText("复习优先级筛选，已选 0 项");
+    await user.click(prioritySummary);
+    const priorityMenu = prioritySummary.closest("details");
+    expect(priorityMenu).not.toBeNull();
+    await user.click(within(priorityMenu!).getByRole("checkbox", { name: "必须看" }));
     expect(screen.getByText("2024-1")).toBeInTheDocument();
     expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
 
-    const errorSummary = screen.getByLabelText("错误原因筛选，已选 0 项");
-    await user.click(errorSummary);
-    const errorMenu = errorSummary.closest("details");
-    expect(errorMenu).not.toBeNull();
-    await user.click(within(errorMenu!).getByRole("checkbox", { name: "计算问题" }));
+    const statusSummary = screen.getByLabelText("审阅状态筛选，已选 0 项");
+    await user.click(statusSummary);
+    const statusMenu = statusSummary.closest("details");
+    expect(statusMenu).not.toBeNull();
+    await user.click(within(statusMenu!).getByRole("checkbox", { name: "待审阅" }));
     expect(screen.getByText("当前筛选没有匹配题目。")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "高等数学/极限" })).not.toBeInTheDocument();
 
-    await user.click(within(errorMenu!).getByRole("checkbox", { name: "方法问题" }));
+    await user.click(within(statusMenu!).getByRole("checkbox", { name: "待审阅" }));
+    await user.click(within(statusMenu!).getByRole("checkbox", { name: "已审阅" }));
     expect(screen.getByText("2024-1")).toBeInTheDocument();
     expect(screen.queryByText("2024-2")).not.toBeInTheDocument();
 
-    await user.click(within(masteryMenu!).getByRole("checkbox", { name: "很简单" }));
+    await user.click(within(statusMenu!).getByRole("checkbox", { name: "已审阅" }));
+    await user.click(within(priorityMenu!).getByRole("checkbox", { name: "不用看" }));
+    expect(screen.getByText("2024-1")).toBeInTheDocument();
+    expect(screen.getByText("2024-2")).toBeInTheDocument();
+
+    const bookSummary = screen.getByLabelText("书目筛选，已选 0 项");
+    await user.click(bookSummary);
+    const bookMenu = bookSummary.closest("details");
+    expect(bookMenu).not.toBeNull();
+    await user.click(within(bookMenu!).getByRole("checkbox", { name: "未关联书目" }));
     expect(screen.getByText("2024-1")).toBeInTheDocument();
     expect(screen.getByText("2024-2")).toBeInTheDocument();
   });

@@ -27,10 +27,26 @@
 
 .navigation nav button {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 0 18px;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
+}
+.reviewCount {
+  min-width: 20px;
+  min-height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--panel);
+  background: var(--amber);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .navigation nav .active {

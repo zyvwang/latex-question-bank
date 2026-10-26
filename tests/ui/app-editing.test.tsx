@@ -2,10 +2,16 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { expect, it, vi } from "vitest";
 import type { Bank } from "../../shared/types.js";
 
-import { bank, handleFetch, json } from "../fixtures/app-ui.js";
+import {
+  bank,
+  createBookLinkedConflictBank,
+  handleFetch,
+  json,
+  setFixtureBank,
+  setupAppFixture
+} from "../fixtures/app-ui.js";
 import { userEvent } from "@testing-library/user-event";
 import App from "../../src/App.js";
-import { setupAppFixture } from "../fixtures/app-ui.js";
 vi.mock("../../src/components/LatexEditor.js", () => ({
   default: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <textarea aria-label="latex-editor" value={value} onChange={(event) => onChange(event.target.value)} />
@@ -49,7 +55,7 @@ it("commits multiple tags with English and Chinese commas", async () => {
     expect(within(metadata).getByText("函数")).toBeInTheDocument();
   });
 
-it("opens the independent settings page and edits chapters and review options", async () => {
+it("opens the independent settings page and edits chapters, books, and LaTeX", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
@@ -60,14 +66,9 @@ it("opens the independent settings page and edits chapters and review options", 
     expect(await screen.findByRole("heading", { name: "题库设置" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "工作区" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "TeX 可用" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "书目" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Agent 导入记录" })).toBeInTheDocument();
     expect(screen.queryByText("星级")).not.toBeInTheDocument();
-
-    const errorReasonTable = screen.getByRole("table", { name: "错误原因选项" });
-    expect(within(errorReasonTable).getAllByRole("columnheader").map((header) =>
-      header.textContent
-    )).toEqual(["排序", "名称", "颜色", "纹理", "操作"]);
-    expect(within(errorReasonTable).getByLabelText("新建错误原因名称"))
-      .toHaveAttribute("placeholder", "新增一行");
 
     const chapterName = screen.getByLabelText("章节名称 高等数学/极限");
     await user.clear(chapterName);
@@ -75,14 +76,32 @@ it("opens the independent settings page and edits chapters and review options", 
     await user.tab();
     expect(await screen.findByText("章节名称已更新。")).toBeInTheDocument();
 
-    const hardColor = screen.getByLabelText("太难了颜色");
-    await user.clear(hardColor);
-    await user.type(hardColor, "#9B3C31");
+    const booksSection = screen.getByRole("heading", { name: "书目" })
+      .closest("section")!;
+    await user.type(within(booksSection).getByLabelText("新书目名称"), "测试书");
+    await user.click(within(booksSection).getByRole("button", { name: "新建书目" }));
+    expect(within(booksSection).getByLabelText("书目名称 测试书"))
+      .toBeInTheDocument();
+    const bookName = within(booksSection).getByLabelText("书目名称 测试书");
+    await user.clear(bookName);
+    await user.type(bookName, "测试书二");
     await user.tab();
-    expect(await screen.findByText("选项已更新。")).toBeInTheDocument();
+    expect(await screen.findByText("书目名称已更新。")).toBeInTheDocument();
+    const pdfPath = within(booksSection).getByLabelText("测试书二 的 PDF 路径");
+    await user.type(pdfPath, "/tmp/book.pdf");
+    await user.tab();
+    expect(pdfPath).toHaveValue("/tmp/book.pdf");
+    await user.click(within(booksSection).getByRole("button", {
+      name: "删除书目 测试书二"
+    }));
+    expect(within(booksSection).queryByLabelText("书目名称 测试书二"))
+      .not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "编辑" }));
-    expect(await screen.findByRole("radio", { name: /太难了/ })).toBeChecked();
+    const latexSection = screen.getByRole("heading", { name: "LaTeX" })
+      .closest("section")!;
+    await user.clear(within(latexSection).getByLabelText("题间距"));
+    await user.type(within(latexSection).getByLabelText("题间距"), "2em");
+    expect(within(latexSection).getByLabelText("题间距")).toHaveValue("2em");
   });
 
 it("creates, reorders, validates, and deletes settings definitions", async () => {
@@ -123,42 +142,6 @@ it("creates, reorders, validates, and deletes settings definitions", async () =>
       })
     );
     expect(within(chapterSection).queryByLabelText("章节名称 概率论"))
-      .not.toBeInTheDocument();
-
-    const masterySection = screen.getByRole("heading", {
-      name: "掌握程度"
-    }).closest("section")!;
-    await user.type(
-      within(masterySection).getByLabelText("新建掌握程度名称"),
-      "待复习"
-    );
-    await user.selectOptions(
-      within(masterySection).getByLabelText("新建掌握程度图案"),
-      "dots"
-    );
-    await user.click(within(masterySection).getByRole("button", {
-      name: "新建"
-    }));
-    expect(within(masterySection).getByLabelText("选项名称 待复习"))
-      .toBeInTheDocument();
-    await user.selectOptions(
-      within(masterySection).getByLabelText("待复习图案"),
-      "diagonal"
-    );
-    await user.click(within(masterySection).getByRole("button", {
-      name: "上移选项 待复习"
-    }));
-    const optionRow = within(masterySection)
-      .getByLabelText("选项名称 待复习").closest("[draggable=true]")!;
-    const hardRow = within(masterySection)
-      .getByLabelText("选项名称 太难了").closest("[draggable=true]")!;
-    fireEvent.dragStart(optionRow);
-    fireEvent.drop(hardRow);
-    fireEvent.dragEnd(optionRow);
-    await user.click(within(masterySection).getByRole("button", {
-      name: "删除选项 待复习"
-    }));
-    expect(within(masterySection).queryByLabelText("选项名称 待复习"))
       .not.toBeInTheDocument();
 
     const latexSection = screen.getByRole("heading", { name: "LaTeX" })
@@ -309,16 +292,13 @@ it("moves, validates, deletes, and restores questions", async () => {
     expect(screen.getByText("2024-1")).toBeInTheDocument();
   });
 
-it("rejects a new source-number conflict inside the same chapter", async () => {
+it("rejects a new source conflict inside the same book", async () => {
+    setFixtureBank(createBookLinkedConflictBank());
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByText("2024-1");
+    await screen.findByText("测试书 2024-1");
 
-    await user.click(screen.getByText("2024-2"));
-    await user.selectOptions(
-      screen.getByLabelText("选择章节"),
-      "chapter-calculus"
-    );
+    await user.click(screen.getByText("测试书 2024-2"));
     const sourceInput = screen.getByDisplayValue("2024-2");
     await user.clear(sourceInput);
     await user.type(sourceInput, "2024-1");
@@ -326,22 +306,17 @@ it("rejects a new source-number conflict inside the same chapter", async () => {
     await user.tab();
 
     expect(
-      await screen.findByText(/原编号“2024-1”在当前章节中已被使用/)
+      await screen.findByText(/来源题号“2024-1”已被其他题目使用/)
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("2024-1")).toBeInTheDocument();
   });
 
-it("allows typing a source number whose prefix collides with a sibling in the same chapter", async () => {
+it("allows typing a source label whose prefix collides with a sibling", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
 
-    // 把 2024-2 移入 2024-1 所在章节,构造同章节前缀冲突场景
     await user.click(screen.getByText("2024-2"));
-    await user.selectOptions(
-      screen.getByLabelText("选择章节"),
-      "chapter-calculus"
-    );
     const sourceInput = screen.getByDisplayValue("2024-2");
     await user.clear(sourceInput);
     // 输入过程中会经过与 2024-1 冲突的前缀;draft-only 不应中途拒绝或跳转
@@ -349,9 +324,40 @@ it("allows typing a source number whose prefix collides with a sibling in the sa
     expect(sourceInput).toHaveValue("2024-11");
     expect(screen.queryByText(/已被使用/)).not.toBeInTheDocument();
 
-    // blur 提交合法的完整编号
+    // blur 提交合法的完整题号
     await user.tab();
     expect(screen.getByDisplayValue("2024-11")).toBeInTheDocument();
+  });
+
+it("protects a book that is still referenced by questions", async () => {
+    setFixtureBank(createBookLinkedConflictBank());
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("测试书 2024-1");
+    await user.click(screen.getByRole("button", { name: "题库设置" }));
+    const deleteButton = screen.getByRole("button", { name: "删除书目 测试书" });
+    expect(deleteButton).toBeDisabled();
+    expect(deleteButton).toHaveAttribute(
+      "title",
+      "仍有 2 道题引用，无法删除"
+    );
+  });
+
+it("approves a pending item from the metadata panel", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+    expect(screen.getByText("其中 1 道待审阅")).toBeInTheDocument();
+
+    await user.click(screen.getByText("2024-2"));
+    const metadata = screen.getByRole("region", { name: "题目元数据" });
+    expect(within(metadata).getByText("待审阅")).toBeInTheDocument();
+    await user.click(within(metadata).getByRole("button", { name: "批准" }));
+
+    expect(within(metadata).queryByText("待审阅")).not.toBeInTheDocument();
+    expect(screen.queryByText("其中 1 道待审阅")).not.toBeInTheDocument();
+    const row = document.getElementById("question-nav-matrix");
+    expect(within(row!).queryByText("待审阅")).not.toBeInTheDocument();
   });
 
 it("autosaves module edits in the launch schema", async () => {
@@ -370,7 +376,7 @@ it("autosaves module edits in the launch schema", async () => {
       );
       expect(saveCall).toBeTruthy();
       const payload = JSON.parse(String(saveCall?.[1]?.body)) as { bank: Bank };
-      expect(payload.bank.version).toBe(2);
+      expect(payload.bank.version).toBe(3);
       expect(payload.bank.items[0].modules.question.tex).toBe("新版题面");
     });
   });

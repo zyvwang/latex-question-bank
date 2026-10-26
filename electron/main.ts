@@ -63,7 +63,10 @@ async function createWindow(): Promise<BrowserWindow> {
 
   if (!apiServer || !apiServerUrl) {
     const { startApiServer } = await import("../server/index.js");
-    const api = await startApiServer({ port: isDevelopment ? 5174 : 0 });
+    const api = await startApiServer({
+      port: isDevelopment ? 5174 : 0,
+      appVersion: app.getVersion()
+    });
     apiServer = api.server;
     apiServerUrl = api.url;
   }

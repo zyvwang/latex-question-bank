@@ -15,10 +15,9 @@ import type {
   WorkspaceTransitionResponse
 } from "../../shared/types.js";
 import {
-  findSourceNumberConflict,
+  findSourceConflict,
   itemsInChapter,
-  normalizeChapterItemOrders,
-  sourceNumberConflictGroups
+  normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
 import type { QuestionBankContextValues } from "../context/questionBankContextTypes.js";
 import { useAutosave } from "./useAutosave.js";
@@ -28,11 +27,12 @@ import { useCompileExportActions } from "./useCompileExportActions.js";
 import { useQuestionDerivedData } from "./useQuestionDerivedData.js";
 import { useQuestionBankContextValues } from "./useQuestionBankContextValues.js";
 import { useQuestionReorder } from "./useQuestionReorder.js";
-import { useReviewHistory } from "./useReviewHistory.js";
 import { useSelectionFilters } from "./useSelectionFilters.js";
 import { useWorkspaceActions } from "./useWorkspaceActions.js";
 import { useSaveConflictActions } from "./useSaveConflictActions.js";
 import { usePendingChanges } from "./usePendingChanges.js";
+import { useExternalBankSync } from "./useExternalBankSync.js";
+import type { ExternalBankNotice } from "./controllerTypes.js";
 
 export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
@@ -47,25 +47,29 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     QuestionBankContextValues["lifecycle"]["recoveryCandidates"]
   >([]);
   const [activeModule, setActiveModule] = useState<ModuleKind>("question");
+  const [externalBankNotice, setExternalBankNotice] =
+    useState<ExternalBankNotice | null>(null);
   const appView = useAppView();
-  const {
-    resetAppView,
-    setActiveView,
-    setHeatmapFocusedId
-  } = appView;
+  const { resetAppView } = appView;
+  const reviewMode = appView.activeView === "review";
   const selection = useSelectionFilters(bank);
   const filters = useMemo(
     () => ({
       chapterFilters: selection.chapterFilters,
       tagFilters: selection.tagFilters,
-      masteryFilters: selection.masteryFilters,
-      errorReasonFilters: selection.errorReasonFilters,
+      bookFilters: selection.bookFilters,
+      reviewPriorityFilters: selection.reviewPriorityFilters,
+      reviewStatusFilters: reviewMode
+        ? ["pending"]
+        : selection.reviewStatusFilters,
       search: selection.search
     }),
     [
+      reviewMode,
+      selection.bookFilters,
       selection.chapterFilters,
-      selection.errorReasonFilters,
-      selection.masteryFilters,
+      selection.reviewPriorityFilters,
+      selection.reviewStatusFilters,
       selection.search,
       selection.tagFilters
     ]
@@ -75,7 +79,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     activeId,
     filters,
     selection.selectedIds,
-    selection.listMode
+    reviewMode ? "current" : selection.listMode
   );
   const autosave = useAutosave(bank, setNotice);
   const {
@@ -90,73 +94,41 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const updateBank = useCallback((updater: (current: Bank) => Bank) => {
     setBank((current) => (current ? updater(current) : current));
   }, []);
-  const reviewHistory = useReviewHistory({
-    bank,
-    workspaceName: appInfo?.currentWorkspaceName ?? "题库",
-    workspaceKey: appInfo?.currentWorkspacePath ?? "",
-    updateBank,
-    setNotice
-  });
-  const { applyReviewMutation, resetHistoryUi } = reviewHistory;
   const updateItem = useCallback(
     (id: string, patch: Partial<QuestionItem>) => {
-      const updater = (current: Bank): Bank => ({
+      updateBank((current) => ({
         ...current,
         items: current.items.map((item) =>
-          item.id === id ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item
+          item.id === id
+            ? { ...item, ...patch, updatedAt: new Date().toISOString() }
+            : item
         )
-      });
-      if (
-        Object.hasOwn(patch, "masteryOptionId") ||
-        Object.hasOwn(patch, "errorReasonOptionIds")
-      ) {
-        applyReviewMutation(updater);
-      } else {
-        updateBank(updater);
-      }
+      }));
     },
-    [applyReviewMutation, updateBank]
+    [updateBank]
   );
-  const commitSourceNumber = useCallback((id: string, sourceNumber: string) => {
-    if (!bank) return false;
-    const item = bank.items.find((candidate) => candidate.id === id);
-    if (!item) return false;
-    const conflict = findSourceNumberConflict(
-      bank.items,
-      id,
-      item.chapterId,
-      sourceNumber
-    );
-    if (conflict) {
-      setActiveId(conflict.id);
-      setNotice({
-        type: "error",
-        text: `原编号“${sourceNumber.trim()}”在当前章节中已被使用，已定位到冲突题目。`
-      });
-      return false;
-    }
-    updateItem(id, { sourceNumber: sourceNumber.trim() });
-    return true;
-  }, [bank, setNotice, updateItem]);
+  const commitSource = useCallback(
+    (id: string, source: QuestionItem["source"]) => {
+      if (!bank) return false;
+      const conflict = findSourceConflict(bank.items, id, source);
+      if (conflict) {
+        setActiveId(conflict.id);
+        setNotice({
+          type: "error",
+          text: `来源题号“${source?.label ?? ""}”已被其他题目使用，已定位到冲突题目。`
+        });
+        return false;
+      }
+      updateItem(id, { source });
+      return true;
+    },
+    [bank, setNotice, updateItem]
+  );
 
   const moveItemToChapter = useCallback((id: string, chapterId: string | null) => {
     if (!bank) return false;
     const item = bank.items.find((candidate) => candidate.id === id);
     if (!item || item.chapterId === chapterId) return Boolean(item);
-    const conflict = findSourceNumberConflict(
-      bank.items,
-      id,
-      chapterId,
-      item.sourceNumber
-    );
-    if (conflict) {
-      setActiveId(conflict.id);
-      setNotice({
-        type: "error",
-        text: "移动后会造成原编号冲突，已定位到目标章节中的冲突题目。"
-      });
-      return false;
-    }
     const nextOrder = itemsInChapter(bank.items, chapterId).length + 1;
     const now = new Date().toISOString();
     updateBank((current) => ({
@@ -211,22 +183,14 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       setRecoveryCandidates([]);
       setActiveModule("question");
       resetAppView(nextActiveView);
-      resetHistoryUi();
+      setExternalBankNotice(null);
       setNotice(null);
-      const conflicts = sourceNumberConflictGroups(snapshot.bank.items);
-      if (conflicts.length > 0) {
-        setNotice({
-          type: "info",
-          text: `检测到 ${conflicts.length} 组旧原编号冲突；可继续编辑其他内容，新操作不会新增冲突。`
-        });
-      }
     },
     [
       clearFilters,
       resetAppView,
       resetAutosave,
       resetCompileState,
-      resetHistoryUi,
       selectAllItems,
       setNotice
     ]
@@ -244,7 +208,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       setRecoveryCandidates([]);
       setActiveModule("question");
       resetAppView("editor");
-      resetHistoryUi();
+      setExternalBankNotice(null);
       setNotice(null);
     },
     [
@@ -252,7 +216,6 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       resetAppView,
       resetAutosave,
       resetCompileState,
-      resetHistoryUi,
       selectAllItems,
       setNotice
     ]
@@ -285,6 +248,48 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     ]
   );
 
+  const setSelectedIds = selection.setSelectedIds;
+  const applyExternalSnapshot = useCallback(
+    (snapshot: BankSnapshot) => {
+      resetAutosave(snapshot);
+      setBank(snapshot.bank);
+      setActiveId((current) =>
+        current && snapshot.bank.items.some((item) => item.id === current)
+          ? current
+          : snapshot.bank.items[0]?.id ?? null
+      );
+      setSelectedIds((current) => {
+        const next = new Set(
+          [...current].filter((id) =>
+            snapshot.bank.items.some((item) => item.id === id)
+          )
+        );
+        return next;
+      });
+    },
+    [resetAutosave, setSelectedIds]
+  );
+  const reloadExternalBank = useLatestCallback(async () => {
+    if (!appInfo?.currentWorkspacePath) return;
+    if (
+      !window.confirm(
+        "重新加载会丢弃当前未保存的编辑，确定继续吗？"
+      )
+    ) {
+      return;
+    }
+    const snapshot = await fetchBank();
+    if (snapshot.workspacePath !== appInfo.currentWorkspacePath) {
+      throw new Error("当前工作区已变化，请重新打开题库。");
+    }
+    applyExternalSnapshot(snapshot);
+    setExternalBankNotice(null);
+    setNotice({ type: "ok", text: "已加载外部题库更新。" });
+  });
+  const dismissExternalBankNotice = useLatestCallback(() =>
+    setExternalBankNotice(null)
+  );
+
   const workspace = useWorkspaceActions({
     appInfo,
     persistCurrentBank: async () => {
@@ -298,10 +303,20 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     setNotice
   });
   const { flushPendingSettings, runWorkspaceChange } = workspace;
+  useExternalBankSync({
+    enabled: Boolean(bank && appInfo?.currentWorkspacePath),
+    workspacePath: appInfo?.currentWorkspacePath ?? "",
+    saveState,
+    hasSaveIssue: Boolean(saveIssue),
+    hasPendingUploads: compileExport.hasPendingUploads(),
+    isWorkspaceChanging: workspace.isChangingWorkspace,
+    applySnapshot: applyExternalSnapshot,
+    showNotice: setNotice,
+    setExternalBankNotice
+  });
   const bankSettings = useBankSettingsActions({
     bank,
     updateBank,
-    updateReviewBank: applyReviewMutation,
     setNotice
   });
   const reorder = useQuestionReorder({
@@ -381,20 +396,17 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     isWorkspaceChanging,
     flushCurrentChanges
   }));
-  const openQuestionFromHeatmap = useCallback((id: string) => {
-    setHeatmapFocusedId(id);
-    setActiveId(id);
-    setActiveModule("question");
-    setActiveView("editor");
-  }, [setActiveView, setHeatmapFocusedId]);
 
   return useQuestionBankContextValues({
     appInfo,
     bank,
     activeId,
     notice,
+    externalBankNotice,
     loadError,
     recoveryCandidates,
+    reloadExternalBank,
+    dismissExternalBankNotice,
     saveState,
     saveIssue,
     isConflictDialogOpen: conflicts.isConflictDialogOpen,
@@ -412,13 +424,11 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     takeDraftCommitRejection,
     setActiveModule,
     appView,
-    openQuestionFromHeatmap,
     updateBank,
     updateItem,
-    commitSourceNumber,
+    commitSource,
     moveItemToChapter,
     bankSettings,
-    reviewHistory,
     retrySave,
     refreshSaveConflict: refreshConflict,
     useDiskVersion: conflicts.useDiskVersion,

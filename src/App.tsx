@@ -5,8 +5,9 @@ import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
 import { SetupScreen } from "./components/SetupScreen.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
-import { HeatmapScreen } from "./components/HeatmapScreen.js";
 import { EditorLayout } from "./components/EditorLayout.js";
+import { ReviewScreen } from "./components/ReviewScreen.js";
+import { ExternalBankBanner } from "./components/ExternalBankBanner.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
 import { LayoutPreferencesProvider } from "./context/LayoutPreferencesContext.js";
 import { useBeforeCloseFlush } from "./hooks/useBeforeCloseFlush.js";
@@ -41,8 +42,8 @@ function AppContent() {
           <AppNavigation />
           {appView.activeView === "editor" ? (
             <EditorLayout />
-          ) : appView.activeView === "heatmap" ? (
-            <HeatmapScreen />
+          ) : appView.activeView === "review" ? (
+            <ReviewScreen />
           ) : (
             <SettingsScreen />
           )}
@@ -55,6 +56,7 @@ function AppContent() {
           </div>
         )}
         <Overlays />
+        <ExternalBankBanner />
       </main>
     </>
   );

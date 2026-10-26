@@ -1,5 +1,6 @@
 import {
-  AlertCircle,
+  BookOpen,
+  CheckCircle2,
   CheckSquare,
   FolderOpen,
   Gauge,
@@ -16,21 +17,27 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
-import type { QuestionItem, ReviewOption } from "../../shared/types.js";
+import {
+  REVIEW_PRIORITY_LABELS,
+  REVIEW_PRIORITY_ORDER,
+  REVIEW_STATUS_LABELS
+} from "../../shared/review-fields.js";
+import { questionSourceDisplay } from "../../shared/question-source.js";
+import type { BookRecord, QuestionItem } from "../../shared/types.js";
 import type { DropPosition } from "../itemOrder.js";
 import {
+  useAppView,
+  useBankSettings,
   useQuestions,
-  useReview,
   useSelection,
   useWorkspaceUi
 } from "../context/questionBankContexts.js";
 import {
   UNCATEGORIZED_FILTER,
-  UNSET_REVIEW_FILTER
+  UNSET_BOOK_FILTER,
+  UNSET_PRIORITY_FILTER
 } from "../questionFilters.js";
-import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
 import metadataStyles from "./MetadataTokens.module.css";
-import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import styles from "./Sidebar.module.css";
 import { VirtualQuestionList } from "./VirtualQuestionList.js";
 import { useDesktopQuestionList } from "../hooks/useDesktopQuestionList.js";
@@ -52,8 +59,10 @@ export function SidebarQuestionNavigation() {
 
 function FilterPanel() {
   const questions = useQuestions();
-  const review = useReview();
+  const settings = useBankSettings();
   const selection = useSelection();
+  const appView = useAppView();
+  const reviewMode = appView.activeView === "review";
   const allVisibleSelected =
     selection.listItems.length > 0 &&
     selection.listItems.every((item) => selection.selectedIds.has(item.id));
@@ -61,35 +70,37 @@ function FilterPanel() {
 
   return (
     <section className={styles.filterStack} aria-label="题目筛选">
-      <div className={styles.listActions}>
-        <button
-          className={styles.listModeToggle}
-          onClick={() =>
-            selection.setListMode(showingSelected ? "current" : "selected")
-          }
-          aria-label={showingSelected ? "返回当前列表" : "切换到已选中列表"}
-          aria-pressed={showingSelected}
-        >
-          {showingSelected ? <ListChecks size={16} /> : <ListFilter size={16} />}
-          <span>{showingSelected ? "已选中列表" : "当前列表"}</span>
-          <small>
-            {showingSelected
-              ? selection.selectedIds.size
-              : `${selection.filteredItems.length}/${questions.orderedItems.length}`}
-          </small>
-        </button>
-        <button
-          className={styles.bulkSelectButton}
-          onClick={selection.toggleAllVisible}
-          disabled={selection.listItems.length === 0}
-          aria-label={
-            allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"
-          }
-          title={allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"}
-        >
-          {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-        </button>
-      </div>
+      {!reviewMode && (
+        <div className={styles.listActions}>
+          <button
+            className={styles.listModeToggle}
+            onClick={() =>
+              selection.setListMode(showingSelected ? "current" : "selected")
+            }
+            aria-label={showingSelected ? "返回当前列表" : "切换到已选中列表"}
+            aria-pressed={showingSelected}
+          >
+            {showingSelected ? <ListChecks size={16} /> : <ListFilter size={16} />}
+            <span>{showingSelected ? "已选中列表" : "当前列表"}</span>
+            <small>
+              {showingSelected
+                ? selection.selectedIds.size
+                : `${selection.filteredItems.length}/${questions.orderedItems.length}`}
+            </small>
+          </button>
+          <button
+            className={styles.bulkSelectButton}
+            onClick={selection.toggleAllVisible}
+            disabled={selection.listItems.length === 0}
+            aria-label={
+              allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"
+            }
+            title={allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"}
+          >
+            {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+          </button>
+        </div>
+      )}
       {showingSelected ? (
         <p className={styles.pausedFilters}>
           筛选已保留，返回当前列表后继续生效。
@@ -129,35 +140,46 @@ function FilterPanel() {
               options={selection.tags.map((tag) => ({ value: tag, label: tag }))}
             />
             <MultiSelectFilter
-              icon={<Gauge size={15} />}
-              label="掌握程度"
-              allLabel="全部掌握"
-              selected={selection.masteryFilters}
-              onChange={selection.setMasteryFilters}
+              icon={<BookOpen size={15} />}
+              label="书目"
+              allLabel="全部书目"
+              selected={selection.bookFilters}
+              onChange={selection.setBookFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
-                ...review.masteryOptions.map((option) => ({
-                  value: option.id,
-                  label: option.name,
-                  color: option.color
-                }))
+                ...settings.books.map((book) => ({
+                  value: book.id,
+                  label: book.title
+                })),
+                { value: UNSET_BOOK_FILTER, label: "未关联书目" }
               ]}
             />
             <MultiSelectFilter
-              icon={<AlertCircle size={15} />}
-              label="错误原因"
-              allLabel="全部错因"
-              selected={selection.errorReasonFilters}
-              onChange={selection.setErrorReasonFilters}
+              icon={<Gauge size={15} />}
+              label="复习优先级"
+              allLabel="全部优先级"
+              selected={selection.reviewPriorityFilters}
+              onChange={selection.setReviewPriorityFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
-                ...review.errorReasonOptions.map((option) => ({
-                  value: option.id,
-                  label: option.name,
-                  color: option.color
-                }))
+                ...REVIEW_PRIORITY_ORDER.map((priority) => ({
+                  value: priority,
+                  label: REVIEW_PRIORITY_LABELS[priority]
+                })),
+                { value: UNSET_PRIORITY_FILTER, label: "未标记" }
               ]}
             />
+            {!reviewMode && (
+              <MultiSelectFilter
+                icon={<CheckCircle2 size={15} />}
+                label="审阅状态"
+                allLabel="全部状态"
+                selected={selection.reviewStatusFilters}
+                onChange={selection.setReviewStatusFilters}
+                options={[
+                  { value: "pending", label: REVIEW_STATUS_LABELS.pending },
+                  { value: "approved", label: REVIEW_STATUS_LABELS.approved }
+                ]}
+              />
+            )}
           </div>
         </>
       )}
@@ -233,13 +255,9 @@ function QuestionList() {
     () => new Map(questions.bank?.chapters.map((chapter) => [chapter.id, chapter.name]) ?? []),
     [questions.bank?.chapters]
   );
-  const masteryById = useMemo(
-    () => new Map(questions.bank?.masteryOptions.map((option) => [option.id, option]) ?? []),
-    [questions.bank?.masteryOptions]
-  );
-  const errorReasonById = useMemo(
-    () => new Map(questions.bank?.errorReasonOptions.map((option) => [option.id, option]) ?? []),
-    [questions.bank?.errorReasonOptions]
+  const books = useMemo(
+    () => questions.bank?.books ?? [],
+    [questions.bank?.books]
   );
 
   const groups = useMemo(() => {
@@ -270,8 +288,7 @@ function QuestionList() {
       key={item.id}
       item={item}
       chapterById={chapterById}
-      masteryById={masteryById}
-      errorReasonById={errorReasonById}
+      books={books}
       questionNumber={questions.numberById.get(item.id)}
       active={questions.activeItem?.id === item.id}
       selected={selection.selectedIds.has(item.id)}
@@ -328,8 +345,7 @@ function QuestionList() {
 const QuestionListRow = memo(function QuestionListRow({
   item,
   chapterById,
-  masteryById,
-  errorReasonById,
+  books,
   questionNumber,
   active,
   selected,
@@ -343,8 +359,7 @@ const QuestionListRow = memo(function QuestionListRow({
 }: {
   item: QuestionItem;
   chapterById: Map<string, string>;
-  masteryById: Map<string, ReviewOption>;
-  errorReasonById: Map<string, ReviewOption>;
+  books: BookRecord[];
   questionNumber: number | undefined;
   active: boolean;
   selected: boolean;
@@ -359,13 +374,7 @@ const QuestionListRow = memo(function QuestionListRow({
   const chapterName = item.chapterId
     ? (chapterById.get(item.chapterId) ?? "未分类")
     : "未分类";
-  const mastery = item.masteryOptionId
-    ? (masteryById.get(item.masteryOptionId) ?? null)
-    : null;
-  const errors = item.errorReasonOptionIds.flatMap((id) => {
-    const option = errorReasonById.get(id);
-    return option ? [option] : [];
-  });
+  const sourceLabel = questionSourceDisplay(item, books);
 
   return (
     <div
@@ -384,7 +393,7 @@ const QuestionListRow = memo(function QuestionListRow({
           type="checkbox"
           checked={selected}
           onChange={() => onToggleSelected(item.id)}
-          aria-label={`选择导出 ${item.sourceNumber || chapterName || "未命名题目"}`}
+          aria-label={`选择导出 ${sourceLabel || chapterName || "未命名题目"}`}
         />
       </label>
       <span
@@ -402,8 +411,21 @@ const QuestionListRow = memo(function QuestionListRow({
       >
         <span className={styles.questionIndex}>{questionNumber}</span>
         <span className={styles.questionMeta}>
-          <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
-          <ReviewStateMarks mastery={mastery} errors={errors} />
+          <strong>{sourceLabel || chapterName || "未命名题目"}</strong>
+          <span className={styles.questionBadges}>
+            {item.reviewStatus === "pending" ? (
+              <span className={styles.pendingBadge}>待审阅</span>
+            ) : null}
+            {item.reviewPriority ? (
+              <span
+                className={styles.priorityBadge}
+                data-priority={item.reviewPriority}
+              >
+                {REVIEW_PRIORITY_LABELS[item.reviewPriority]}
+              </span>
+            ) : null}
+            {item.variantOf ? <span className={styles.variantBadge}>变式</span> : null}
+          </span>
           {item.tags.length > 0 ? <span className={metadataStyles.flow}>
             {item.tags.map((tag) => (
               <span

@@ -19,11 +19,13 @@ test("keeps the editor inert during save-as and copies the latest local bank", a
   const gate = new Promise<void>((resolve) => { resume = resolve; });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByLabel("原编号")).toHaveValue(bank.items[0].sourceNumber!);
+    await expect(page.getByLabel("来源题号")).toHaveValue(
+      bank.items[0].source?.label ?? ""
+    );
     bank.settings.preamble += "\n% external edit";
     await writeFile(path.join(workspacePath, "bank.json"), JSON.stringify(bank));
-    await page.getByLabel("原编号").fill("另存前修改");
-    await page.getByLabel("原编号").press("Tab");
+    await page.getByLabel("来源题号").fill("另存前修改");
+    await page.getByLabel("来源题号").press("Tab");
     await expect(page.getByRole("dialog", { name: "题库保存冲突" })).toBeVisible();
     await app.evaluate(({ dialog }, target) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [target] });
@@ -37,13 +39,13 @@ test("keeps the editor inert during save-as and copies the latest local bank", a
     await page.keyboard.press("Escape");
     await page.keyboard.press("Tab");
     await page.keyboard.type("unexpected edit");
-    expect(await page.getByLabel("原编号").evaluate((element) => Boolean(element.closest("[inert]")))).toBe(true);
+    expect(await page.getByLabel("来源题号").evaluate((element) => Boolean(element.closest("[inert]")))).toBe(true);
     await expect(page.getByRole("dialog", { name: "题库保存冲突" })).toBeVisible();
     resume();
     await expect(page.getByRole("dialog", { name: "题库保存冲突" })).toHaveCount(0);
-    await expect(page.getByLabel("原编号")).toHaveValue("另存前修改");
+    await expect(page.getByLabel("来源题号")).toHaveValue("另存前修改");
     const saved = JSON.parse(await readFile(path.join(targetPath, "bank.json"), "utf8")) as Bank;
-    expect(saved.items[0].sourceNumber).toBe("另存前修改");
+    expect(saved.items[0].source?.label).toBe("另存前修改");
     expect(saved.settings.preamble).not.toContain("external edit");
     expect(JSON.parse(await readFile(path.join(workspacePath, "bank.json"), "utf8"))).toEqual(bank);
   } finally {

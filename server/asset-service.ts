@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -6,11 +7,16 @@ import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 
 const MAX_IMAGE_PIXELS = 25_000_000;
 
-interface UploadedFile {
+export interface UploadedFile {
   buffer: Buffer;
   mimetype: string;
   originalname: string;
   size: number;
+}
+
+export interface PreparedQuestionAsset {
+  asset: QuestionAsset;
+  buffer: Buffer;
 }
 
 export class AssetUploadError extends Error {
@@ -22,7 +28,9 @@ export class AssetUploadError extends Error {
   }
 }
 
-export async function saveQuestionAsset(file: UploadedFile, assetDir: string): Promise<AssetUploadResponse> {
+export async function prepareQuestionAsset(
+  file: UploadedFile
+): Promise<PreparedQuestionAsset> {
   const imageType = detectImageType(file.buffer);
   if (!imageType) {
     throw new AssetUploadError("图片内容不是有效的 PNG 或 JPEG。", "IMAGE_SIGNATURE_INVALID");
@@ -37,11 +45,7 @@ export async function saveQuestionAsset(file: UploadedFile, assetDir: string): P
   }
 
   await validateImageContent(file.buffer);
-  await assertRealWorkspaceSubdir(assetDir);
-  await mkdir(assetDir, { recursive: true });
   const fileName = `${crypto.randomUUID()}${imageType.safeExtension}`;
-  await writeFile(path.join(assetDir, fileName), file.buffer);
-
   const asset: QuestionAsset = {
     id: crypto.randomUUID(),
     fileName,
@@ -49,9 +53,28 @@ export async function saveQuestionAsset(file: UploadedFile, assetDir: string): P
     relativePath: `assets/${fileName}`,
     mimeType: imageType.mimeType,
     size: file.size,
-    uploadedAt: new Date().toISOString()
+    uploadedAt: new Date().toISOString(),
+    sha256: createHash("sha256").update(file.buffer).digest("hex")
   };
+  return { asset, buffer: file.buffer };
+}
 
+export async function writePreparedAsset(
+  prepared: PreparedQuestionAsset,
+  assetDir: string
+): Promise<QuestionAsset> {
+  await assertRealWorkspaceSubdir(assetDir);
+  await mkdir(assetDir, { recursive: true });
+  await writeFile(path.join(assetDir, prepared.asset.fileName), prepared.buffer);
+  return prepared.asset;
+}
+
+export async function saveQuestionAsset(
+  file: UploadedFile,
+  assetDir: string
+): Promise<AssetUploadResponse> {
+  const prepared = await prepareQuestionAsset(file);
+  const asset = await writePreparedAsset(prepared, assetDir);
   return {
     asset,
     url: `/assets/${asset.fileName}`,
@@ -64,10 +87,7 @@ function detectImageType(buffer: Buffer): {
   safeExtension: ".png" | ".jpg";
   extensions: string[];
 } | null {
-  if (
-    buffer.length >= 8 &&
-    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-  ) {
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
     return { mimeType: "image/png", safeExtension: ".png", extensions: [".png"] };
   }
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {

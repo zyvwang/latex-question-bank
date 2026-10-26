@@ -31,29 +31,19 @@ The application interface currently uses Simplified Chinese. This README provide
 ## Features
 
 - Write LaTeX in separate question, solution, and note modules.
-- Resize the source/preview split, question sidebar, and heatmap preview; keyboard-adjust or collapse the side panes.
+- Resize the source/preview split and the question sidebar; keyboard-adjust or collapse the side panes.
 - Preview formulas with MathJax and insert PNG or JPEG images.
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
-- Organize items with formal chapters, source IDs, and multiple tags, and record mastery and error reasons.
-- Combine keyword, chapter, tag, mastery, and error-reason filters. Multiple values within one field use OR, while different fields use AND.
+- Organize items with formal chapters, books, source labels, and multiple tags.
+- Mark each item with a review priority (skip / review again / must review).
+- Let an external agent import selected examples, exercises, or screenshots through the local `lqb` CLI; imported items enter pending review automatically.
+- Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
+- Combine keyword, chapter, book, tag, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
 - Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
-- Review mastery and error reasons by chapter in a dedicated heatmap, preview Question, Solution, or Note content, and jump back into the full editor.
-- Manage chapters, mastery options, error-reason options, five daily mastery-history records, and global LaTeX on the dedicated Bank Settings page.
-- Export question-only and complete `.tex` and `.pdf` files.
+- Manage chapters, books, import history, and global LaTeX on the dedicated Bank Settings page.
+- Export question-only and complete `.tex` and `.pdf` files, with a warning when selected items still need review.
 - Manage multiple local workspaces with autosave, atomic writes, backups, and history snapshots.
-
-### Heatmap overview
-
-Review mastery and error reasons by chapter. Color, patterns, and corner marks convey status together, while the selected question remains visible in the preview.
-
-![Mastery-mode heatmap in LaTeX Question Bank](docs/screenshots/heatmap.png)
-
-### Daily mastery history
-
-Keep one final review state per day, then view, rename, delete, or restore any of the five most recent saved days.
-
-![Daily mastery history in LaTeX Question Bank](docs/screenshots/history.png)
 
 ## Requirements
 
@@ -94,16 +84,44 @@ xattr -dr com.apple.quarantine "/Applications/LaTeX Question Bank.app"
 1. Launch the app and choose “新建空白题库” (New blank bank).
 2. Pick a normal folder for the workspace.
 3. Click `+` in the upper-left corner to create an item.
-4. Add a source ID, chapter, and tags, then set mastery and error reasons as needed.
-5. Write LaTeX in the Question, Solution, and Note tabs.
+4. Choose a book, source label, chapter, and tags, then set the review priority as needed.
+5. Write LaTeX in the Question, Solution, and Note tabs; the solution header can record the answer source and reference page.
 6. Click “检查当前题” (Check current item) to run a real compile.
-7. Open “热力图” (Heatmap) to review status. Focus a cell to preview it, then click it or press Enter to open the full editor.
-8. Filter and select the items you need, review them in the selected-items list, choose an order, and export.
-9. Use “题库设置 → 掌握历史” (Bank Settings → Mastery History) to view, rename, delete, or restore the final review state from any of the five most recent saved days.
+7. Filter and select the items you need, review them in the selected-items list, choose an order, and export.
+8. Use Bank Settings to manage chapters, books, PDF/answer-book paths, and global LaTeX.
 
 Choose “体验示例题库” (Try sample bank) on first launch if you want to explore a filled workspace.
 
 ![First launch in LaTeX Question Bank](docs/screenshots/setup.png)
+
+## Agent import
+
+An external agent (Claude Code, Codex, Qoder, and similar tools) can read PDFs, answer booklets, or screenshots locally and import structured questions through `lqb`. The desktop app must stay running, and the agent never edits `bank.json` directly.
+
+Install the CLI from the repository root:
+
+```bash
+npm run link:cli
+```
+
+Initialize instructions and link a bank in the agent working directory:
+
+```bash
+lqb agent-init
+lqb link
+lqb status --json
+```
+
+Dry-run the manifest, then import:
+
+```bash
+lqb import --file manifest.json --dry-run --json
+lqb import --file manifest.json --json
+```
+
+Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
+
+This version supports selected examples/exercises and screenshot imports. Whole-book import, new-bank creation, and variant relationships arrive in later phases. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
 
@@ -163,17 +181,17 @@ workspace/
 └── .history/
 ```
 
-- `bank.json` uses schema `version: 2` for formal chapters, chapter-local order, mastery and error-reason options, up to five daily mastery-history records, item content, and LaTeX settings.
+- `bank.json` uses schema `version: 3` for formal chapters, books, chapter-local order, item sources, review priorities, review status, answer sources, import history, item content, and LaTeX settings. Agent import records include batch counts and a `.history/` snapshot reference.
 - `assets/` stores inserted images.
 - `exports/` stores completed exports.
 - `.tmp/` stores temporary files from current-item checks and export work. The app limits how many it keeps during a session and removes entries older than seven days at startup.
-- `bank.json.bak` and `.history/` provide disk disaster-recovery points. They are separate from the user-managed mastery history stored inside `bank.json`.
+- `bank.json.bak` and `.history/` provide disk disaster-recovery points. Mastery history and the heatmap are no longer part of the product.
 
 Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. You can load the disk version, refresh its revision and overwrite it with your local version, or save the local content as an independent workspace. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
 
 A complete bank save request is supported up to 64 MiB. Oversized banks remain pending and prompt you to split the workspace or reduce its content. File content is flushed to storage, and parent directory entries are synced on a best-effort basis on POSIX platforms.
 
-Existing `version: 1` banks open directly. Legacy chapter text is converted to formal chapters in memory, while ratings are intentionally not mapped to mastery. Read-only use does not rewrite the file. Before the first real edit is saved as v2, the original v1 content is retained in `bank.json.bak` and the session recovery snapshot.
+Existing `version: 1` and `version: 2` banks open directly. Legacy chapter text is converted to formal chapters in memory, `sourceNumber` is split into a book and source label, and an existing “待审阅” tag becomes the pending-review status. Legacy mastery, error reasons, and mastery history are discarded; every migrated item starts with no review priority. Read-only use does not rewrite the file. Before the first real edit is saved as v3, the original content is retained in `bank.json.bak` and the session recovery snapshot.
 
 Layout save failures show a separate retry action in the navigation bar. Retry saves the latest layout; quitting with an unresolved write failure opens the existing unsaved-changes dialog. Bank save status remains independent.
 

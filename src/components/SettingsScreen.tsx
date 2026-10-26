@@ -4,9 +4,9 @@ import {
   useQuestions,
   useWorkspace
 } from "../context/questionBankContexts.js";
+import { BooksSettings } from "./BooksSettings.js";
 import { ChapterSettings } from "./ChapterSettings.js";
-import { MasteryHistorySettings } from "./MasteryHistorySettings.js";
-import { ReviewOptionSettings } from "./ReviewOptionSettings.js";
+import { ImportLogSettings } from "./ImportLogSettings.js";
 import { WorkspaceSettings } from "./WorkspaceSettings.js";
 import styles from "./SettingsScreen.module.css";
 
@@ -22,9 +22,8 @@ export function SettingsScreen() {
       </header>
       <WorkspaceSettings />
       <ChapterSettings />
-      <ReviewOptionSettings kind="mastery" />
-      <ReviewOptionSettings kind="errorReason" />
-      <MasteryHistorySettings />
+      <BooksSettings />
+      <ImportLogSettings />
       <LatexSettings />
     </main>
   );

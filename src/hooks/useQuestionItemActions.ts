@@ -4,6 +4,7 @@ import {
   itemsInChapter,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
+import { questionSourceDisplay } from "../../shared/question-source.js";
 import { restoreDeletedItem } from "../itemOrder.js";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMode, Notice } from "./controllerTypes.js";
@@ -104,7 +105,7 @@ export function useQuestionItemActions({
   function deleteItem(id: string) {
     const item = orderedItems.find((candidate) => candidate.id === id);
     if (!item) return;
-    const label = item.sourceNumber || `章内第 ${item.chapterOrder} 题`;
+    const label = questionSourceDisplay(item, bank?.books ?? []);
     if (!window.confirm(`确定删除“${label}”吗？\n\n删除后可在 10 秒内撤销。`)) {
       return;
     }
@@ -190,12 +191,17 @@ function createQuestionItem(
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    sourceNumber: "",
+    source: null,
     chapterId,
     chapterOrder,
     tags: [],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "none",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: { tex: "" },
       solution: { tex: "" },

@@ -11,12 +11,10 @@ import { useMemo } from "react";
 import {
   useLifecycle,
   useQuestions,
-  useReview,
   useWorkspace,
   useWorkspaceUi
 } from "../context/questionBankContexts.js";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
-import { oldestMasteryHistoryId } from "../review-history.js";
 import { summarizeBankConflict } from "../save-conflict.js";
 import controls from "../styles/controls.module.css";
 import styles from "./Overlays.module.css";
@@ -24,7 +22,6 @@ import styles from "./Overlays.module.css";
 export function Overlays() {
   const questions = useQuestions();
   const lifecycle = useLifecycle();
-  const review = useReview();
   const ui = useWorkspaceUi();
   return (
     <>
@@ -75,7 +72,6 @@ export function Overlays() {
       )}
       {ui.reorderDialogItem && <ReorderDialog />}
       {/* 条件渲染而非组件内早返回:focus trap 要在对话框内容挂载时才生效。 */}
-      {review.capacityRequest && <HistoryCapacityDialog />}
       {lifecycle.saveIssue?.kind === "conflict" &&
         lifecycle.isConflictDialogOpen && <SaveConflictDialog />}
     </>
@@ -104,9 +100,8 @@ function SaveConflictDialog() {
     ? [
         summary.settingsChanged && "LaTeX 设置",
         summary.chaptersChanged && "章节",
-        summary.masteryOptionsChanged && "掌握程度选项",
-        summary.errorReasonOptionsChanged && "错误原因选项",
-        summary.masteryHistoryChanged && "掌握历史"
+        summary.booksChanged && "书目",
+        summary.importsChanged && "导入记录"
       ].filter((label): label is string => Boolean(label))
     : [];
 
@@ -230,84 +225,6 @@ function SaveConflictDialog() {
             onClick={lifecycle.closeConflictDialog}
           >
             暂时关闭
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function HistoryCapacityDialog() {
-  const review = useReview();
-  const dialogRef = useFocusTrap<HTMLElement>();
-  const request = review.capacityRequest;
-  if (!request) return null;
-  const oldestId = oldestMasteryHistoryId(request.entries);
-  return (
-    <div
-      className={styles.modalBackdrop}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="history-capacity-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          review.cancelCapacityDeletion();
-        }
-      }}
-    >
-      <section
-        ref={dialogRef}
-        className={`${styles.reorderDialog} ${styles.historyCapacityDialog}`}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            review.cancelCapacityDeletion();
-          }
-        }}
-      >
-        <header>
-          <div>
-            <h2 id="history-capacity-title">选择一份历史删除</h2>
-            <span>已有五份记录。删除一份后才能保存今天的最终状态。</span>
-          </div>
-        </header>
-        <div className={styles.capacityChoices}>
-          {request.entries.map((entry) => (
-            <label key={entry.id}>
-              <input
-                type="radio"
-                name="history-capacity-deletion"
-                checked={request.selectedId === entry.id}
-                onChange={() => review.selectCapacityDeletion(entry.id)}
-                data-autofocus={request.selectedId === entry.id ? "" : undefined}
-              />
-              <span>
-                <strong>{entry.name}</strong>
-                <small>
-                  {entry.localDate}
-                  {entry.id === oldestId ? " · 最早记录" : ""}
-                </small>
-              </span>
-            </label>
-          ))}
-        </div>
-        <p className={styles.capacityWarning}>
-          取消会放弃刚才触发此对话框的掌握修改。磁盘恢复快照不会受影响。
-        </p>
-        <footer>
-          <button
-            type="button"
-            className={controls.secondaryAction}
-            onClick={review.cancelCapacityDeletion}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className={`${controls.primaryAction} ${styles.capacityConfirm}`}
-            onClick={review.confirmCapacityDeletion}
-          >
-            删除所选并继续
           </button>
         </footer>
       </section>

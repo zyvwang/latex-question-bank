@@ -25,7 +25,7 @@ describe("save conflict summary", () => {
         {
           ...diskBank.items[1],
           id: "local-only",
-          sourceNumber: "local-only"
+          source: { bookId: null, label: "local-only" }
         }
       ]
     };
@@ -36,7 +36,7 @@ describe("save conflict summary", () => {
         {
           ...diskBank.items[1],
           id: "disk-only",
-          sourceNumber: "disk-only"
+          source: { bookId: null, label: "disk-only" }
         }
       ]
     };
@@ -47,9 +47,8 @@ describe("save conflict summary", () => {
       changedItems: 1,
       settingsChanged: true,
       chaptersChanged: true,
-      masteryOptionsChanged: false,
-      errorReasonOptionsChanged: false,
-      masteryHistoryChanged: false
+      booksChanged: false,
+      importsChanged: false
     });
   });
 });

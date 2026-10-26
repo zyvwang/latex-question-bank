@@ -2,6 +2,7 @@ import { AlertTriangle, Check, Save } from "lucide-react";
 import {
   useAppView,
   useLifecycle,
+  useQuestions,
   useWorkspace
 } from "../context/questionBankContexts.js";
 import { useLayoutPreferences } from "../context/layoutPreferences.js";
@@ -12,6 +13,11 @@ export function AppNavigation() {
   const layout = useLayoutPreferences();
   const lifecycle = useLifecycle();
   const workspace = useWorkspace();
+  const questions = useQuestions();
+  const pendingCount =
+    questions.bank?.items.filter(
+      (item) => item.reviewStatus === "pending"
+    ).length ?? 0;
   return (
     <header className={styles.navigation}>
       <div className={styles.identity}>
@@ -30,11 +36,14 @@ export function AppNavigation() {
           编辑
         </button>
         <button
-          className={appView.activeView === "heatmap" ? styles.active : ""}
-          aria-current={appView.activeView === "heatmap" ? "page" : undefined}
-          onClick={() => appView.setActiveView("heatmap")}
+          className={appView.activeView === "review" ? styles.active : ""}
+          aria-current={appView.activeView === "review" ? "page" : undefined}
+          onClick={() => appView.setActiveView("review")}
         >
-          热力图
+          待审阅
+          {pendingCount > 0 && (
+            <span className={styles.reviewCount}>{pendingCount}</span>
+          )}
         </button>
         <button
           className={appView.activeView === "settings" ? styles.active : ""}

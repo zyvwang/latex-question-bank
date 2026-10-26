@@ -1,10 +1,10 @@
 import { createContext, useContext } from "react";
 import type {
   AppViewContextValue,
+  BankSettingsContextValue,
   CompileExportContextValue,
   LifecycleContextValue,
   QuestionContextValue,
-  ReviewContextValue,
   SelectionContextValue,
   WorkspaceContextValue,
   WorkspaceUiContextValue
@@ -17,7 +17,7 @@ export const SelectionContext = createContext<SelectionContextValue | null>(null
 export const CompileExportContext = createContext<CompileExportContextValue | null>(null);
 export const WorkspaceUiContext = createContext<WorkspaceUiContextValue | null>(null);
 export const AppViewContext = createContext<AppViewContextValue | null>(null);
-export const ReviewContext = createContext<ReviewContextValue | null>(null);
+export const BankSettingsContext = createContext<BankSettingsContextValue | null>(null);
 
 export const useLifecycle = () => useRequiredContext(LifecycleContext, "LifecycleContext");
 export const useWorkspace = () => useRequiredContext(WorkspaceContext, "WorkspaceContext");
@@ -29,8 +29,8 @@ export const useWorkspaceUi = () =>
   useRequiredContext(WorkspaceUiContext, "WorkspaceUiContext");
 export const useAppView = () =>
   useRequiredContext(AppViewContext, "AppViewContext");
-export const useReview = () =>
-  useRequiredContext(ReviewContext, "ReviewContext");
+export const useBankSettings = () =>
+  useRequiredContext(BankSettingsContext, "BankSettingsContext");
 
 function useRequiredContext<T>(context: React.Context<T | null>, name: string): T {
   const value = useContext(context);

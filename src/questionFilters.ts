@@ -1,13 +1,20 @@
-import type { Chapter, QuestionItem } from "../shared/types.js";
+import { questionSourceSearchText } from "../shared/question-source.js";
+import type {
+  BookRecord,
+  Chapter,
+  QuestionItem
+} from "../shared/types.js";
 
 export const UNCATEGORIZED_FILTER = "__uncategorized__";
-export const UNSET_REVIEW_FILTER = "__unset__";
+export const UNSET_BOOK_FILTER = "__unbound__";
+export const UNSET_PRIORITY_FILTER = "__unset__";
 
 export interface QuestionFilters {
   chapterFilters: string[];
   tagFilters: string[];
-  masteryFilters: string[];
-  errorReasonFilters: string[];
+  bookFilters: string[];
+  reviewPriorityFilters: string[];
+  reviewStatusFilters: string[];
   search: string;
 }
 
@@ -22,10 +29,11 @@ export function normalizeQuestionSearch(search: string): string {
 
 export function buildQuestionSearchText(
   item: QuestionItem,
-  chapterName: string
+  chapterName: string,
+  books: BookRecord[]
 ): string {
   return [
-    item.sourceNumber,
+    questionSourceSearchText(item, books),
     chapterName,
     item.tags.join(" "),
     item.modules.question.tex,
@@ -40,6 +48,7 @@ export function matchesQuestionFilters(
   item: QuestionItem,
   filters: QuestionFilters,
   chapterById: Map<string, Chapter>,
+  books: BookRecord[],
   runtime?: QuestionFilterRuntime
 ): boolean {
   const matchesChapter =
@@ -52,25 +61,29 @@ export function matchesQuestionFilters(
   const matchesTag =
     filters.tagFilters.length === 0 ||
     filters.tagFilters.some((filter) => item.tags.includes(filter));
-  const matchesMastery =
-    filters.masteryFilters.length === 0 ||
-    filters.masteryFilters.some((filter) =>
-      filter === UNSET_REVIEW_FILTER
-        ? item.masteryOptionId === null
-        : item.masteryOptionId === filter
+  const matchesBook =
+    filters.bookFilters.length === 0 ||
+    filters.bookFilters.some((filter) =>
+      filter === UNSET_BOOK_FILTER
+        ? !item.source?.bookId
+        : item.source?.bookId === filter
     );
-  const matchesErrorReason =
-    filters.errorReasonFilters.length === 0 ||
-    filters.errorReasonFilters.some((filter) =>
-      filter === UNSET_REVIEW_FILTER
-        ? item.errorReasonOptionIds.length === 0
-        : item.errorReasonOptionIds.includes(filter)
+  const matchesPriority =
+    filters.reviewPriorityFilters.length === 0 ||
+    filters.reviewPriorityFilters.some((filter) =>
+      filter === UNSET_PRIORITY_FILTER
+        ? item.reviewPriority === null
+        : item.reviewPriority === filter
     );
+  const matchesStatus =
+    filters.reviewStatusFilters.length === 0 ||
+    filters.reviewStatusFilters.includes(item.reviewStatus);
   if (
     !matchesChapter ||
     !matchesTag ||
-    !matchesMastery ||
-    !matchesErrorReason
+    !matchesBook ||
+    !matchesPriority ||
+    !matchesStatus
   ) {
     return false;
   }
@@ -84,6 +97,6 @@ export function matchesQuestionFilters(
       : (chapterById.get(item.chapterId)?.name ?? "");
   const haystack = runtime
     ? runtime.getSearchText(item, chapterName)
-    : buildQuestionSearchText(item, chapterName);
+    : buildQuestionSearchText(item, chapterName, books);
   return haystack.includes(term);
 }

@@ -277,6 +277,26 @@
   line-height: 1.35;
   white-space: normal;
 }
+.questionBadges { display: flex; flex-wrap: wrap; gap: 4px; }
+.pendingBadge,
+.priorityBadge,
+.variantBadge {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pendingBadge { color: var(--amber); }
+.priorityBadge[data-priority="must"] { color: var(--coral); }
+.priorityBadge[data-priority="recheck"] { color: var(--amber); }
+.priorityBadge[data-priority="skip"] { color: var(--muted); }
+.variantBadge { color: var(--blue); }
 .dropBefore::before,
 .dropAfter::after {
   content: "";

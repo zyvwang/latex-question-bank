@@ -71,31 +71,31 @@ describe("close boundary commits focused drafts", () => {
   it("saves a source number that was typed but never blurred", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const input = await screen.findByLabelText("原编号");
+    const input = await screen.findByLabelText("来源题号");
 
     await user.clear(input);
     await user.type(input, "关闭前编号");
     // 关键:不点别处、不按回车 —— 值此刻只在组件本地 draft 里。
     expect(document.activeElement).toBe(input);
-    expect(currentBank.items[0].sourceNumber).not.toBe("关闭前编号");
+    expect(currentBank.items[0].source?.label).not.toBe("关闭前编号");
 
     await closeListener!();
 
     expect(savedBanks).toHaveLength(1);
-    expect(savedBanks[0].items[0].sourceNumber).toBe("关闭前编号");
+    expect(savedBanks[0].items[0].source?.label).toBe("关闭前编号");
   });
 
   it("aborts the close and reports why when the draft fails validation", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const input = await screen.findByLabelText("原编号");
+    const input = await screen.findByLabelText("来源题号");
 
     await user.clear(input);
     await user.type(input, "示例 2");
     expect(document.activeElement).toBe(input);
 
     // reject 会被 preload 转成 {ok:false,error},主进程据此弹「尚未保存」对话框。
-    await expect(closeListener!()).rejects.toThrow(/已被使用/);
+    await expect(closeListener!()).rejects.toThrow(/已被其他题目使用/);
     expect(savedBanks).toEqual([]);
   });
 
@@ -117,13 +117,13 @@ describe("close boundary commits focused drafts", () => {
   it("still flushes normally when nothing is focused", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const input = await screen.findByLabelText("原编号");
+    const input = await screen.findByLabelText("来源题号");
 
     await user.clear(input);
     await user.type(input, "已失焦编号");
     input.blur();
     await waitFor(() =>
-      expect(currentBank.items[0].sourceNumber).toBe("已失焦编号")
+      expect(currentBank.items[0].source?.label).toBe("已失焦编号")
     );
     savedBanks = [];
 
@@ -134,7 +134,7 @@ describe("close boundary commits focused drafts", () => {
     forceSaveConflict = true;
     const user = userEvent.setup();
     render(<App />);
-    const input = await screen.findByLabelText("原编号");
+    const input = await screen.findByLabelText("来源题号");
 
     await user.clear(input);
     await user.type(input, "仍在内存中的修改");
@@ -232,8 +232,7 @@ describe("close boundary commits focused drafts", () => {
 });
 
 /**
- * 示例题库的两道题在不同章节,而原编号唯一性是按章节判定的。
- * 把第二题挪进第一章,才能构造出冲突场景。
+ * 示例题库的两道题同属一本书；来源题号按「书目 + 题号」全库唯一。
  */
 function sameChapterBank(): Bank {
   const bank = createSampleBank();

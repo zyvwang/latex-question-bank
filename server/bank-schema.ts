@@ -1,13 +1,10 @@
 import type {
   Bank,
+  BookRecord,
   LatexSettings,
   ModuleKind,
   QuestionItem
 } from "../shared/types.js";
-import {
-  cloneDefaultErrorReasonOptions,
-  cloneDefaultMasteryOptions
-} from "../shared/review-options.js";
 
 export const defaultSettings: LatexSettings = {
   pageSize: "a4",
@@ -23,12 +20,11 @@ export const moduleKinds: ModuleKind[] = ["question", "solution", "note"];
 
 export function createEmptyBank(): Bank {
   return {
-    version: 2,
+    version: 3,
     settings: defaultSettings,
     chapters: [],
-    masteryOptions: cloneDefaultMasteryOptions(),
-    errorReasonOptions: cloneDefaultErrorReasonOptions(),
-    masteryHistory: [],
+    books: [],
+    imports: [],
     items: []
   };
 }
@@ -39,17 +35,36 @@ export function createSampleBank(): Bank {
     { id: "chapter-calculus", name: "微积分/极限", order: 1 },
     { id: "chapter-linear-algebra", name: "线性代数/矩阵", order: 2 }
   ];
+  const books: BookRecord[] = [
+    {
+      id: "book-sample",
+      title: "示例题库",
+      filePath: null,
+      fileHash: null,
+      answerBookPath: null,
+      answerBookHash: null,
+      createdAt: now,
+      updatedAt: now
+    }
+  ];
   const items: QuestionItem[] = [
     {
       id: "sample-limit",
-      sourceNumber: "示例 1",
+      source: { bookId: "book-sample", label: "示例 1" },
       chapterId: chapters[0].id,
       chapterOrder: 1,
       tags: ["极限", "等价无穷小"],
-      masteryOptionId: "mastery-challenging",
-      errorReasonOptionIds: ["error-method"],
+      reviewPriority: "recheck",
+      reviewStatus: "approved",
+      solutionSource: "user",
+      solutionRef: null,
+      variantOf: null,
+      importBatchId: null,
+      importedAt: null,
       modules: {
-        question: { tex: "求极限 $\\displaystyle \\lim_{x\\to 0}\\frac{\\sin x-x}{x^3}$。" },
+        question: {
+          tex: "求极限 $\\displaystyle \\lim_{x\\to 0}\\frac{\\sin x-x}{x^3}$。"
+        },
         solution: {
           tex:
             "由泰勒公式 $\\sin x=x-\\dfrac{x^3}{6}+o(x^3)$，得\n\\[\n\\lim_{x\\to 0}\\frac{\\sin x-x}{x^3}=-\\frac16.\n\\]"
@@ -62,12 +77,17 @@ export function createSampleBank(): Bank {
     },
     {
       id: "sample-linear-algebra",
-      sourceNumber: "示例 2",
+      source: { bookId: "book-sample", label: "示例 2" },
       chapterId: chapters[1].id,
       chapterOrder: 1,
       tags: ["矩阵", "行列式"],
-      masteryOptionId: "mastery-easy",
-      errorReasonOptionIds: ["error-calculation"],
+      reviewPriority: "skip",
+      reviewStatus: "approved",
+      solutionSource: "user",
+      solutionRef: null,
+      variantOf: null,
+      importBatchId: null,
+      importedAt: null,
       modules: {
         question: {
           tex: "设 $A=\\begin{pmatrix}1&2\\\\0&3\\end{pmatrix}$，求 $\\det A$ 与 $A$ 的特征值。"
@@ -85,12 +105,11 @@ export function createSampleBank(): Bank {
   ];
 
   return {
-    version: 2,
+    version: 3,
     settings: defaultSettings,
     chapters,
-    masteryOptions: cloneDefaultMasteryOptions(),
-    errorReasonOptions: cloneDefaultErrorReasonOptions(),
-    masteryHistory: [],
+    books,
+    imports: [],
     items
   };
 }

@@ -13,11 +13,14 @@ export function useQuestionBankStableActions(input: ContextValueInput) {
     loadAppAndBank: useLatestCallback(input.loadAppAndBank),
     recoverFromCandidate: useLatestCallback(input.recoverFromCandidate),
     flushPendingChanges: useLatestCallback(input.flushPendingChanges),
+    reloadExternalBank: useLatestCallback(input.reloadExternalBank),
+    dismissExternalBankNotice: useLatestCallback(
+      input.dismissExternalBankNotice
+    ),
     updateBank: useLatestCallback(input.updateBank),
     updateItem: useLatestCallback(input.updateItem),
-    commitSourceNumber: useLatestCallback(input.commitSourceNumber),
+    commitSource: useLatestCallback(input.commitSource),
     moveItemToChapter: useLatestCallback(input.moveItemToChapter),
-    openQuestionFromHeatmap: useLatestCallback(input.openQuestionFromHeatmap),
     addItem: useLatestCallback(input.reorder.addItem),
     deleteItem: useLatestCallback(input.reorder.deleteItem),
     deleteActiveItem: useLatestCallback(input.reorder.deleteActiveItem),
@@ -51,24 +54,9 @@ export function useQuestionBankStableActions(input: ContextValueInput) {
     moveChapter: useLatestCallback(input.bankSettings.moveChapter),
     moveChapterToIndex: useLatestCallback(input.bankSettings.moveChapterToIndex),
     deleteChapter: useLatestCallback(input.bankSettings.deleteChapter),
-    createReviewOption: useLatestCallback(input.bankSettings.createReviewOption),
-    updateReviewOption: useLatestCallback(input.bankSettings.updateReviewOption),
-    moveReviewOption: useLatestCallback(input.bankSettings.moveReviewOption),
-    moveReviewOptionToIndex: useLatestCallback(
-      input.bankSettings.moveReviewOptionToIndex
-    ),
-    deleteReviewOption: useLatestCallback(input.bankSettings.deleteReviewOption),
-    selectCapacityDeletion: useLatestCallback(
-      input.reviewHistory.selectCapacityDeletion
-    ),
-    confirmCapacityDeletion: useLatestCallback(
-      input.reviewHistory.confirmCapacityDeletion
-    ),
-    cancelCapacityDeletion: useLatestCallback(
-      input.reviewHistory.cancelCapacityDeletion
-    ),
-    renameHistory: useLatestCallback(input.reviewHistory.renameHistory),
-    deleteHistory: useLatestCallback(input.reviewHistory.deleteHistory),
-    restoreHistory: useLatestCallback(input.reviewHistory.restoreHistory)
+    createBook: useLatestCallback(input.bankSettings.createBook),
+    renameBook: useLatestCallback(input.bankSettings.renameBook),
+    setBookPaths: useLatestCallback(input.bankSettings.setBookPaths),
+    deleteBook: useLatestCallback(input.bankSettings.deleteBook)
   };
 }

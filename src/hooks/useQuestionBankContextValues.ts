@@ -15,9 +15,12 @@ export function useQuestionBankContextValues(
     isSavingConflictAs: input.isSavingConflictAs,
     isSaveAsUncertain: input.isSaveAsUncertain,
     notice: input.notice,
+    externalBankNotice: input.externalBankNotice,
     loadError: input.loadError,
     recoveryCandidates: input.recoveryCandidates,
     setNotice: input.setNotice,
+    reloadExternalBank: stable.reloadExternalBank,
+    dismissExternalBankNotice: stable.dismissExternalBankNotice,
     retrySave: stable.retrySave,
     refreshSaveConflict: stable.refreshSaveConflict,
     useDiskVersion: stable.useDiskVersion,
@@ -32,6 +35,7 @@ export function useQuestionBankContextValues(
     takeDraftCommitRejection: input.takeDraftCommitRejection
   }), [
     input.beginDraftCommit,
+    input.externalBankNotice,
     input.loadError,
     input.isConflictDialogOpen,
     input.isSavingConflictAs,
@@ -49,6 +53,8 @@ export function useQuestionBankContextValues(
     stable.overwriteDiskVersion,
     stable.refreshSaveConflict,
     stable.recoverFromCandidate,
+    stable.reloadExternalBank,
+    stable.dismissExternalBankNotice,
     stable.retrySave,
     stable.saveConflictAs,
     stable.useDiskVersion
@@ -95,7 +101,7 @@ export function useQuestionBankContextValues(
     setActiveId: input.setActiveId,
     updateBank: stable.updateBank,
     updateItem: stable.updateItem,
-    commitSourceNumber: stable.commitSourceNumber,
+    commitSource: stable.commitSource,
     moveItemToChapter: stable.moveItemToChapter,
     addItem: stable.addItem,
     deleteItem: stable.deleteItem,
@@ -115,7 +121,7 @@ export function useQuestionBankContextValues(
     stable.deleteActiveItem,
     stable.deleteItem,
     stable.moveActive,
-    stable.commitSourceNumber,
+    stable.commitSource,
     stable.moveItemToChapter,
     stable.undoDelete,
     stable.updateBank,
@@ -130,16 +136,19 @@ export function useQuestionBankContextValues(
     selectedIds: input.selection.selectedIds,
     chapterFilters: input.selection.chapterFilters,
     tagFilters: input.selection.tagFilters,
-    masteryFilters: input.selection.masteryFilters,
-    errorReasonFilters: input.selection.errorReasonFilters,
+    bookFilters: input.selection.bookFilters,
+    reviewPriorityFilters: input.selection.reviewPriorityFilters,
+    reviewStatusFilters: input.selection.reviewStatusFilters,
     search: input.selection.search,
     listMode: input.selection.listMode,
     setChapterFilters: input.selection.setChapterFilters,
     setTagFilters: input.selection.setTagFilters,
-    setMasteryFilters: input.selection.setMasteryFilters,
-    setErrorReasonFilters: input.selection.setErrorReasonFilters,
+    setBookFilters: input.selection.setBookFilters,
+    setReviewPriorityFilters: input.selection.setReviewPriorityFilters,
+    setReviewStatusFilters: input.selection.setReviewStatusFilters,
     setSearch: input.selection.setSearch,
     setListMode: input.selection.setListMode,
+    clearFilters: input.selection.clearFilters,
     toggleSelected: stable.toggleSelected,
     toggleAllVisible: stable.toggleAllVisible
   }), [
@@ -147,15 +156,18 @@ export function useQuestionBankContextValues(
     input.derived.filteredItems,
     input.derived.listItems,
     input.derived.tags,
+    input.selection.bookFilters,
     input.selection.chapterFilters,
-    input.selection.errorReasonFilters,
+    input.selection.clearFilters,
     input.selection.listMode,
-    input.selection.masteryFilters,
+    input.selection.reviewPriorityFilters,
+    input.selection.reviewStatusFilters,
     input.selection.search,
+    input.selection.setBookFilters,
     input.selection.setChapterFilters,
-    input.selection.setErrorReasonFilters,
     input.selection.setListMode,
-    input.selection.setMasteryFilters,
+    input.selection.setReviewPriorityFilters,
+    input.selection.setReviewStatusFilters,
     input.selection.setSearch,
     input.selection.setTagFilters,
     input.selection.selectedIds,
@@ -240,70 +252,33 @@ export function useQuestionBankContextValues(
 
   const appView = useMemo<QuestionBankContextValues["appView"]>(() => ({
     activeView: input.appView.activeView,
-    setActiveView: input.appView.setActiveView,
-    heatmapMode: input.appView.heatmapMode,
-    setHeatmapMode: input.appView.setHeatmapMode,
-    heatmapFocusedId: input.appView.heatmapFocusedId,
-    setHeatmapFocusedId: input.appView.setHeatmapFocusedId,
-    heatmapScrollTop: input.appView.heatmapScrollTop,
-    setHeatmapScrollTop: input.appView.setHeatmapScrollTop,
-    openQuestionFromHeatmap: stable.openQuestionFromHeatmap
-  }), [
-    input.appView.activeView,
-    input.appView.heatmapFocusedId,
-    input.appView.heatmapMode,
-    input.appView.heatmapScrollTop,
-    input.appView.setActiveView,
-    input.appView.setHeatmapFocusedId,
-    input.appView.setHeatmapMode,
-    input.appView.setHeatmapScrollTop,
-    stable.openQuestionFromHeatmap
-  ]);
+    setActiveView: input.appView.setActiveView
+  }), [input.appView.activeView, input.appView.setActiveView]);
 
-  const review = useMemo<QuestionBankContextValues["review"]>(() => ({
+  const bankSettings = useMemo<QuestionBankContextValues["bankSettings"]>(() => ({
     chapters: input.derived.chapters,
-    masteryOptions: input.bank?.masteryOptions ?? [],
-    errorReasonOptions: input.bank?.errorReasonOptions ?? [],
-    masteryHistory: input.reviewHistory.masteryHistory,
-    capacityRequest: input.reviewHistory.capacityRequest,
+    books: input.bank?.books ?? [],
     createChapter: stable.createChapter,
     renameChapter: stable.renameChapter,
     moveChapter: stable.moveChapter,
     moveChapterToIndex: stable.moveChapterToIndex,
     deleteChapter: stable.deleteChapter,
-    createReviewOption: stable.createReviewOption,
-    updateReviewOption: stable.updateReviewOption,
-    moveReviewOption: stable.moveReviewOption,
-    moveReviewOptionToIndex: stable.moveReviewOptionToIndex,
-    deleteReviewOption: stable.deleteReviewOption,
-    selectCapacityDeletion: stable.selectCapacityDeletion,
-    confirmCapacityDeletion: stable.confirmCapacityDeletion,
-    cancelCapacityDeletion: stable.cancelCapacityDeletion,
-    renameHistory: stable.renameHistory,
-    deleteHistory: stable.deleteHistory,
-    restoreHistory: stable.restoreHistory
+    createBook: stable.createBook,
+    renameBook: stable.renameBook,
+    setBookPaths: stable.setBookPaths,
+    deleteBook: stable.deleteBook
   }), [
-    input.bank?.errorReasonOptions,
-    input.bank?.masteryOptions,
+    input.bank?.books,
     input.derived.chapters,
-    input.reviewHistory.capacityRequest,
-    input.reviewHistory.masteryHistory,
     stable.createChapter,
-    stable.createReviewOption,
+    stable.createBook,
+    stable.deleteBook,
     stable.deleteChapter,
-    stable.deleteReviewOption,
-    stable.deleteHistory,
     stable.moveChapter,
     stable.moveChapterToIndex,
-    stable.moveReviewOption,
-    stable.moveReviewOptionToIndex,
-    stable.renameHistory,
+    stable.renameBook,
     stable.renameChapter,
-    stable.restoreHistory,
-    stable.cancelCapacityDeletion,
-    stable.confirmCapacityDeletion,
-    stable.selectCapacityDeletion,
-    stable.updateReviewOption
+    stable.setBookPaths
   ]);
 
   return {
@@ -314,6 +289,6 @@ export function useQuestionBankContextValues(
     compileExport,
     workspaceUi,
     appView,
-    review
+    bankSettings
   };
 }

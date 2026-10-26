@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import {
   UNCATEGORIZED_FILTER,
-  UNSET_REVIEW_FILTER
+  UNSET_BOOK_FILTER,
+  UNSET_PRIORITY_FILTER
 } from "../questionFilters.js";
 
 export type QuestionListMode = "current" | "selected";
@@ -11,8 +12,9 @@ export function useSelectionFilters(bank: Bank | null) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [chapterFilters, setChapterFilters] = useState<string[]>([]);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
-  const [masteryFilters, setMasteryFilters] = useState<string[]>([]);
-  const [errorReasonFilters, setErrorReasonFilters] = useState<string[]>([]);
+  const [bookFilters, setBookFilters] = useState<string[]>([]);
+  const [reviewPriorityFilters, setReviewPriorityFilters] = useState<string[]>([]);
+  const [reviewStatusFilters, setReviewStatusFilters] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [listMode, setListMode] = useState<QuestionListMode>("current");
   const hasBank = bank !== null;
@@ -24,8 +26,9 @@ export function useSelectionFilters(bank: Bank | null) {
   const clearFilters = useCallback(() => {
     setChapterFilters([]);
     setTagFilters([]);
-    setMasteryFilters([]);
-    setErrorReasonFilters([]);
+    setBookFilters([]);
+    setReviewPriorityFilters([]);
+    setReviewStatusFilters([]);
     setSearch("");
     setListMode("current");
   }, []);
@@ -34,14 +37,15 @@ export function useSelectionFilters(bank: Bank | null) {
     ...(bank?.chapters.map((chapter) => chapter.id) ?? []),
     UNCATEGORIZED_FILTER
   ]), [bank?.chapters]);
-  const validMastery = useMemo(() => new Set([
-    ...(bank?.masteryOptions.map((option) => option.id) ?? []),
-    UNSET_REVIEW_FILTER
-  ]), [bank?.masteryOptions]);
-  const validErrorReasons = useMemo(() => new Set([
-    ...(bank?.errorReasonOptions.map((option) => option.id) ?? []),
-    UNSET_REVIEW_FILTER
-  ]), [bank?.errorReasonOptions]);
+  const validBooks = useMemo(() => new Set([
+    ...(bank?.books.map((book) => book.id) ?? []),
+    UNSET_BOOK_FILTER
+  ]), [bank?.books]);
+  const validPriorities = useMemo(
+    () => new Set(["skip", "recheck", "must", UNSET_PRIORITY_FILTER]),
+    []
+  );
+  const validStatuses = useMemo(() => new Set(["pending", "approved"]), []);
   const validTags = useMemo(() => {
     const inputs = (bank?.items ?? []).map((item) => ({
       id: item.id,
@@ -70,13 +74,20 @@ export function useSelectionFilters(bank: Bank | null) {
 
   useEffect(() => {
     if (!hasBank) return;
-    setMasteryFilters((current) => retainValid(current, validMastery));
-  }, [hasBank, validMastery]);
+    setBookFilters((current) => retainValid(current, validBooks));
+  }, [hasBank, validBooks]);
 
   useEffect(() => {
     if (!hasBank) return;
-    setErrorReasonFilters((current) => retainValid(current, validErrorReasons));
-  }, [hasBank, validErrorReasons]);
+    setReviewPriorityFilters((current) =>
+      retainValid(current, validPriorities)
+    );
+  }, [hasBank, validPriorities]);
+
+  useEffect(() => {
+    if (!hasBank) return;
+    setReviewStatusFilters((current) => retainValid(current, validStatuses));
+  }, [hasBank, validStatuses]);
 
   const selectAllItems = useCallback((items: QuestionItem[]) => {
     setSelectedIds(new Set(items.map((item) => item.id)));
@@ -110,14 +121,16 @@ export function useSelectionFilters(bank: Bank | null) {
     setSelectedIds,
     chapterFilters,
     tagFilters,
-    masteryFilters,
-    errorReasonFilters,
+    bookFilters,
+    reviewPriorityFilters,
+    reviewStatusFilters,
     search,
     listMode,
     setChapterFilters,
     setTagFilters,
-    setMasteryFilters,
-    setErrorReasonFilters,
+    setBookFilters,
+    setReviewPriorityFilters,
+    setReviewStatusFilters,
     setSearch,
     setListMode,
     clearFilters,

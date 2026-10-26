@@ -1,7 +1,7 @@
 import {
   parseLatexSettings,
   parseQuestionItem,
-  parseV2Bank
+  parseV3Bank
 } from "./bank-validation.js";
 import type {
   CompileItemRequest,
@@ -36,7 +36,7 @@ export function validateSaveBankRequest(
       value: {
         workspacePath: requiredNonEmptyString(value, "workspacePath"),
         baseRevision: requiredRevision(value, "baseRevision"),
-        bank: parseV2Bank(value.bank)
+        bank: parseV3Bank(value.bank)
       }
     };
   } catch (error) {
@@ -61,7 +61,7 @@ export function validateSaveBankAsRequest(
           value,
           "targetWorkspacePath"
         ),
-        bank: parseV2Bank(value.bank)
+        bank: parseV3Bank(value.bank)
       }
     };
   } catch (error) {

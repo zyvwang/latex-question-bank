@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { normalizeUniqueName } from "../../shared/review-options.js";
-import { useQuestions, useReview } from "../context/questionBankContexts.js";
+import { normalizeUniqueName } from "../../shared/names.js";
+import { useQuestions, useBankSettings } from "../context/questionBankContexts.js";
 import metadataStyles from "./MetadataTokens.module.css";
 import styles from "./ChapterCombobox.module.css";
 
 export function ChapterCombobox() {
   const questions = useQuestions();
-  const review = useReview();
+  const settings = useBankSettings();
   const item = questions.activeItem;
   const [draft, setDraft] = useState("");
 
@@ -17,16 +17,16 @@ export function ChapterCombobox() {
 
   if (!item) return null;
   const currentChapterName =
-    review.chapters.find((chapter) => chapter.id === item.chapterId)?.name ??
+    settings.chapters.find((chapter) => chapter.id === item.chapterId)?.name ??
     "未分类";
 
   function createOrSelect() {
     const normalized = normalizeUniqueName(draft);
     if (!normalized) return;
-    const existing = review.chapters.find(
+    const existing = settings.chapters.find(
       (chapter) => normalizeUniqueName(chapter.name) === normalized
     );
-    const chapterId = existing?.id ?? review.createChapter(draft);
+    const chapterId = existing?.id ?? settings.createChapter(draft);
     if (!chapterId) return;
     if (questions.moveItemToChapter(item!.id, chapterId)) setDraft("");
   }
@@ -43,7 +43,7 @@ export function ChapterCombobox() {
         }
       >
         <option value="">未分类</option>
-        {review.chapters.map((chapter) => (
+        {settings.chapters.map((chapter) => (
           <option key={chapter.id} value={chapter.id}>
             {chapter.name}
           </option>

@@ -23,7 +23,7 @@ export const appInfo: AppInfo = {
 };
 
 export const bank: Bank = {
-  version: 2,
+  version: 3,
   settings: {
     pageSize: "a4",
     spacing: { item: "1.0em", module: "0.45em" },
@@ -33,24 +33,22 @@ export const bank: Bank = {
     { id: "chapter-calculus", name: "高等数学/极限", order: 1 },
     { id: "chapter-linear-algebra", name: "线性代数/矩阵", order: 2 }
   ],
-  masteryOptions: [
-    { id: "mastery-easy", name: "很简单", order: 1, color: "#2F766F", pattern: "solid" },
-    { id: "mastery-hard", name: "太难了", order: 2, color: "#B84A3A", pattern: "crosshatch" }
-  ],
-  errorReasonOptions: [
-    { id: "error-calculation", name: "计算问题", order: 1, color: "#A9571C", pattern: "diagonal" },
-    { id: "error-method", name: "方法问题", order: 2, color: "#74558F", pattern: "crosshatch" }
-  ],
-  masteryHistory: [],
+  books: [],
+  imports: [],
   items: [
     {
       id: "limit",
-      sourceNumber: "2024-1",
+      source: { bookId: null, label: "2024-1" },
       chapterId: "chapter-calculus",
       chapterOrder: 1,
       tags: ["极限"],
-      masteryOptionId: "mastery-hard",
-      errorReasonOptionIds: ["error-method"],
+      reviewPriority: "must",
+      reviewStatus: "approved",
+      solutionSource: "user",
+      solutionRef: null,
+      variantOf: null,
+      importBatchId: null,
+      importedAt: null,
       modules: {
         question: { tex: "求极限 $x$。" },
         solution: { tex: "答案。" },
@@ -62,12 +60,17 @@ export const bank: Bank = {
     },
     {
       id: "matrix",
-      sourceNumber: "2024-2",
+      source: { bookId: null, label: "2024-2" },
       chapterId: "chapter-linear-algebra",
       chapterOrder: 1,
       tags: ["矩阵"],
-      masteryOptionId: "mastery-easy",
-      errorReasonOptionIds: ["error-calculation"],
+      reviewPriority: "skip",
+      reviewStatus: "pending",
+      solutionSource: "agent",
+      solutionRef: null,
+      variantOf: null,
+      importBatchId: null,
+      importedAt: null,
       modules: {
         question: { tex: "求矩阵秩。" },
         solution: { tex: "答案。" },
@@ -82,10 +85,38 @@ export const bank: Bank = {
 
 
 export const fixtureState: { nextExportName: string; compileResponder: (() => Promise<Response>) | null } = { nextExportName: "", compileResponder: null };
+let activeBank: Bank = bank;
+
+export function setFixtureBank(nextBank: Bank): void {
+  activeBank = nextBank;
+}
+
+export function createBookLinkedConflictBank(): Bank {
+  const book = {
+    id: "book-fixture",
+    title: "测试书",
+    filePath: null,
+    fileHash: null,
+    answerBookPath: null,
+    answerBookHash: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z"
+  };
+  return {
+    ...bank,
+    books: [book],
+    items: bank.items.map((item) => ({
+      ...item,
+      source: { bookId: book.id, label: item.source?.label ?? item.id }
+    }))
+  };
+}
+
 export function setupAppFixture() {
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    activeBank = bank;
     fixtureState.nextExportName = "questions-2026-06-13-1";
     fixtureState.compileResponder = null;
     vi.stubGlobal("fetch", vi.fn(handleFetch));
@@ -97,7 +128,7 @@ export async function handleFetch(input: RequestInfo | URL, init?: RequestInit):
   const url = String(input);
   if (url === "/api/app") return json(appInfo);
   if (url === "/api/bank" && !init?.method) {
-    return json({ workspacePath: "/tmp/latex-bank", revision: "revision-1", bank });
+    return json({ workspacePath: "/tmp/latex-bank", revision: "revision-1", bank: activeBank });
   }
   if (url === "/api/bank/head") {
     return json({
@@ -124,7 +155,7 @@ export async function handleFetch(input: RequestInfo | URL, init?: RequestInit):
       snapshot: {
         workspacePath: "/tmp/other-bank",
         revision: "other-revision",
-        bank
+        bank: activeBank
       }
     });
   }
@@ -164,7 +195,7 @@ export async function handleFetch(input: RequestInfo | URL, init?: RequestInit):
       snapshot: {
         workspacePath: request.workspacePath,
         revision: "workspace-transition-revision",
-        bank
+        bank: activeBank
       }
     });
   }
