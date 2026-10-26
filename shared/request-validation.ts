@@ -1,7 +1,7 @@
 import {
   parseLatexSettings,
   parseQuestionItem,
-  parseV2Bank
+  parseV3Bank
 } from "./bank-validation.js";
 import type {
   CompileItemRequest,
@@ -13,7 +13,8 @@ import type {
   SaveBankRequest,
   TexPathRequest,
   WorkspaceMoveRequest,
-  WorkspacePathRequest
+  WorkspacePathRequest,
+  WorkspaceRelocateRequest
 } from "./types.js";
 import {
   getOptionalStringField,
@@ -35,7 +36,7 @@ export function validateSaveBankRequest(
       value: {
         workspacePath: requiredNonEmptyString(value, "workspacePath"),
         baseRevision: requiredRevision(value, "baseRevision"),
-        bank: parseV2Bank(value.bank)
+        bank: parseV3Bank(value.bank)
       }
     };
   } catch (error) {
@@ -60,7 +61,7 @@ export function validateSaveBankAsRequest(
           value,
           "targetWorkspacePath"
         ),
-        bank: parseV2Bank(value.bank)
+        bank: parseV3Bank(value.bank)
       }
     };
   } catch (error) {
@@ -76,7 +77,9 @@ export function validateRecoverBankRequest(
   const candidateId = getStringField(value, "candidateId");
   if (candidateId === undefined) return invalid("candidateId 必须是字符串。");
   if (!candidateId) return invalid("缺少恢复候选。");
-  return { ok: true, value: { candidateId } };
+  const target = validateWorkspacePathRequest(value);
+  if (!target.ok || !target.value) return invalid(target.error ?? "缺少工作区路径。");
+  return { ok: true, value: { candidateId, workspacePath: target.value.workspacePath } };
 }
 
 export function validateWorkspacePathRequest(
@@ -110,6 +113,24 @@ export function validateWorkspaceMoveRequest(
   };
 }
 
+export function validateWorkspaceRelocateRequest(
+  value: unknown
+): ValidationResult<WorkspaceRelocateRequest> {
+  try {
+    if (!isRecord(value)) throw new ValidationError("请求体必须是对象。");
+    return {
+      ok: true,
+      value: {
+        workspacePath: requiredNonEmptyString(value, "workspacePath"),
+        replacementPath: requiredNonEmptyString(value, "replacementPath")
+      }
+    };
+  } catch (error) {
+    if (error instanceof ValidationError) return invalid(error.message);
+    throw error;
+  }
+}
+
 export function validateTexPathRequest(
   value: unknown
 ): ValidationResult<TexPathRequest> {
@@ -127,6 +148,7 @@ export function validateCompileItemRequest(
     return {
       ok: true,
       value: {
+        workspacePath: requiredNonEmptyString(value, "workspacePath"),
         item: parseQuestionItem(value.item),
         settings: parseLatexSettings(value.settings)
       }
@@ -150,7 +172,11 @@ export function validateExportRequest(
   const fileName = getStringField(value, "fileName");
   if (fileName === undefined) return invalid("fileName 必须是字符串。");
   let orderMode: ExportOrderMode | undefined;
+  let workspacePath: string;
+  let baseRevision: string;
   try {
+    workspacePath = requiredNonEmptyString(value, "workspacePath");
+    baseRevision = requiredRevision(value, "baseRevision");
     orderMode = optionalExportOrderMode(value.orderMode);
   } catch (error) {
     if (error instanceof ValidationError) return invalid(error.message);
@@ -161,6 +187,8 @@ export function validateExportRequest(
   return {
     ok: true,
     value: {
+      workspacePath,
+      baseRevision,
       itemIds: value.itemIds,
       fileName,
       orderMode,

@@ -18,7 +18,9 @@
   background: rgb(108 117 111 / 0.44);
   background-clip: content-box;
 }
-.previewPane > :first-child { margin-top: 0; }
+.previewContent { min-width: 0; }
+.previewContent > :first-child { margin-top: 0; }
+.previewContent > :last-child { margin-bottom: 0; }
 .previewPane > :last-child { margin-bottom: 0; }
 .latexText { white-space: pre-wrap; overflow-wrap: anywhere; }
 .previewImage { margin: 10px auto; text-align: center; }

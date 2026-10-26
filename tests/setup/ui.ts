@@ -2,6 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 globalThis.window.MathJax = {
+  texReset: vi.fn(),
+  typesetClear: vi.fn(),
   typesetPromise: vi.fn().mockResolvedValue(undefined)
 };
 

@@ -19,15 +19,26 @@ import controls from "../styles/controls.module.css";
 import { WorkspaceDetails } from "./WorkspaceDetails.js";
 import { WorkspaceEditorSurface } from "./WorkspaceEditorSurface.js";
 import { WorkspaceExportDock } from "./WorkspaceExportDock.js";
+import { ReviewToolbar } from "./ReviewToolbar.js";
 import styles from "./WorkspaceView.module.css";
 
-export function WorkspaceView() {
+export function WorkspaceView({
+  mode = "editor"
+}: {
+  mode?: "editor" | "review";
+}) {
   const questions = useQuestions();
   return (
-    <section className={styles.workspace} id="main-workspace">
+    <section
+      className={`${styles.workspace} ${
+        mode === "review" ? styles.reviewWorkspace : ""
+      }`}
+      id="main-workspace"
+    >
+      {mode === "review" && <ReviewToolbar />}
       <TopBar />
       {questions.activeItem ? <ActiveWorkspace /> : <EmptyWorkspace />}
-      <WorkspaceExportDock />
+      {mode === "editor" && <WorkspaceExportDock />}
     </section>
   );
 }

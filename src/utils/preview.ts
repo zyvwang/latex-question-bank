@@ -1,7 +1,14 @@
 import type { QuestionAsset } from "../../shared/types.js";
 
-export function splitLatexImages(tex: string, assets: QuestionAsset[]) {
-  const parts: Array<{ type: "text"; text: string } | { type: "image"; src: string; alt: string }> = [];
+export type LatexPreviewPart =
+  | { type: "text"; text: string }
+  | { type: "image"; src: string; alt: string };
+
+export function splitLatexImages(
+  tex: string,
+  assets: QuestionAsset[]
+): LatexPreviewPart[] {
+  const parts: LatexPreviewPart[] = [];
   const assetByPath = new Map(assets.map((asset) => [asset.relativePath, asset]));
   const pattern = /\\includegraphics(?:\[[^\]]*])?\{([^}]+)}/g;
   let lastIndex = 0;
@@ -51,7 +58,7 @@ export function ensureMathJax(): Promise<void> {
     }
   };
 
-  mathJaxPromise = new Promise((resolve, reject) => {
+  const loadingPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "/vendor/mathjax/tex-mml-chtml.js";
     script.async = true;
@@ -66,6 +73,11 @@ export function ensureMathJax(): Promise<void> {
     script.onerror = () => reject(new Error("MathJax 加载失败。"));
     document.head.appendChild(script);
   });
+  const trackedPromise = loadingPromise.catch((error) => {
+    mathJaxPromise = null;
+    throw error;
+  });
+  mathJaxPromise = trackedPromise;
 
-  return mathJaxPromise;
+  return trackedPromise;
 }

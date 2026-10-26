@@ -18,7 +18,6 @@ import { StorageError, type WorkspaceDirs } from "./storage-types.js";
 import {
   isNotFound,
   MAX_HISTORY_SNAPSHOTS,
-  parseStoredBank,
   requireValidBank,
   revisionForContent,
   serializeJson
@@ -28,6 +27,7 @@ import {
   readAppState,
   workspaceExists
 } from "./workspace-storage.js";
+import { readBankSnapshotAt } from "./bank-reader.js";
 
 export async function readBank(): Promise<Bank> {
   return (await readBankSnapshot()).bank;
@@ -39,16 +39,10 @@ export async function readBankSnapshot(): Promise<BankSnapshot> {
     const bank = createEmptyBank();
     return { workspacePath: "", revision: revisionForContent(serializeJson(bank)), bank };
   }
-  const dirs = getWorkspaceDirs(state.currentWorkspacePath);
   try {
-    const raw = await readFile(dirs.bankPath, "utf8");
-    return {
-      workspacePath: dirs.workspaceDir,
-      revision: revisionForContent(raw),
-      bank: parseStoredBank(raw)
-    };
+    return await withWorkspaceWriteLock(state.currentWorkspacePath, () => readBankSnapshotAt(state.currentWorkspacePath!));
   } catch (error) {
-    if (isNotFound(error)) {
+    if (error instanceof StorageError && error.code === "WORKSPACE_MISSING") {
       throw new StorageError("当前工作区缺少 bank.json。", "WORKSPACE_MISSING", 404);
     }
     throw error;
@@ -116,7 +110,11 @@ export async function saveBankSnapshot(request: SaveBankRequest): Promise<BankSn
   });
 }
 
-async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision: string) {
+export async function createHistorySnapshot(
+  dirs: WorkspaceDirs,
+  raw: string,
+  revision: string
+): Promise<string> {
   await assertRealWorkspaceSubdir(dirs.historyDir);
   await mkdir(dirs.historyDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -134,4 +132,5 @@ async function createHistorySnapshot(dirs: WorkspaceDirs, raw: string, revision:
       .slice(MAX_HISTORY_SNAPSHOTS)
       .map((file) => rm(path.join(dirs.historyDir, file), { force: true }))
   );
+  return fileName;
 }

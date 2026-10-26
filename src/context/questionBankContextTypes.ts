@@ -9,25 +9,24 @@ import type {
 import type {
   AppInfo,
   Bank,
+  BookRecord,
   Chapter,
-  MasteryHistoryEntry,
   CompileResponse,
   ExportOrderMode,
   ModuleKind,
   QuestionItem,
-  RecoveryCandidate,
-  ReviewOption
+  RecoveryCandidate
 } from "../../shared/types.js";
 import type {
   AddMenu,
   AddMode,
+  ExternalBankNotice,
   Notice,
   ReorderMenu,
   SaveIssue,
   SaveState
 } from "../hooks/controllerTypes.js";
 import type { AppView } from "../hooks/useAppView.js";
-import type { HeatmapMode } from "../heatmap.js";
 import type { QuestionListMode } from "../hooks/useSelectionFilters.js";
 import type { DropPosition } from "../itemOrder.js";
 
@@ -35,10 +34,15 @@ export interface LifecycleContextValue {
   saveState: SaveState;
   saveIssue: SaveIssue | null;
   isConflictDialogOpen: boolean;
+  isSavingConflictAs: boolean;
+  isSaveAsUncertain: boolean;
   notice: Notice | null;
+  externalBankNotice: ExternalBankNotice | null;
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
   setNotice: (notice: Notice | null) => void;
+  reloadExternalBank: () => Promise<void>;
+  dismissExternalBankNotice: () => void;
   retrySave: () => Promise<void>;
   refreshSaveConflict: () => Promise<void>;
   useDiskVersion: () => Promise<void>;
@@ -57,6 +61,7 @@ export interface LifecycleContextValue {
 export interface WorkspaceContextValue {
   appInfo: AppInfo | null;
   isChangingWorkspace: boolean;
+  isWorkspaceUncertain: boolean;
   texPathDraft: string;
   setTexPathDraft: (value: string) => void;
   createSampleWorkspace: () => Promise<void>;
@@ -79,7 +84,7 @@ export interface QuestionContextValue {
   setActiveId: Dispatch<SetStateAction<string | null>>;
   updateBank: (updater: (current: Bank) => Bank) => void;
   updateItem: (id: string, patch: Partial<QuestionItem>) => void;
-  commitSourceNumber: (id: string, sourceNumber: string) => boolean;
+  commitSource: (id: string, source: QuestionItem["source"]) => boolean;
   moveItemToChapter: (id: string, chapterId: string | null) => boolean;
   addItem: (mode?: AddMode) => void;
   deleteItem: (id: string) => void;
@@ -97,16 +102,19 @@ export interface SelectionContextValue {
   selectedIds: Set<string>;
   chapterFilters: string[];
   tagFilters: string[];
-  masteryFilters: string[];
-  errorReasonFilters: string[];
+  bookFilters: string[];
+  reviewPriorityFilters: string[];
+  reviewStatusFilters: string[];
   search: string;
   listMode: QuestionListMode;
   setChapterFilters: (value: string[]) => void;
   setTagFilters: (value: string[]) => void;
-  setMasteryFilters: (value: string[]) => void;
-  setErrorReasonFilters: (value: string[]) => void;
+  setBookFilters: (value: string[]) => void;
+  setReviewPriorityFilters: (value: string[]) => void;
+  setReviewStatusFilters: (value: string[]) => void;
   setSearch: (value: string) => void;
   setListMode: (value: QuestionListMode) => void;
+  clearFilters: () => void;
   toggleSelected: (id: string) => void;
   toggleAllVisible: () => void;
 }
@@ -114,58 +122,23 @@ export interface SelectionContextValue {
 export interface AppViewContextValue {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
-  heatmapMode: HeatmapMode;
-  setHeatmapMode: (mode: HeatmapMode) => void;
-  heatmapFocusedId: string | null;
-  setHeatmapFocusedId: (id: string | null) => void;
-  heatmapScrollTop: number;
-  setHeatmapScrollTop: (value: number) => void;
-  openQuestionFromHeatmap: (id: string) => void;
 }
 
-export interface ReviewContextValue {
+export interface BankSettingsContextValue {
   chapters: Chapter[];
-  masteryOptions: ReviewOption[];
-  errorReasonOptions: ReviewOption[];
-  masteryHistory: MasteryHistoryEntry[];
-  capacityRequest: {
-    entries: MasteryHistoryEntry[];
-    selectedId: string;
-  } | null;
+  books: BookRecord[];
   createChapter: (name: string) => string | null;
   renameChapter: (id: string, name: string) => boolean;
   moveChapter: (id: string, direction: -1 | 1) => void;
   moveChapterToIndex: (id: string, targetIndex: number) => void;
   deleteChapter: (id: string) => void;
-  createReviewOption: (
-    kind: "mastery" | "errorReason",
-    option: Pick<ReviewOption, "name" | "color" | "pattern">
-  ) => boolean;
-  updateReviewOption: (
-    kind: "mastery" | "errorReason",
+  createBook: (title: string) => string | null;
+  renameBook: (id: string, title: string) => boolean;
+  setBookPaths: (
     id: string,
-    patch: Partial<Pick<ReviewOption, "name" | "color" | "pattern">>
-  ) => boolean;
-  moveReviewOption: (
-    kind: "mastery" | "errorReason",
-    id: string,
-    direction: -1 | 1
+    patch: Pick<BookRecord, "filePath" | "answerBookPath">
   ) => void;
-  moveReviewOptionToIndex: (
-    kind: "mastery" | "errorReason",
-    id: string,
-    targetIndex: number
-  ) => void;
-  deleteReviewOption: (
-    kind: "mastery" | "errorReason",
-    id: string
-  ) => void;
-  selectCapacityDeletion: (id: string) => void;
-  confirmCapacityDeletion: () => void;
-  cancelCapacityDeletion: () => void;
-  renameHistory: (id: string, name: string) => boolean;
-  deleteHistory: (id: string) => void;
-  restoreHistory: (id: string) => void;
+  deleteBook: (id: string) => void;
 }
 
 export interface CompileExportContextValue {
@@ -219,5 +192,5 @@ export interface QuestionBankContextValues {
   compileExport: CompileExportContextValue;
   workspaceUi: WorkspaceUiContextValue;
   appView: AppViewContextValue;
-  review: ReviewContextValue;
+  bankSettings: BankSettingsContextValue;
 }

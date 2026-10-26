@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { QuestionAsset } from "../../shared/types.js";
-import { ensureMathJax, splitLatexImages } from "../utils/preview.js";
+import {
+  disposeMathJaxRoot,
+  scheduleMathJaxTypeset
+} from "../utils/mathjax.js";
+import {
+  splitLatexImages,
+  type LatexPreviewPart
+} from "../utils/preview.js";
 import { bindWheelScroller } from "../utils/wheel.js";
 import styles from "./LatexPreview.module.css";
 
@@ -15,6 +22,8 @@ export function LatexPreview({
   compact?: boolean;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const hasRenderedRef = useRef(false);
   const parts = useMemo(() => splitLatexImages(tex, assets), [assets, tex]);
 
   useEffect(() => {
@@ -24,18 +33,29 @@ export function LatexPreview({
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    ensureMathJax()
-      .then(() => {
-        if (!cancelled && ref.current && window.MathJax?.typesetPromise) {
-          return window.MathJax.typesetPromise([ref.current]);
-        }
-      })
-      .catch(() => undefined);
+    const root = contentRef.current;
+    if (!root) return undefined;
+    const isInitialRender = !hasRenderedRef.current;
+    if (isInitialRender) {
+      renderPreviewParts(root, parts);
+      hasRenderedRef.current = true;
+    }
+    return scheduleMathJaxTypeset(
+      root,
+      () => {
+        renderPreviewParts(root, parts);
+        hasRenderedRef.current = true;
+      },
+      isInitialRender ? 0 : 120
+    );
+  }, [parts]);
+
+  useLayoutEffect(() => {
+    const root = contentRef.current;
     return () => {
-      cancelled = true;
+      if (root) disposeMathJaxRoot(root);
     };
-  }, [tex]);
+  }, []);
 
   return (
     <div
@@ -43,21 +63,7 @@ export function LatexPreview({
       data-latex-preview
       ref={ref}
     >
-      {parts.length === 0 ? (
-        <span className={styles.emptyPreview}>空</span>
-      ) : (
-        parts.map((part, index) =>
-          part.type === "image" ? (
-            <figure className={styles.previewImage} key={`${part.src}-${index}`}>
-              <img src={part.src} alt={part.alt} />
-            </figure>
-          ) : (
-            <div className={styles.latexText} key={index}>
-              {part.text}
-            </div>
-          )
-        )
-      )}
+      <div className={styles.previewContent} ref={contentRef} />
       {/(\\begin\{tikzpicture}|\\begin\{axis})/.test(tex) && (
         <div className={styles.tikzNotice}>
           <AlertTriangle size={14} />
@@ -66,4 +72,32 @@ export function LatexPreview({
       )}
     </div>
   );
+}
+
+function renderPreviewParts(root: HTMLElement, parts: LatexPreviewPart[]): void {
+  const fragment = document.createDocumentFragment();
+  if (parts.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = styles.emptyPreview;
+    empty.textContent = "空";
+    fragment.appendChild(empty);
+  } else {
+    parts.forEach((part) => {
+      if (part.type === "image") {
+        const figure = document.createElement("figure");
+        figure.className = styles.previewImage;
+        const image = document.createElement("img");
+        image.src = part.src;
+        image.alt = part.alt;
+        figure.appendChild(image);
+        fragment.appendChild(figure);
+        return;
+      }
+      const text = document.createElement("div");
+      text.className = styles.latexText;
+      text.textContent = part.text;
+      fragment.appendChild(text);
+    });
+  }
+  root.replaceChildren(fragment);
 }

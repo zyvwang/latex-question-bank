@@ -7,6 +7,11 @@ import {
 import type { Bank, BankSnapshot } from "../../shared/types.js";
 import type { Notice, SaveIssue, SaveState } from "./controllerTypes.js";
 
+export interface SaveSession {
+  readonly workspacePath: string;
+  readonly generation: number;
+}
+
 export function useAutosave(
   bank: Bank | null,
   setNotice: (notice: Notice | null) => void
@@ -23,6 +28,18 @@ export function useAutosave(
   const lastSavedBankRef = useRef<Bank | null>(null);
   const saveIssueRef = useRef<SaveIssue | null>(null);
   const generationRef = useRef(0);
+  const uncertainSaveRef = useRef<{ bank: Bank; baseRevision: string } | null>(null);
+  const retryBusyRef = useRef(false);
+  const latestBankRef = useRef(bank);
+  latestBankRef.current = bank;
+
+  const captureSaveSession = useCallback((): SaveSession => ({
+    workspacePath: workspacePathRef.current,
+    generation: generationRef.current
+  }), []);
+  const isSaveSessionCurrent = useCallback((session: SaveSession) =>
+    session.workspacePath === workspacePathRef.current &&
+    session.generation === generationRef.current, []);
 
   const setSaveIssue = useCallback((issue: SaveIssue | null) => {
     saveIssueRef.current = issue;
@@ -135,6 +152,9 @@ export function useAutosave(
             lastSavedBankRef.current = nextBank;
             setSaveState("saved");
           } catch (error) {
+            if (generation === generationRef.current && error instanceof ApiRequestError && error.code === "WRITE_RESULT_UNKNOWN") {
+              uncertainSaveRef.current = { bank: nextBank, baseRevision: baseRevisionOverride ?? revisionRef.current };
+            }
             pauseAfterFailure(error, nextBank, generation);
             throw error;
           } finally {
@@ -180,9 +200,29 @@ export function useAutosave(
     [clearTimer, drainQueue, queueLatestBank]
   );
 
+  const flushSession = useCallback(async (session: SaveSession): Promise<BankSnapshot> => {
+    const assertSession = () => {
+      if (!session.workspacePath || !isSaveSessionCurrent(session)) {
+        throw new Error("工作区会话已变化，旧操作已取消。");
+      }
+    };
+    assertSession();
+    // 在身份校验后取最新编辑，不能让等待前的 bank 覆盖保存队列。
+    await flush(latestBankRef.current ?? undefined);
+    assertSession();
+    if (!lastSavedBankRef.current) throw new Error("没有可导出的题库。");
+    return {
+      workspacePath: session.workspacePath,
+      revision: revisionRef.current,
+      bank: lastSavedBankRef.current
+    };
+  }, [flush, isSaveSessionCurrent]);
+
   const resetAutosave = useCallback(
     (snapshot: BankSnapshot | null) => {
       generationRef.current += 1;
+      uncertainSaveRef.current = null;
+      latestBankRef.current = snapshot?.bank ?? null;
       clearTimer();
       pendingBankRef.current = null;
       inFlightRef.current = null;
@@ -220,11 +260,38 @@ export function useAutosave(
     if (saveIssueRef.current?.kind === "conflict") {
       throw new Error("请先处理题库保存冲突。");
     }
-    setSaveIssue(null);
-    if (!pendingBankRef.current) return;
-    await drainQueue();
-    setNotice({ type: "ok", text: "题库已保存。" });
-  }, [drainQueue, setNotice, setSaveIssue]);
+    if (retryBusyRef.current) return;
+    retryBusyRef.current = true;
+    const generation = generationRef.current;
+    try {
+      const uncertain = uncertainSaveRef.current;
+      if (uncertain) {
+        const snapshot = await fetchBank();
+        if (generation !== generationRef.current) return;
+        if (snapshot.workspacePath !== workspacePathRef.current) throw new Error("磁盘工作区已变化，请重新打开工作区。");
+        if (JSON.stringify(snapshot.bank) === JSON.stringify(uncertain.bank)) {
+          revisionRef.current = snapshot.revision;
+          lastSavedBankRef.current = uncertain.bank;
+          if (pendingBankRef.current === uncertain.bank) pendingBankRef.current = null;
+        } else if (snapshot.revision !== uncertain.baseRevision) {
+          pauseAfterFailure(new ApiRequestError("磁盘题库已变化，请处理保存冲突。", 409, "BANK_CONFLICT"), pendingBankRef.current ?? uncertain.bank, generation);
+          return;
+        }
+        uncertainSaveRef.current = null;
+      }
+      setSaveIssue(null);
+      if (pendingBankRef.current) await drainQueue();
+      if (generation === generationRef.current) {
+        setSaveState("saved");
+        setNotice({ type: "ok", text: "题库已保存。" });
+      }
+    } catch (error) {
+      if (generation === generationRef.current) setNotice({ type: "error", text: error instanceof Error ? error.message : "核对保存结果失败。" });
+      throw error;
+    } finally {
+      retryBusyRef.current = false;
+    }
+  }, [drainQueue, pauseAfterFailure, setNotice, setSaveIssue]);
 
   const overwriteConflict = useCallback(
     async (nextBank: Bank, latestRevision: string) => {
@@ -243,6 +310,9 @@ export function useAutosave(
     saveState,
     saveIssue,
     persistBank: flush,
+    captureSaveSession,
+    isSaveSessionCurrent,
+    flushSession,
     flush,
     resetAutosave,
     retrySave,

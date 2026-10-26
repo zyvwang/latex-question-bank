@@ -24,7 +24,9 @@ import {
 import {
   appDataDir,
   appStatePath,
+  readUiLayoutPreferences,
   updateAppState,
+  updateUiLayoutPreferences,
   writeAppState
 } from "../../server/app-state.js";
 import {
@@ -164,23 +166,25 @@ describe("domain helpers", () => {
       [
         {
           ...items[0],
-          sourceNumber: "source_1",
+          source: { bookId: null, label: "source_1" },
           modules: {
             ...items[0].modules,
             question: { tex: "\\documentclass{article}\\begin{document}Body $x^2$\\end{document}" }
           }
         }
       ],
-      bank.settings
+      bank.settings,
+      bank.books
     );
     ok(latex.includes("Body $x^2$"));
     ok(!latex.includes("\\documentclass{article}"));
     ok(latex.includes("\\documentclass[UTF8,12pt]{ctexart}"));
-    ok(buildFullLatex([], bank.settings).includes("暂无选中题目"));
+    ok(buildFullLatex([], bank.settings, bank.books).includes("暂无选中题目"));
     ok(
       buildFullLatex(
-        [{ ...items[0], sourceNumber: "a_b#c~d^e" }],
-        bank.settings
+        [{ ...items[0], source: { bookId: null, label: "a_b#c~d^e" } }],
+        bank.settings,
+        bank.books
       ).includes("a\\_b\\#c\\textasciitilde{}d\\textasciicircum{}e")
     );
     equal(sanitizeFileName(" ../bad:name  "), "bad-name");
@@ -233,20 +237,24 @@ describe("domain helpers", () => {
   it("versions only inputs that affect current-item compilation", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
-    const initial = compileContentVersion(item, bank.settings);
+    const initial = compileContentVersion(item, bank.settings, bank.books);
 
     equal(
       compileContentVersion({
         ...item,
         chapterId: null,
         chapterOrder: 9,
-        tags: ["changed"],
-        masteryOptionId: null,
-        errorReasonOptionIds: []
-      }, bank.settings),
+        tags: ["changed"]
+      }, bank.settings, bank.books),
       initial
     );
-    expect(compileContentVersion({ ...item, sourceNumber: "changed" }, bank.settings)).not.toBe(initial);
+    expect(
+      compileContentVersion(
+        { ...item, source: { bookId: null, label: "changed" } },
+        bank.settings,
+        bank.books
+      )
+    ).not.toBe(initial);
     expect(
       compileContentVersion({
         ...item,
@@ -254,7 +262,7 @@ describe("domain helpers", () => {
           ...item.modules,
           question: { tex: `${item.modules.question.tex} changed` }
         }
-      }, bank.settings)
+      }, bank.settings, bank.books)
     ).not.toBe(initial);
     expect(
       compileContentVersion({
@@ -268,13 +276,13 @@ describe("domain helpers", () => {
           size: 1,
           uploadedAt: fixedNow
         }]
-      }, bank.settings)
+      }, bank.settings, bank.books)
     ).not.toBe(initial);
     expect(
       compileContentVersion(item, {
         ...bank.settings,
         preamble: `${bank.settings.preamble}\n\\usepackage{booktabs}`
-      })
+      }, bank.books)
     ).not.toBe(initial);
   });
 
@@ -416,6 +424,32 @@ describe("storage", () => {
     deepStrictEqual(state.recentWorkspacePaths, [workspacePathB]);
   });
 
+  it("keeps normalized UI layout preferences outside the public app state", async () => {
+    await updateUiLayoutPreferences({
+      questionSidebarWidth: 999,
+      questionSidebarCollapsed: true,
+      moduleEditorPercent: 12
+    });
+    await updateAppState((state) => ({
+      ...state,
+      texPathOverride: "/tmp/latexmk"
+    }));
+
+    expect(await readUiLayoutPreferences()).toEqual({
+      questionSidebarWidth: 360,
+      questionSidebarCollapsed: true,
+      moduleEditorPercent: 35
+    });
+    expect(await readAppState()).not.toHaveProperty("uiLayout");
+    expect(JSON.parse(await readFile(appStatePath, "utf8"))).toMatchObject({
+      texPathOverride: "/tmp/latexmk",
+      uiLayout: {
+        questionSidebarWidth: 360,
+        moduleEditorPercent: 35
+      }
+    });
+  });
+
   it("falls back to the previous app-state backup when the primary JSON is damaged", async () => {
     await writeAppState({
       version: 1,
@@ -538,12 +572,17 @@ function itemIds(items: QuestionItem[]) {
 function createItems(ids: string[]): QuestionItem[] {
   return ids.map((id, index) => ({
     id,
-    sourceNumber: id,
+    source: { bookId: null, label: id },
     chapterId: null,
     chapterOrder: index + 1,
     tags: [],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "none",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: { tex: `question ${id}` },
       solution: { tex: `solution ${id}` },

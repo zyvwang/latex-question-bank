@@ -35,12 +35,17 @@ const chapters = [
 const items: QuestionItem[] = [
   {
     id: "verify-1",
-    sourceNumber: "2024-1",
+    source: { bookId: null, label: "2024-1" },
     chapterId: chapters[0].id,
     chapterOrder: 1,
     tags: ["极限", "等价无穷小"],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: "recheck",
+    reviewStatus: "approved",
+    solutionSource: "user",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: { tex: "求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$。" },
       solution: { tex: "由基本极限可得 $\\lim_{x\\to 0}\\frac{\\sin x}{x}=1$。" },
@@ -52,12 +57,17 @@ const items: QuestionItem[] = [
   },
   {
     id: "verify-2",
-    sourceNumber: "图像题",
+    source: { bookId: null, label: "图像题" },
     chapterId: chapters[1].id,
     chapterOrder: 1,
     tags: ["矩阵"],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "user",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: {
         tex:
@@ -82,12 +92,17 @@ const items: QuestionItem[] = [
   },
   {
     id: "verify-3",
-    sourceNumber: "TikZ",
+    source: { bookId: null, label: "TikZ" },
     chapterId: chapters[0].id,
     chapterOrder: 2,
     tags: ["TikZ"],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "user",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: {
         tex:
@@ -122,6 +137,7 @@ await writeFile(fullPath, buildFullLatex(exportItems, defaultSettings), "utf8");
 
 const texStatus = await detectTexInstallation();
 if (!texStatus.available) {
+  if (texStatus.command) throw new Error(`TeX 安装不完整：${texStatus.message}`);
   await rm(sourceAssetPath, { force: true });
   // CI 里必须真的编译:否则 "verify 通过" 只证明了 tex 文件写出来了,没证明能出 PDF。
   if (process.env.LQB_REQUIRE_TEX === "1") {

@@ -1,15 +1,48 @@
-import { spawn } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import type { CompileResult, TexStatus } from "../shared/types.js";
 import { readAppState } from "./workspace-storage.js";
+import {
+  MAX_LATEX_LOG_BYTES,
+  MAX_LATEX_PROBE_BYTES
+} from "./bounded-output.js";
+import {
+  assertLatexExecutionSession,
+  withLatexExecutionSlot,
+  type LatexExecutionSession
+} from "./latex-execution.js";
+
+import { runLatexProcess } from "./latex-process.js";
+
+const TEX_DETECTION_CACHE_MS = 30_000;
+let cachedTexStatus:
+  | { key: string; expiresAt: number; value: TexStatus }
+  | undefined;
+let texDetectionInFlight:
+  | { key: string; promise: Promise<TexStatus> }
+  | undefined;
 
 export async function compileLatex(
   texPath: string,
   cwd: string,
-  timeoutMs = 45_000
+  timeoutMs = 45_000,
+  session?: LatexExecutionSession
+): Promise<CompileResult> {
+  if (session) {
+    // A document operation holds the slot across file preparation and export commit.
+    assertLatexExecutionSession(session);
+    return compileLatexExclusive(texPath, cwd, timeoutMs);
+  }
+  return withLatexExecutionSlot(() =>
+    compileLatexExclusive(texPath, cwd, timeoutMs)
+  );
+}
+
+async function compileLatexExclusive(
+  texPath: string,
+  cwd: string,
+  timeoutMs: number
 ): Promise<CompileResult> {
   const texFile = path.basename(texPath);
   const pdfPath = path.join(cwd, texFile.replace(/\.tex$/i, ".pdf"));
@@ -31,51 +64,58 @@ export async function compileLatex(
     texFile
   ];
 
-  return new Promise((resolve) => {
-    const child = spawn(latexmkCommand, args, {
-      cwd,
-      env: createLatexProcessEnv(latexmkCommand),
-      detached: process.platform !== "win32"
-    });
-    let log = "";
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        terminateProcessTree(child);
-        settled = true;
-        resolve({
-          ok: false,
-          texPath,
-          log: `${log}\nLaTeX compile timed out after ${timeoutMs}ms.`
-        });
-      }
-    }, timeoutMs);
-
-    child.stdout.on("data", (chunk) => {
-      log += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      log += chunk.toString();
-    });
-    child.on("error", (error) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({ ok: false, texPath, log: `${log}\n${error.message}` });
-    });
-    child.on("close", async (code) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      const ok = code === 0 && (await fileExists(pdfPath));
-      resolve({ ok, texPath, pdfPath: ok ? pdfPath : undefined, log: summarizeLog(log) });
-    });
+  const result = await runLatexProcess(latexmkCommand, args, {
+    cwd, env: createLatexProcessEnv(latexmkCommand), timeoutMs,
+    maxOutputBytes: MAX_LATEX_LOG_BYTES
   });
+  const ok = !result.timedOut && result.code === 0 && await fileExists(pdfPath);
+  return {
+    ok, texPath, pdfPath: ok ? pdfPath : undefined,
+    log: summarizeLog(result.log + (result.timedOut ? `\nLaTeX compile timed out after ${timeoutMs}ms.` : ""))
+  };
 }
 
-export async function detectTexInstallation(): Promise<TexStatus> {
-  const state = await readAppState();
-  const override = state.texPathOverride ?? process.env.LQB_LATEXMK_PATH;
+export async function detectTexInstallation(
+  committedOverride?: string | null
+): Promise<TexStatus> {
+  const override = committedOverride === undefined
+    ? (await readAppState()).texPathOverride ?? process.env.LQB_LATEXMK_PATH
+    : committedOverride ?? process.env.LQB_LATEXMK_PATH;
+  const key = detectionCacheKey(override);
+  if (
+    cachedTexStatus?.key === key &&
+    cachedTexStatus.expiresAt > Date.now()
+  ) {
+    return cachedTexStatus.value;
+  }
+  if (texDetectionInFlight?.key === key) {
+    return texDetectionInFlight.promise;
+  }
+  if (texDetectionInFlight) {
+    await texDetectionInFlight.promise.catch(() => undefined);
+    return detectTexInstallation(committedOverride);
+  }
+
+  const promise = detectTexInstallationUncached(override);
+  texDetectionInFlight = { key, promise };
+  try {
+    const value = await promise;
+    cachedTexStatus = {
+      key,
+      expiresAt: Date.now() + TEX_DETECTION_CACHE_MS,
+      value
+    };
+    return value;
+  } finally {
+    if (texDetectionInFlight?.promise === promise) {
+      texDetectionInFlight = undefined;
+    }
+  }
+}
+
+async function detectTexInstallationUncached(
+  override: string | undefined
+): Promise<TexStatus> {
   const candidates: Array<{ command: string; source: TexStatus["source"] }> = [
     ...(override ? [{ command: override, source: "override" as const }] : []),
     { command: "latexmk", source: "path" },
@@ -83,18 +123,23 @@ export async function detectTexInstallation(): Promise<TexStatus> {
   ];
 
   for (const candidate of candidates) {
-    const result = await probeLatexmk(candidate.command);
+    const env = createLatexProcessEnv(candidate.command);
+    const result = await probeCommand(candidate.command, env);
     if (result.available) {
+      const engine = await probeCommand("xelatex", env);
       return {
-        available: true,
+        available: engine.available,
+        missingCommand: engine.available ? undefined : "xelatex",
         command: candidate.command,
         source: candidate.source,
         version: result.version,
-        message: `已检测到 LaTeX：${candidate.command}`
+        message: engine.available
+          ? `已检测到 latexmk 和 xelatex：${candidate.command}`
+          : `已检测到 latexmk，但 xelatex ${engine.timedOut ? "检测超时" : "不可用"}。请检查同一 TeX 安装中的 xelatex。`
       };
     }
   }
-  return { available: false, source: "missing", message: "未检测到 latexmk。" };
+  return { available: false, source: "missing", missingCommand: "latexmk", message: "未检测到可用的 latexmk。" };
 }
 
 export function createLatexProcessEnv(latexmkCommand: string): NodeJS.ProcessEnv {
@@ -111,42 +156,10 @@ export function createLatexProcessEnv(latexmkCommand: string): NodeJS.ProcessEnv
   return env;
 }
 
-function terminateProcessTree(child: ChildProcess) {
-  const pid = child.pid;
-  if (!pid) return;
-  if (process.platform === "win32") {
-    const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
-      windowsHide: true,
-      stdio: "ignore"
-    });
-    killer.unref();
-    return;
-  }
-  killUnixProcessTree(pid, "SIGTERM");
-  const forceKillTimer = setTimeout(() => {
-    if (child.exitCode === null && child.signalCode === null) {
-      killUnixProcessTree(pid, "SIGKILL");
-    }
-  }, 1_000);
-  forceKillTimer.unref();
-}
-
-function killUnixProcessTree(pid: number, signal: NodeJS.Signals) {
-  try {
-    process.kill(-pid, signal);
-  } catch {
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // The process already exited.
-    }
-  }
-}
-
 function summarizeLog(log: string): string {
   const lines = log.split(/\r?\n/);
   const important = lines.filter((line) =>
-    /(^!|error|warning|undefined|missing|fatal|LaTeX)/i.test(line)
+    /(^!|error|warning|undefined|missing|fatal|LaTeX|truncated|timed out)/i.test(line)
   );
   const summary = important.slice(-60).join("\n").trim();
   return summary || lines.slice(-80).join("\n").trim();
@@ -178,40 +191,25 @@ function getPathEnvKey(env: NodeJS.ProcessEnv): string {
   return Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
 }
 
-function probeLatexmk(
-  command: string,
-  timeoutMs = 3_000
-): Promise<{ available: boolean; version?: string }> {
-  return new Promise((resolve) => {
-    const child = spawn(command, ["-version"], { env: createLatexProcessEnv(command) });
-    let output = "";
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill("SIGTERM");
-        resolve({ available: false });
-      }
-    }, timeoutMs);
-    child.stdout.on("data", (chunk) => {
-      output += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      output += chunk.toString();
-    });
-    child.on("error", () => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({ available: false });
-    });
-    child.on("close", (code) => {
-      if (settled) return;
-      clearTimeout(timer);
-      settled = true;
-      resolve({ available: code === 0, version: output.split(/\r?\n/).find(Boolean) });
-    });
+async function probeCommand(command: string, env: NodeJS.ProcessEnv) {
+  const result = await runLatexProcess(command, ["-version"], {
+    env, timeoutMs: 3_000, maxOutputBytes: MAX_LATEX_PROBE_BYTES
   });
+  return {
+    available: !result.timedOut && result.code === 0,
+    timedOut: result.timedOut,
+    version: result.log.split(/\r?\n/).find(Boolean)
+  };
+}
+
+function detectionCacheKey(override: string | undefined): string {
+  const pathKey = getPathEnvKey(process.env);
+  return [
+    process.platform,
+    override ?? "",
+    process.env.LQB_LATEXMK_PATH ?? "",
+    process.env[pathKey] ?? ""
+  ].join("\u0000");
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

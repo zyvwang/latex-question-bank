@@ -1,15 +1,18 @@
 .modulePanel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
-.modulePanel > header {
-  min-height: 52px;
+.panelHead {
+  min-width: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel);
+}
+.panelHead > header {
+  min-height: 46px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 12px 0 15px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--panel);
 }
-.modulePanel > header > div:first-child { margin-right: auto; }
-.modulePanel header span { color: var(--muted); font-size: 11px; }
+.panelHead > header > div:first-child { margin-right: auto; }
+.panelHead header span { color: var(--muted); font-size: 11px; }
 .modulePanel h2 {
   margin: 0;
   font-family: "Songti SC", "Noto Serif CJK SC", serif;
@@ -17,8 +20,41 @@
   line-height: 1.1;
 }
 .miniStatus { color: var(--muted); font-size: 13px; }
-.moduleGrid { min-height: 0; display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); }
-.editorPane { min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--hairline); }
+.solutionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px 8px 15px;
+}
+.solutionMeta label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.solutionMeta select,
+.solutionMeta input {
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  color: var(--ink);
+  font-size: 13px;
+}
+.solutionMeta input { width: 180px; }
+.moduleGrid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, var(--module-editor-percent)) 12px minmax(300px, 1fr);
+}
+.editorRegion,
+.previewRegion { min-width: 0; min-height: 0; overflow: hidden; }
+.editorPane { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
 .editorFallback { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
 .editorPane > :global([class^="cm-theme"]),
 .editorPane :global(.cm-editor) { height: 100%; min-height: 0; }
@@ -34,5 +70,6 @@
 
 @media (max-width: 1040px) {
   .moduleGrid { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) minmax(300px, 1fr); }
-  .editorPane { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .moduleGrid > [role="separator"] { display: none; }
+  .editorRegion { border-bottom: 1px solid var(--hairline); }
 }

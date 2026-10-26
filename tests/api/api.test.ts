@@ -1,3 +1,4 @@
+import { validPng } from "../fixtures/images.js";
 import {
   mkdir,
   readFile,
@@ -47,6 +48,96 @@ describe("API validation", () => {
     expect(await readdir(workspacePath)).toEqual(
       expect.arrayContaining([".tmp", "assets", "bank.json", "exports"])
     );
+  });
+
+  it("validates a workspace before changing the current app state", async () => {
+    const app = createApiApp();
+    const created = await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    expect(created.body.appInfo.currentWorkspacePath).toBe(workspacePath);
+    expect(created.body.snapshot.workspacePath).toBe(workspacePath);
+
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      "{ damaged",
+      "utf8"
+    );
+
+    for (const route of ["open", "switch"]) {
+      const invalidResponse = await request(app)
+        .post(`/api/workspaces/${route}`)
+        .send({ workspacePath: saveAsWorkspacePath });
+      expect(
+        invalidResponse.status,
+        `${route}: ${JSON.stringify(invalidResponse.body)}`
+      ).toBe(400);
+      expect(invalidResponse.body.code).toBe("BANK_JSON_INVALID");
+    }
+
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
+    await request(app)
+      .put("/api/bank")
+      .send({
+        workspacePath,
+        baseRevision: created.body.snapshot.revision,
+        bank: created.body.snapshot.bank
+      })
+      .expect(200);
+  });
+
+  it("relocates a recent workspace in one validated transition", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      `${JSON.stringify(createSampleBank(), null, 2)}\n`,
+      "utf8"
+    );
+
+    const response = await request(app)
+      .post("/api/workspaces/relocate")
+      .send({ workspacePath, replacementPath: saveAsWorkspacePath })
+      .expect(200);
+
+    expect(response.body.appInfo.currentWorkspacePath).toBe(
+      saveAsWorkspacePath
+    );
+    expect(response.body.snapshot.workspacePath).toBe(saveAsWorkspacePath);
+    expect(response.body.appInfo.appState.recentWorkspacePaths).not.toContain(
+      workspacePath
+    );
+  });
+
+  it("does not remove the old recent path when relocation validation fails", async () => {
+    const app = createApiApp();
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    await mkdir(saveAsWorkspacePath, { recursive: true });
+    await writeFile(
+      path.join(saveAsWorkspacePath, "bank.json"),
+      "{ damaged",
+      "utf8"
+    );
+
+    await request(app)
+      .post("/api/workspaces/relocate")
+      .send({ workspacePath, replacementPath: saveAsWorkspacePath })
+      .expect(400)
+      .expect(({ body }) => expect(body.code).toBe("BANK_JSON_INVALID"));
+
+    const info = await request(app).get("/api/app").expect(200);
+    expect(info.body.currentWorkspacePath).toBe(workspacePath);
+    expect(info.body.appState.recentWorkspacePaths).toContain(workspacePath);
   });
 
   it("answers unknown API routes with JSON instead of the SPA shell", async () => {
@@ -407,21 +498,11 @@ describe("API validation", () => {
       .send({
         workspacePath,
         baseRevision: initial.body.revision,
-        bank: { ...createSampleBank(), version: 3 }
+        bank: { ...createSampleBank(), version: 2 }
       })
       .expect(400)
       .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
     const sample = createSampleBank();
-    const historyEntry = {
-      id: "history-one",
-      localDate: "2026-01-01",
-      name: "History one",
-      createdAt: sample.items[0].createdAt,
-      updatedAt: sample.items[0].updatedAt,
-      masteryOptions: sample.masteryOptions,
-      errorReasonOptions: sample.errorReasonOptions,
-      itemStates: {}
-    };
     await request(app)
       .put("/api/bank")
       .send({
@@ -429,32 +510,7 @@ describe("API validation", () => {
         baseRevision: initial.body.revision,
         bank: {
           ...sample,
-          masteryHistory: Array.from({ length: 6 }, (_, index) => ({
-            ...historyEntry,
-            id: `history-${index}`,
-            localDate: `2026-01-0${index + 1}`,
-            name: `History ${index}`
-          }))
-        }
-      })
-      .expect(400)
-      .expect(({ body }) => expect(body.code).toBe("BANK_REQUEST_INVALID"));
-    await request(app)
-      .put("/api/bank")
-      .send({
-        workspacePath,
-        baseRevision: initial.body.revision,
-        bank: {
-          ...sample,
-          masteryHistory: [
-            historyEntry,
-            {
-              ...historyEntry,
-              id: "history-two",
-              localDate: "2026-01-02",
-              name: " history ONE "
-            }
-          ]
+          items: [{ ...sample.items[0], reviewStatus: "draft" }]
         }
       })
       .expect(400)
@@ -525,22 +581,26 @@ describe("API validation", () => {
     await request(app).post("/api/export").send({ itemIds: [], fileName: "empty" }).expect(400);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from("not an image"), { filename: "note.txt", contentType: "text/plain" })
       .expect(400);
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from("not an image"), { filename: "fake.png", contentType: "image/png" })
       .expect(400);
     await request(app)
       .post("/api/assets")
-      .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+      .field("workspacePath", workspacePath)
+      .attach("file", validPng, {
         filename: "real.png",
         contentType: "image/png"
       })
       .expect(200);
     await request(app)
       .post("/api/assets")
-      .attach("file", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), {
+      .field("workspacePath", workspacePath)
+      .attach("file", validPng, {
         filename: "disguised.jpg",
         contentType: "image/png"
       })
@@ -548,6 +608,7 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_EXTENSION_MISMATCH"));
     await request(app)
       .post("/api/assets")
+      .field("workspacePath", workspacePath)
       .attach("file", Buffer.from([0xff, 0xd8, 0xff, 0x00]), {
         filename: "mismatch.jpg",
         contentType: "image/png"
@@ -556,7 +617,7 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_MIME_MISMATCH"));
   });
 
-  it("reads v1 without rewriting it and preserves v1 before the first v2 save", async () => {
+  it("reads v1 without rewriting it and preserves v1 before the first v3 save", async () => {
     const app = createApiApp();
     await request(app)
       .post("/api/workspaces/create-empty")
@@ -570,14 +631,17 @@ describe("API validation", () => {
     const loaded = await request(app).get("/api/bank").expect(200);
     expect(loaded.body.revision).toBe(revisionForContent(raw));
     expect(loaded.body.bank).toMatchObject({
-      version: 2,
-      masteryHistory: []
+      version: 3,
+      books: [],
+      imports: []
     });
     expect(loaded.body.bank.items[0]).toMatchObject({
       id: "legacy-b",
       chapterOrder: 1,
-      masteryOptionId: null,
-      errorReasonOptionIds: []
+      source: { bookId: null, label: "1" },
+      reviewPriority: null,
+      reviewStatus: "approved",
+      solutionSource: null
     });
     expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(1);
 
@@ -603,7 +667,7 @@ describe("API validation", () => {
         await readFile(path.join(workspacePath, ".history", historyFiles[0]), "utf8")
       ).version
     ).toBe(1);
-    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(2);
+    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(3);
   });
 
   it("keeps the previous export when a replacement compile fails", async () => {
@@ -627,6 +691,8 @@ describe("API validation", () => {
       .send({
         itemIds: [bank.items[0].id],
         fileName: "same-name",
+        workspacePath,
+        baseRevision: saved.body.revision,
         orderMode: "normal"
       })
       .expect(422);

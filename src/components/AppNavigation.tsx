@@ -2,14 +2,22 @@ import { AlertTriangle, Check, Save } from "lucide-react";
 import {
   useAppView,
   useLifecycle,
+  useQuestions,
   useWorkspace
 } from "../context/questionBankContexts.js";
+import { useLayoutPreferences } from "../context/layoutPreferences.js";
 import styles from "./AppNavigation.module.css";
 
 export function AppNavigation() {
   const appView = useAppView();
+  const layout = useLayoutPreferences();
   const lifecycle = useLifecycle();
   const workspace = useWorkspace();
+  const questions = useQuestions();
+  const pendingCount =
+    questions.bank?.items.filter(
+      (item) => item.reviewStatus === "pending"
+    ).length ?? 0;
   return (
     <header className={styles.navigation}>
       <div className={styles.identity}>
@@ -28,11 +36,14 @@ export function AppNavigation() {
           编辑
         </button>
         <button
-          className={appView.activeView === "heatmap" ? styles.active : ""}
-          aria-current={appView.activeView === "heatmap" ? "page" : undefined}
-          onClick={() => appView.setActiveView("heatmap")}
+          className={appView.activeView === "review" ? styles.active : ""}
+          aria-current={appView.activeView === "review" ? "page" : undefined}
+          onClick={() => appView.setActiveView("review")}
         >
-          热力图
+          待审阅
+          {pendingCount > 0 && (
+            <span className={styles.reviewCount}>{pendingCount}</span>
+          )}
         </button>
         <button
           className={appView.activeView === "settings" ? styles.active : ""}
@@ -43,6 +54,19 @@ export function AppNavigation() {
         </button>
       </nav>
       <div className={styles.status}>
+        {layout.persistError && (
+          <span role="status">
+            <button
+              type="button"
+              className={`${styles.saveState} ${styles.layoutError}`}
+              title={layout.persistError}
+              onClick={() => void layout.retryPersist().catch(() => undefined)}
+            >
+              <AlertTriangle size={15} />
+              布局未保存 · 重试
+            </button>
+          </span>
+        )}
         {appView.activeView === "settings" && lifecycle.notice && (
           <span
             className={`${styles.notice} ${styles[lifecycle.notice.type]}`}

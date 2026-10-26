@@ -1,4 +1,4 @@
-import { readdir, rm, stat } from "node:fs/promises";
+import { lstat, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { StorageError } from "./storage-types.js";
 import { isNotFound } from "./storage-utils.js";
@@ -8,6 +8,10 @@ import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 export const COMPILE_TEMP_PREFIX = "compile-";
 /** 导出 staging 目录前缀。注意 `previous-export-` 与 `verify-export` 都不以此开头,不会被误删。 */
 export const EXPORT_TEMP_PREFIX = "export-";
+/** 同名导出提交期间保存上一份完整导出的目录前缀。只能由事务恢复模块清理。 */
+export const PREVIOUS_EXPORT_PREFIX = "previous-export-";
+/** 导出提交日志目录。通用按时间清理不得删除。 */
+export const EXPORT_TRANSACTION_DIR_NAME = "export-transactions";
 
 export interface TempArtifactRetentionRule {
   prefix: string;
@@ -47,7 +51,10 @@ export async function pruneWorkspaceTempArtifacts(
 
   for (const rule of rules) {
     const matches = entries.filter(
-      (entry) => entry.isDirectory() && entry.name.startsWith(rule.prefix)
+      (entry) =>
+        entry.isDirectory() &&
+        entry.name !== EXPORT_TRANSACTION_DIR_NAME &&
+        entry.name.startsWith(rule.prefix)
     );
     if (matches.length <= rule.keepNewest) continue;
     const dated = (
@@ -102,8 +109,16 @@ export async function cleanupTempDirectory(
     throw error;
   }
   const cutoff = Date.now() - maxAgeMs;
+  const protectExportStaging = await hasPendingExportTransactions(tempDir);
   await Promise.all(
     entries.map(async (entry) => {
+      if (
+        entry === EXPORT_TRANSACTION_DIR_NAME ||
+        entry.startsWith(PREVIOUS_EXPORT_PREFIX) ||
+        (protectExportStaging && entry.startsWith(EXPORT_TEMP_PREFIX))
+      ) {
+        return;
+      }
       const target = path.join(tempDir, entry);
       try {
         const metadata = await stat(target);
@@ -115,4 +130,23 @@ export async function cleanupTempDirectory(
       }
     })
   );
+}
+
+async function hasPendingExportTransactions(tempDir: string): Promise<boolean> {
+  try {
+    const transactionDir = path.join(tempDir, EXPORT_TRANSACTION_DIR_NAME);
+    const info = await lstat(transactionDir);
+    if (info.isSymbolicLink() || !info.isDirectory()) return true;
+    const entries = await readdir(
+      transactionDir,
+      { withFileTypes: true }
+    );
+    // 非普通 .json 条目同样视为待处理事务；恢复流程会把它标记为 unresolved，
+    // 通用清理则必须保留所有可能关联的 staging。
+    return entries.some((entry) => entry.name.endsWith(".json"));
+  } catch (error) {
+    if (isNotFound(error)) return false;
+    // 无法安全确认事务目录为空时宁可保留 staging，不做破坏性猜测。
+    return true;
+  }
 }

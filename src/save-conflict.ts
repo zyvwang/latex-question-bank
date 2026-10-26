@@ -6,9 +6,8 @@ export interface BankConflictSummary {
   changedItems: number;
   settingsChanged: boolean;
   chaptersChanged: boolean;
-  masteryOptionsChanged: boolean;
-  errorReasonOptionsChanged: boolean;
-  masteryHistoryChanged: boolean;
+  booksChanged: boolean;
+  importsChanged: boolean;
 }
 
 export function summarizeBankConflict(
@@ -39,18 +38,8 @@ export function summarizeBankConflict(
     changedItems,
     settingsChanged: !sameValue(localBank.settings, diskBank.settings),
     chaptersChanged: !sameValue(localBank.chapters, diskBank.chapters),
-    masteryOptionsChanged: !sameValue(
-      localBank.masteryOptions,
-      diskBank.masteryOptions
-    ),
-    errorReasonOptionsChanged: !sameValue(
-      localBank.errorReasonOptions,
-      diskBank.errorReasonOptions
-    ),
-    masteryHistoryChanged: !sameValue(
-      localBank.masteryHistory,
-      diskBank.masteryHistory
-    )
+    booksChanged: !sameValue(localBank.books, diskBank.books),
+    importsChanged: !sameValue(localBank.imports, diskBank.imports)
   };
 }
 

@@ -10,6 +10,7 @@ import {
   createSecureWebPreferences,
   isCloseResponse,
   navigationIsAllowed,
+  resolveDevelopmentUserDataDir,
   type RendererCloseResponse
 } from "./security-policy.js";
 
@@ -27,8 +28,14 @@ if (configuredAppDataDir) {
   app.setPath("userData", appDataDir);
   app.setPath("sessionData", sessionDataDir);
 } else if (isDevelopment) {
-  const sessionDataDir = path.join(app.getPath("temp"), "latex-question-bank-electron-session");
+  // 开发版绝不能复用已安装应用的 userData；否则临时工作区会写进正式
+  // app-state.json，并在测试目录清理后把正式应用困在恢复页。
+  const developmentUserDataDir = resolveDevelopmentUserDataDir(
+    app.getAppPath()
+  );
+  const sessionDataDir = path.join(developmentUserDataDir, "session");
   mkdirSync(sessionDataDir, { recursive: true });
+  app.setPath("userData", developmentUserDataDir);
   app.setPath("sessionData", sessionDataDir);
 }
 
@@ -40,19 +47,26 @@ let mainWindow: BrowserWindow | null = null;
 let apiServer: Server | null = null;
 let apiServerUrl: string | null = null;
 let allowWindowClose = false;
-let closeCheckPending = false;
+let closeCheckPending: string | null = null;
+let closeDialogPending = false;
 let closeCheckTimer: NodeJS.Timeout | null = null;
 let quitRequested = false;
 let allowAppQuit = false;
+let mainWindowCreation: Promise<BrowserWindow> | null = null;
 
-async function createWindow() {
+const isPrimaryInstance = app.requestSingleInstanceLock();
+
+async function createWindow(): Promise<BrowserWindow> {
   process.env.LQB_DESKTOP = "1";
   process.env.LQB_APP_DATA_DIR = app.getPath("userData");
   process.env.LQB_ROOT_DIR = app.getAppPath();
 
   if (!apiServer || !apiServerUrl) {
     const { startApiServer } = await import("../server/index.js");
-    const api = await startApiServer({ port: isDevelopment ? 5174 : 0 });
+    const api = await startApiServer({
+      port: isDevelopment ? 5174 : 0,
+      appVersion: app.getVersion()
+    });
     apiServer = api.server;
     apiServerUrl = api.url;
   }
@@ -88,7 +102,7 @@ async function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
     allowWindowClose = false;
-    closeCheckPending = false;
+    closeCheckPending = null;
     if (closeCheckTimer) clearTimeout(closeCheckTimer);
     closeCheckTimer = null;
     if (quitRequested) {
@@ -98,43 +112,74 @@ async function createWindow() {
   });
 
   await mainWindow.loadURL(appUrl);
+  return mainWindow;
 }
 
-app.whenReady().then(async () => {
-  if (process.platform === "darwin") {
-    app.setAboutPanelOptions({
-      applicationName: "LaTeX Question Bank",
-      applicationVersion: app.getVersion(),
-      copyright: "Copyright © 2026 LaTeX Question Bank contributors"
-    });
-  }
-  registerIpcHandlers();
-  await createWindow();
-
-  app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
-    }
-  });
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-app.on("before-quit", (event) => {
-  if (!allowAppQuit && mainWindow && !mainWindow.isDestroyed()) {
-    event.preventDefault();
-    quitRequested = true;
-    mainWindow.close();
+async function showOrCreateMainWindow(): Promise<void> {
+  await app.whenReady();
+  const existingWindow =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getAllWindows().find((window) => !window.isDestroyed());
+  if (existingWindow) {
+    mainWindow = existingWindow;
+    if (existingWindow.isMinimized()) existingWindow.restore();
+    if (!existingWindow.isVisible()) existingWindow.show();
+    existingWindow.focus();
     return;
   }
-  apiServer?.close();
-  apiServer = null;
-  apiServerUrl = null;
-});
+
+  if (!mainWindowCreation) {
+    mainWindowCreation = createWindow().finally(() => {
+      mainWindowCreation = null;
+    });
+  }
+  const window = await mainWindowCreation;
+  if (window.isMinimized()) window.restore();
+  if (!window.isVisible()) window.show();
+  window.focus();
+}
+
+if (!isPrimaryInstance) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    void showOrCreateMainWindow();
+  });
+
+  app.whenReady().then(async () => {
+    if (process.platform === "darwin") {
+      app.setAboutPanelOptions({
+        applicationName: "LaTeX Question Bank",
+        applicationVersion: app.getVersion(),
+        copyright: "Copyright © 2026 LaTeX Question Bank contributors"
+      });
+    }
+    registerIpcHandlers();
+    app.on("activate", () => {
+      void showOrCreateMainWindow();
+    });
+    await showOrCreateMainWindow();
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+
+  app.on("before-quit", (event) => {
+    if (!allowAppQuit && mainWindow && !mainWindow.isDestroyed()) {
+      event.preventDefault();
+      quitRequested = true;
+      mainWindow.close();
+      return;
+    }
+    apiServer?.close();
+    apiServer = null;
+    apiServerUrl = null;
+  });
+}
 
 function registerIpcHandlers() {
   ipcMain.handle("workspace:select-directory", async (event, title?: string) => {
@@ -171,6 +216,18 @@ function registerIpcHandlers() {
     }
     await shell.openExternal(targetUrl);
     return true;
+  });
+
+  ipcMain.handle("ui-layout:read", async (event) => {
+    assertTrustedSender(event);
+    const { readUiLayoutPreferences } = await import("../server/app-state.js");
+    return readUiLayoutPreferences();
+  });
+
+  ipcMain.handle("ui-layout:write", async (event, preferences: unknown) => {
+    assertTrustedSender(event);
+    const { updateUiLayoutPreferences } = await import("../server/app-state.js");
+    return updateUiLayoutPreferences(preferences);
   });
 
   ipcMain.on("app:close-response", (event, result: { ok: boolean; error?: string }) => {
@@ -224,15 +281,17 @@ function shouldUseMockKeychain(): boolean {
 }
 
 function requestRendererCloseCheck() {
-  if (!mainWindow || closeCheckPending) return;
-  closeCheckPending = true;
-  mainWindow.webContents.send("app:before-close");
+  if (!mainWindow || closeCheckPending || closeDialogPending) return;
+  const requestId = crypto.randomUUID();
+  closeCheckPending = requestId;
+  mainWindow.webContents.send("app:before-close", requestId);
   closeCheckTimer = setTimeout(async () => {
-    if (!mainWindow || !closeCheckPending) return;
+    if (!mainWindow || closeCheckPending !== requestId) return;
     // 必须在 await 之前就交出这一轮:对话框展示期间渲染端的 app:close-response
     // 仍会到达,它的 closeCheckPending 守卫要能挡住,否则叠出第二个对话框。
-    closeCheckPending = false;
+    closeCheckPending = null;
     closeCheckTimer = null;
+    closeDialogPending = true;
     const choice = await dialog.showMessageBox(mainWindow, {
       type: "warning",
       title: "保存检查超时",
@@ -242,6 +301,7 @@ function requestRendererCloseCheck() {
       cancelId: 0,
       noLink: true
     });
+    closeDialogPending = false;
     if (choice.response === 1 && mainWindow) {
       allowWindowClose = true;
       mainWindow.close();
@@ -257,10 +317,10 @@ function finishCloseCheckTimer() {
 }
 
 async function handleRendererCloseResponse(result: RendererCloseResponse) {
-  if (!closeCheckPending || !mainWindow) return;
+  if (result.requestId !== closeCheckPending || !mainWindow) return;
   // 同上:先交出这一轮再 await。preload 每收到一次 app:before-close 就回一次,
   // 重复的关闭请求不能在对话框上再叠一个。
-  closeCheckPending = false;
+  closeCheckPending = null;
   finishCloseCheckTimer();
   if (result.ok) {
     allowWindowClose = true;
@@ -268,6 +328,7 @@ async function handleRendererCloseResponse(result: RendererCloseResponse) {
     return;
   }
 
+  closeDialogPending = true;
   const choice = await dialog.showMessageBox(mainWindow, {
     type: "warning",
     title: "尚未保存",
@@ -278,6 +339,7 @@ async function handleRendererCloseResponse(result: RendererCloseResponse) {
     cancelId: 0,
     noLink: true
   });
+  closeDialogPending = false;
   if (choice.response === 1 && mainWindow) {
     allowWindowClose = true;
     mainWindow.close();

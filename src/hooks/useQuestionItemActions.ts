@@ -4,11 +4,13 @@ import {
   itemsInChapter,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
+import { questionSourceDisplay } from "../../shared/question-source.js";
 import { restoreDeletedItem } from "../itemOrder.js";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import type { AddMode, Notice } from "./controllerTypes.js";
 
 interface QuestionItemActionsOptions {
+  bank: Bank | null;
   activeItem: QuestionItem | null;
   orderedItems: QuestionItem[];
   setActiveId: Dispatch<SetStateAction<string | null>>;
@@ -21,6 +23,7 @@ interface QuestionItemActionsOptions {
 }
 
 export function useQuestionItemActions({
+  bank,
   activeItem,
   orderedItems,
   setActiveId,
@@ -102,7 +105,7 @@ export function useQuestionItemActions({
   function deleteItem(id: string) {
     const item = orderedItems.find((candidate) => candidate.id === id);
     if (!item) return;
-    const label = item.sourceNumber || `章内第 ${item.chapterOrder} 题`;
+    const label = questionSourceDisplay(item, bank?.books ?? []);
     if (!window.confirm(`确定删除“${label}”吗？\n\n删除后可在 10 秒内撤销。`)) {
       return;
     }
@@ -132,8 +135,15 @@ export function useQuestionItemActions({
   }
 
   function undoDelete() {
-    if (!deletedItem) return;
-    updateBank((current) => restoreDeletedItem(current, deletedItem));
+    if (!deletedItem || !bank) return;
+    let restored: Bank;
+    try {
+      restored = restoreDeletedItem(bank, deletedItem);
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "无法撤销删除。" });
+      return;
+    }
+    updateBank(() => restored);
     setSelectedIds((current) => new Set([...current, deletedItem.id]));
     setActiveId(deletedItem.id);
     clearDeletedUndo();
@@ -181,12 +191,17 @@ function createQuestionItem(
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    sourceNumber: "",
+    source: null,
     chapterId,
     chapterOrder,
     tags: [],
-    masteryOptionId: null,
-    errorReasonOptionIds: [],
+    reviewPriority: null,
+    reviewStatus: "approved",
+    solutionSource: "none",
+    solutionRef: null,
+    variantOf: null,
+    importBatchId: null,
+    importedAt: null,
     modules: {
       question: { tex: "" },
       solution: { tex: "" },

@@ -1,0 +1,26 @@
+.empty {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--canvas);
+}
+.emptyCard {
+  max-width: 460px;
+  padding: 28px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-raised);
+}
+.emptyCard h1 {
+  margin: 0;
+  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: 24px;
+}
+.emptyCard p {
+  margin: 10px 0 20px;
+  color: var(--muted);
+  line-height: 1.7;
+}

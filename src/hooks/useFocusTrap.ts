@@ -11,8 +11,7 @@ const FOCUSABLE_SELECTOR = [
 
 /**
  * 把键盘焦点关在 `aria-modal="true"` 的对话框里。遮罩只挡指针:没有这个 hook,
- * Tab 能穿到背后的 CodeMirror 继续打字 —— 容量对话框那条路径下,这期间的编辑
- * 会在确认时被丢掉(见 useReviewHistory 的 restoreHistory)。
+ * Tab 能穿到背后的 CodeMirror 继续打字,导致模态操作期间出现意外编辑。
  *
  * 初始焦点由这个 hook 统一接管,对话框不要再用 autoFocus:autoFocus 在 commit
  * 阶段就生效,等到这里的 effect 读 document.activeElement 时,记下的「打开对话框

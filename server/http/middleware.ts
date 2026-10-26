@@ -4,6 +4,7 @@ import path from "node:path";
 import { AssetUploadError } from "../asset-service.js";
 import { rootDir } from "../app-state.js";
 import { StorageError } from "../storage-types.js";
+import { resolveRealWorkspaceFile } from "../workspace-paths.js";
 import { getCurrentWorkspaceDirs } from "../workspace-storage.js";
 import { sendApiError } from "./api-response.js";
 import {
@@ -21,6 +22,21 @@ export function contentSecurityPolicy(
       "Content-Security-Policy",
       "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     );
+  }
+  next();
+}
+
+export function rejectForeignHosts(
+  request: express.Request,
+  response: express.Response,
+  next: express.NextFunction
+) {
+  // Validate the raw authority: URL parsing alone accepts abbreviated numeric IPs
+  // and userinfo. Forwarded headers cannot authorize access to local files.
+  const match = /^(localhost|127\.0\.0\.1|\[::1\])(?::([0-9]{1,5}))?$/i.exec(request.get("host") ?? "");
+  if (!match || (match[2] !== undefined && (Number(match[2]) < 1 || Number(match[2]) > 65535))) {
+    sendApiError(response, 403, "拒绝非本机或无效的请求地址。", "HOST_FORBIDDEN");
+    return;
   }
   next();
 }
@@ -62,9 +78,33 @@ export function dynamicWorkspaceStatic(
   dirKey: "assetDir" | "tempDir"
 ): express.RequestHandler {
   return async (request, response, next) => {
+    if (!["GET", "HEAD"].includes(request.method.toUpperCase())) {
+      next();
+      return;
+    }
     try {
       const dirs = await getCurrentWorkspaceDirs();
-      express.static(dirs[dirKey])(request, response, next);
+      const relativePath = decodeWorkspaceStaticPath(request.path);
+      if (
+        !relativePath ||
+        relativePath.split(/[\\/]/).some((segment) => segment.startsWith("."))
+      ) {
+        next();
+        return;
+      }
+      const filePath = await resolveRealWorkspaceFile(
+        dirs[dirKey],
+        relativePath,
+        { allowMissing: true }
+      );
+      response.sendFile(filePath, { dotfiles: "allow" }, (error) => {
+        if (!error) return;
+        if (isStaticFileMissing(error) && !response.headersSent) {
+          next();
+          return;
+        }
+        next(error);
+      });
     } catch (error) {
       // 按 code 判断,不按文案:改一个字就会让静态资源路由开始抛 500。
       if (
@@ -79,6 +119,26 @@ export function dynamicWorkspaceStatic(
   };
 }
 
+function decodeWorkspaceStaticPath(requestPath: string): string {
+  try {
+    return decodeURIComponent(requestPath).replace(/^\/+/, "");
+  } catch {
+    throw new StorageError(
+      "工作区文件路径编码无效。",
+      "WORKSPACE_ENTRY_INVALID"
+    );
+  }
+}
+
+function isStaticFileMissing(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (("code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code))) ||
+      ("status" in error && error.status === 404))
+  );
+}
+
 export function installFrontend(app: express.Express) {
   app.use(express.static(path.join(rootDir, "dist")));
   app.use((request, response, next) => {
@@ -86,6 +146,15 @@ export function installFrontend(app: express.Express) {
     // response.json() 抛 SyntaxError,而只看 response.ok 的调用方会当成成功。
     if (request.path.startsWith("/api/")) {
       sendApiError(response, 404, "接口不存在。", "API_NOT_FOUND");
+      return;
+    }
+    if (
+      request.path === "/assets" ||
+      request.path.startsWith("/assets/") ||
+      request.path === "/tmp" ||
+      request.path.startsWith("/tmp/")
+    ) {
+      response.sendStatus(404);
       return;
     }
     if (request.method !== "GET") {
@@ -102,6 +171,10 @@ export function apiErrorHandler(
   response: express.Response,
   _next: express.NextFunction
 ) {
+  if (error instanceof Error && "type" in error && error.type === "entity.parse.failed") {
+    sendApiError(response, 400, "请求 JSON 格式无效。", "REQUEST_JSON_INVALID");
+    return;
+  }
   if (isEntityTooLarge(error)) {
     const pathname = new URL(
       request.originalUrl,
@@ -145,7 +218,7 @@ function isMutatingMethod(method: string): boolean {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-  return ["127.0.0.1", "localhost", "::1"].includes(hostname);
+  return ["127.0.0.1", "localhost", "[::1]"].includes(hostname);
 }
 
 function isEntityTooLarge(

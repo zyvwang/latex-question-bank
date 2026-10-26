@@ -11,11 +11,29 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  security-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify release version
+        run: node scripts/verify-release-version.mjs
+
+      - run: npm run audit:security
+
+  verify:
+    needs: security-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -25,11 +43,14 @@ jobs:
   # PR 上的 verify job 没有 TeX，scripts/verify-export.ts 会跳过真实编译并成功退出。
   # 这个 job 是「导出真的能编译出 PDF」的唯一凭据；放在 PR 之外跑，不拖慢代码评审。
   latex-export:
+    needs: security-audit
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -55,6 +76,7 @@ jobs:
         run: npx tsx scripts/verify-export.ts
 
   desktop-smoke:
+    needs: security-audit
     strategy:
       fail-fast: false
       matrix:
@@ -63,8 +85,10 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -78,3 +102,11 @@ jobs:
         run: npx electron-builder --mac dmg --publish never
       - if: runner.os == 'Windows'
         run: npx electron-builder --win nsis --publish never
+      - name: Test packaged application
+        run: npm run test:packaged
+      - name: Upload packaged test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packaged-test-${{ runner.os }}
+          path: test-results/packaged/

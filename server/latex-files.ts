@@ -1,13 +1,20 @@
-import { constants } from "node:fs";
-import { access, copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { LatexSettings, QuestionItem } from "../shared/types.js";
+import type {
+  BookRecord,
+  LatexSettings,
+  QuestionItem
+} from "../shared/types.js";
 import { buildFullLatex } from "./latex-renderer.js";
 import {
   COMPILE_TEMP_PREFIX,
   pruneWorkspaceTempArtifacts
 } from "./temp-directory-cleanup.js";
-import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
+import { isNotFound } from "./storage-utils.js";
+import {
+  assertRealWorkspaceSubdir,
+  resolveRealWorkspaceFile
+} from "./workspace-paths.js";
 import {
   getCurrentWorkspaceDirs,
   getWorkspaceDirs
@@ -15,9 +22,11 @@ import {
 
 export async function writeCurrentItemCheck(
   item: QuestionItem,
-  settings: LatexSettings
+  settings: LatexSettings,
+  workspacePath: string,
+  books: BookRecord[] = []
 ): Promise<string> {
-  const { tempDir } = await getCurrentWorkspaceDirs();
+  const { tempDir } = getWorkspaceDirs(workspacePath);
   // 显式校验放在修剪之前:符号链接的 .tmp 必须让本次请求 403,而不是被修剪的 warn 吞掉。
   await assertRealWorkspaceSubdir(tempDir);
   // 产物要留给渲染端的「打开 PDF」按钮,不能用完即删;保留最近两份加本次共三份。
@@ -26,9 +35,9 @@ export async function writeCurrentItemCheck(
   ]);
   const workDir = path.join(tempDir, `${COMPILE_TEMP_PREFIX}${crypto.randomUUID()}`);
   await mkdir(workDir, { recursive: true });
-  await copyAssetsForItems([item], workDir);
+  await copyAssetsForItems([item], workDir, workspacePath);
   const texPath = path.join(workDir, "current-item.tex");
-  await writeFile(texPath, buildFullLatex([item], settings), "utf8");
+  await writeFile(texPath, buildFullLatex([item], settings, books), "utf8");
   return texPath;
 }
 
@@ -48,12 +57,15 @@ export async function copyAssetsForItems(
   );
   await Promise.all(
     [...fileNames].map(async (fileName) => {
-      const source = path.join(assetDir, path.basename(fileName));
       const target = path.join(targetAssetDir, path.basename(fileName));
       try {
-        await access(source, constants.R_OK);
+        const source = await resolveRealWorkspaceFile(
+          assetDir,
+          path.basename(fileName)
+        );
         await copyFile(source, target);
-      } catch {
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
         // Compilation reports missing assets while preserving the generated source.
       }
     })

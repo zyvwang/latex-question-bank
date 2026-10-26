@@ -1,12 +1,22 @@
 import type { WebPreferences } from "electron";
+import path from "node:path";
 
 export interface RendererCloseResponse {
+  requestId: string;
   ok: boolean;
   error?: string;
 }
 
 export type SenderTrust = "trusted" | "wrong-window" | "wrong-origin";
 export type ExternalUrlPolicy = "local" | "external" | "blocked";
+
+export function resolveDevelopmentUserDataDir(appPath: string): string {
+  return path.join(
+    path.resolve(appPath),
+    ".tmp",
+    "electron-dev-app-data"
+  );
+}
 
 export function createSecureWebPreferences(preload: string): WebPreferences {
   return {
@@ -82,7 +92,8 @@ export function isCloseResponse(
   if (typeof value !== "object" || value === null || !("ok" in value)) {
     return false;
   }
-  if (typeof value.ok !== "boolean") return false;
+  if (typeof value.ok !== "boolean" || !("requestId" in value) ||
+      typeof value.requestId !== "string" || !value.requestId) return false;
   return (
     !("error" in value) ||
     value.error === undefined ||

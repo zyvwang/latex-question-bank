@@ -1,11 +1,13 @@
 import type {
   Bank,
+  BookRecord,
   Chapter,
   ExportOrderMode,
   LatexSettings,
   QuestionItem
 } from "../shared/types.js";
 import { orderItemsByChapter } from "../shared/chapter-order.js";
+import { questionSourceDisplay } from "../shared/question-source.js";
 import { defaultSettings } from "./bank-schema.js";
 
 export function sanitizeFileName(input: string): string {
@@ -47,17 +49,24 @@ export function orderItemsForExport(
 
 export function buildQuestionOnlyLatex(
   items: QuestionItem[],
-  settings = defaultSettings
+  settings = defaultSettings,
+  books: BookRecord[] = []
 ): string {
   const body = items
-    .map((item, index) => renderQuestionOnlyItem(item, index + 1, settings))
+    .map((item, index) =>
+      renderQuestionOnlyItem(item, index + 1, settings, books)
+    )
     .join("\n\n");
   return wrapDocument(body, settings, "questions");
 }
 
-export function buildFullLatex(items: QuestionItem[], settings = defaultSettings): string {
+export function buildFullLatex(
+  items: QuestionItem[],
+  settings = defaultSettings,
+  books: BookRecord[] = []
+): string {
   const body = items
-    .map((item, index) => renderFullItem(item, index + 1, settings))
+    .map((item, index) => renderFullItem(item, index + 1, settings, books))
     .join("\n\n");
   return wrapDocument(body, settings, "full");
 }
@@ -135,21 +144,23 @@ function basePreamble(): string {
 function renderQuestionOnlyItem(
   item: QuestionItem,
   number: number,
-  settings: LatexSettings
+  settings: LatexSettings,
+  books: BookRecord[]
 ): string {
-  const source = item.sourceNumber
-    ? `\\hfill {\\small 原编号：${escapeLatexText(item.sourceNumber)}}`
-    : "";
+  const source = renderSourceHeader(item, books);
   return String.raw`\subsection*{第 ${number} 题 ${source}}
 ${stripDocumentCommands(item.modules.question.tex)}
 
 \vspace{${settings.spacing.item}}`;
 }
 
-function renderFullItem(item: QuestionItem, number: number, settings: LatexSettings): string {
-  const source = item.sourceNumber
-    ? `\\hfill {\\small 原编号：${escapeLatexText(item.sourceNumber)}}`
-    : "";
+function renderFullItem(
+  item: QuestionItem,
+  number: number,
+  settings: LatexSettings,
+  books: BookRecord[]
+): string {
+  const source = renderSourceHeader(item, books);
   return String.raw`\subsection*{第 ${number} 题 ${source}}
 \textbf{题目}
 
@@ -166,6 +177,12 @@ ${stripDocumentCommands(item.modules.solution.tex)}
 ${stripDocumentCommands(item.modules.note.tex)}
 
 \vspace{${settings.spacing.item}}`;
+}
+
+function renderSourceHeader(item: QuestionItem, books: BookRecord[]): string {
+  if (!item.source) return "";
+  const label = questionSourceDisplay(item, books);
+  return `\\hfill {\\small 来源：${escapeLatexText(label)}}`;
 }
 
 function stripDocumentCommands(input: string): string {

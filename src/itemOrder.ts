@@ -1,5 +1,6 @@
 import type { Bank, QuestionItem } from "../shared/types.js";
 import {
+  findSourceConflict,
   itemsInChapter,
   moveItemWithinChapter,
   normalizeChapterItemOrders,
@@ -39,9 +40,9 @@ export function reorderItemByDrop(
 
 /**
  * 撤销删除时把题目放回 bank,并按当前 bank 消毒失效引用:
- * 删除后的撤销窗口内,题目所属章节或引用的掌握/错因选项可能已被删除,
+ * 删除后的撤销窗口内,题目所属章节或书目可能已被删除,
  * 若原样放回会产生磁盘校验拒绝的悬空引用,导致自动保存持续失败。
- * 章节仍在时插回原章内位置;章节已删则落到未分类末尾,掌握/错因失效项清为未设置。
+ * 章节仍在时插回原章内位置;章节已删则落到未分类末尾;书目已删则保留题号但解除书目关联。
  */
 export function restoreDeletedItem(
   bank: Bank,
@@ -52,20 +53,26 @@ export function restoreDeletedItem(
   const chapterStillExists =
     deletedItem.chapterId !== null &&
     bank.chapters.some((chapter) => chapter.id === deletedItem.chapterId);
-  const validErrorReasonIds = new Set(
-    bank.errorReasonOptions.map((option) => option.id)
+  const conflict = findSourceConflict(
+    bank.items,
+    deletedItem.id,
+    deletedItem.source
   );
+  if (conflict) {
+    throw new Error(
+      `无法撤销：来源题号“${deletedItem.source?.label ?? ""}”已被其他题目使用。`
+    );
+  }
+  const bookStillExists =
+    !deletedItem.source?.bookId ||
+    bank.books.some((book) => book.id === deletedItem.source?.bookId);
   const sanitized: QuestionItem = {
     ...deletedItem,
     chapterId: chapterStillExists ? deletedItem.chapterId : null,
-    masteryOptionId:
-      deletedItem.masteryOptionId !== null &&
-      bank.masteryOptions.some((option) => option.id === deletedItem.masteryOptionId)
-        ? deletedItem.masteryOptionId
-        : null,
-    errorReasonOptionIds: deletedItem.errorReasonOptionIds.filter((id) =>
-      validErrorReasonIds.has(id)
-    ),
+    source:
+      deletedItem.source && !bookStillExists
+        ? { bookId: null, label: deletedItem.source.label }
+        : deletedItem.source,
     updatedAt: now
   };
   const restoredItems = chapterStillExists

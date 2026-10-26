@@ -27,8 +27,12 @@ React UI
 - 仅 API：`npm run dev:api`
 - 仅 Vite Web：`npm run dev:web`
 - Electron 开发版：`npm run desktop:dev`
+- 构建本地 Agent CLI：`npm run build:cli`
+- 安装/链接本地 Agent CLI：`npm run link:cli`
+- 重新生成 README 实际界面截图：`npm run screenshots:readme`
 - 类型检查：`npm run typecheck`
 - Lint：`npm run lint`
+- 依赖安全审计：`npm run audit:security`
 - 单元测试：`npm run test:unit`
 - API 测试：`npm run test:api`
 - Electron 安全相关测试：`npm run test:electron`
@@ -38,8 +42,9 @@ React UI
 - 构建：`npm run build`
 - 完整验证：`npm run verify`
 - 桌面冒烟测试：`npm run test:desktop`
+- 打包应用冒烟测试：打包后运行 `npm run test:packaged`（macOS 需在清理 unpacked app 前执行）
 
-`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证。`scripts/verify-export.ts` 只主动探测 `latexmk`：未检测到时会跳过真实 PDF 编译并以成功状态退出；如果已检测到 `latexmk` 但 `xelatex` 不可用，真实编译会失败。只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
+`npm run audit:security` 会对生产与开发依赖执行中高等级漏洞门禁；CI 和发布工作流会在安装依赖前执行它，审计服务不可用时也按失败处理。`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证，但不重复运行联网安全审计。`scripts/verify-export.ts` 会检查 `latexmk` 和 `xelatex`：未检测到可用的 `latexmk` 时可跳过真实 PDF 编译；如果已检测到 `latexmk` 但 `xelatex` 不可用，验证直接失败，不得转为成功跳过。只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
 
 设 `LQB_REQUIRE_TEX=1` 时，缺少 TeX 不再跳过而是直接失败。CI 的 `latex-export` job（`.github/workflows/ci.yml`，只在 push main 和 workflow_dispatch 上跑）和发布工作流的 `verify-latex` job（`.github/workflows/release.yml`）负责真实编译；PR 上的 `verify` job 没有 TeX，它的绿色不代表导出可用。改动 `server/latex-renderer.ts` 的 preamble 引入新宏包时，要同步检查这两个 job 的 apt 包清单，并保留 `LQB_REQUIRE_TEX=1`，避免缺少 TeX 时产生空验证。
 
@@ -55,14 +60,21 @@ React UI
 - `src/api/client.ts`：前端唯一的应用 API 请求入口。新增应用 API 调用时放在这里。
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
-- `src/hooks/useAppView.ts`：顶层 editor、heatmap、settings 视图及热力图会话状态。
+- `src/hooks/useAppView.ts`：顶层 editor、review、settings 视图及页面重置。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
+- `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览；变式原题链接在 `WorkspaceDetails.tsx` 的上下文行。
+- `src/hooks/useExternalBankSync.ts`：SSE 外部导入/撤销同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
 - `src/styles/controls.module.css`：共享按钮样式。
+- `cli/`：本地 Agent CLI（`lqb`），只通过本地 API 写入，不直接改 `bank.json`。
+- `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-service.ts`、`server/agent-workspace-service.ts`、`server/agent-undo-service.ts`：Agent token、发现文件、manifest 导入、新建题库、批次撤销与附件。
+- `server/routes/events-routes.ts`、`server/events.ts`：本地 SSE 广播。
+- `shared/agent-manifest.ts`：Agent 导入清单契约与校验。
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
-- `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export 分组。
+- `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export、agent/events 分组。
 - `server/http/`：共享 middleware 和 API 错误响应。
 - `server/bank-schema.ts`：默认题库和示例题库创建。
 - `server/*-storage.ts`、`server/json-file.ts`：workspace 生命周期、原子 JSON 写入、revision 检查、恢复与历史快照。
@@ -73,13 +85,36 @@ React UI
 - `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验；`shared/validation.ts` 仅为兼容 barrel。
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
-- `docs/architecture.md`、`docs/design-system.md`、`docs/mastery-heatmap.md`、`docs/release-checklist.md`：架构、视觉、热力图与掌握历史、发布约定。改相关领域时同步更新。
+- `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉、发布约定。改相关领域时同步更新。
+- `docs/agent-workflow.md`：Agent 安装、`lqb` 命令、清单、审阅和安全边界。
+- `docs/agent-workflow-plan.md`：外部 Agent 导入与审阅优先级的完整设计/实施计划。Phase A+B+C+D 已实施（2026-10-26）。
 
 避免手动编辑或提交生成目录：`node_modules/`、`build/`、`dist/`、`coverage/`、`release/`、`.tmp/`、`.app-data/`、`test-results/`、`public/vendor/`。`public/vendor/mathjax/` 由 `scripts/copy-mathjax.mjs` 在安装后复制生成。
 
 ## 数据模型与安全
 
-当前写入的 workspace schema 是 `version: 2`；`version: 1` 仅作为只读迁移输入。每道题的 LaTeX 内容存在：
+当前写入的 workspace schema 是 `version: 3`；`version: 1` 和 `version: 2` 仅作为只读迁移输入。v3 的题目字段包括：
+
+- `source: { bookId, label } | null`：书目 + 规范化题号，有书目时 `(bookId,label)` 全库唯一；不再有 `sourceNumber`。
+- `reviewPriority: "skip" | "recheck" | "must" | null`：界面「复习优先级」。
+- `reviewStatus: "pending" | "approved"`：Agent 导入的题默认 pending。
+- `solutionSource: "answer-book" | "agent" | "user" | "none" | null`、`solutionRef`。
+- `variantOf`、`importBatchId`、`importedAt`。
+
+`Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。导入记录最多 50 条；同一 `batch.id` 的分块导入会合并为一条记录，并复用首块 `.history/` 快照作为整批撤销点。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留标签，不能作为普通 `tags` 保存。迁移逻辑在 `shared/bank-migration.ts`，来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`，撤销请求/结果类型在 `shared/agent-undo.ts`。
+
+Agent 导入边界：
+
+- 应用运行时把端口、随机 token 和当前工作区写入 `~/.lqb/agent.json`（目录 0700、文件 0600）；`LQB_AGENT_DISCOVERY_FILE` 可覆盖。
+- 所有 `/api/agent/*` 写接口要求 `Authorization: Bearer <token>`；Host/Origin 检查不放松。
+- Agent 导入通过 `server/agent-import-service.ts` 在 workspace 写锁内原子提交：dry-run 不写；正式导入先校验清单和附件，再写 `.history/` 快照、导入记录和 bank。
+- `--create-bank` 由 `server/agent-workspace-service.ts` 编排：从清单读取 `bank`/`chapters`，复制当前 settings，默认落到 `~/Documents/LaTeX Question Bank/<书名>`，不自动切换，只有显式 `--switch` 才切换。目标已有 `bank.json` 时拒绝创建。
+- `--batch-id` 可在后续分块中复用，合并到同一条导入记录；撤销使用首块快照。`lqb import undo` 只删除/恢复仍 pending 且未被编辑的题，保留已批准/已编辑题，并尽力清理无引用附件；快照缺失或批次已撤销返回 `UNDO_*` 错误。
+- 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256；TeX 中的 `{{asset:key}}` 由服务端替换为最终 `assets/...` 路径。
+- 不读取书目的 PDF 路径，只保存路径和哈希；Agent 不直接修改 `bank.json`。
+- 外部导入或撤销成功后通过 `/api/events` 广播；渲染端空闲时自动重载，有草稿时显示横幅，不静默覆盖。
+
+每道题的 LaTeX 内容存在：
 
 - `modules.question.tex`
 - `modules.solution.tex`
@@ -109,13 +144,14 @@ React UI
 - 每次应用会话中的首次 bank 修改会在 `.history/` 记录快照，最多保留 10 个。
 - 恢复接口只接受服务端枚举出的候选 ID，不接受任意路径。
 - workspace 顶层子目录（`.tmp`、`.history`、`assets`、`exports`）在读、写、删、rename 前必须经 `server/workspace-paths.ts` 的 `assertRealWorkspaceSubdir` 做符号链接与 realpath 校验（fail-closed）：子目录是符号链接或其真实路径逃逸出 workspace 时拒绝该次操作，避免跟随软链删除或覆盖外部文件。新增任何涉及 workspace 子目录的读写路径都要走该守卫。
+- 读取上述子目录里的单个文件时，还必须使用 `resolveRealWorkspaceFile` 逐层拒绝符号链接、非普通文件和 realpath 逃逸；不能只校验子目录后再直接调用 `readFile`、`copyFile` 或静态文件 middleware。
 
 涉及保存、恢复、导入导出、路径处理、图片上传、Electron IPC 或 TeX 命令执行的改动，要优先补充安全和错误路径测试。
 
 ## 前端约定
 
 - React 组件和 hooks 使用 TypeScript strict 模式。
-- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、review。
+- 组件应消费最小必要的 context：lifecycle、workspace、questions、selection、compile/export、workspace UI、app-view、bank settings。
 - 新增应用 API 请求只通过 `src/api/client.ts`。
 - CodeMirror 封装在 `src/components/LatexEditor.tsx`，不要在其他组件散落编辑器配置。
 - 样式优先使用 CSS Modules；全局 token 只放 `src/styles/foundation.css`。
@@ -125,16 +161,25 @@ React UI
 
 设计系统基调见 `docs/design-system.md`：桌面优先的纸面编辑台、暖纸色表面、克制青绿色行动色、数学内容偏宋体。避免装饰性渐变、玻璃拟态、混乱圆角体系，以及给每个区域套泛用卡片。
 
+### README 截图约定
+
+- README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
+- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
+- `main.png`、`review.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；设置页展示书目与导入记录。热力图和掌握历史已移除，不再生成对应截图。
+- 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
+
 ## 后端与 Electron 约定
 
 - `server/index.ts` 只做装配；业务逻辑放到 route、service 或 storage 模块。
 - HTTP route 负责请求/响应适配和调用共享 validation，不应承载复杂领域逻辑。
+- 所有 API 和静态文件请求必须先校验原始 Host，仅允许 `localhost`、`127.0.0.1`、`[::1]` 和有效可选端口；不得用转发头绕过校验。写请求继续校验 Origin。
 - 读写 workspace 路径时使用现有 storage/path helper，避免手写路径拼接绕过校验。
 - 文件写入优先使用现有原子写入工具和 revision 机制。
 - 图片上传必须保持扩展名、MIME、文件签名三重校验。
 - 导出应先写入临时 staging，只有两个 PDF 都成功后再替换最终目录。
 - Electron preload 不暴露 `ipcRenderer`。新增 IPC 能力必须窄、可验证，并检查 sender。
 - 主窗口导航锁定到应用 origin；外部 HTTPS 或本地 PDF 链接交给系统浏览器。
+- Electron 主进程必须在启动 API、注册 IPC 或创建窗口前取得单实例锁；第二次启动只恢复、显示并聚焦既有窗口，不能启动第二套 API/存储进程。
 - 关闭和退出应用前必须尊重 renderer 的保存 flush 边界。该边界是两步：先提交当前聚焦元素上的草稿，再 flush 自动保存队列，见 `src/hooks/useBeforeCloseFlush.ts`。
 - 新增「打字 → 失焦提交」的字段（本地 draft + `onBlur={commit}`）时，失败分支必须 `setNotice({ type: "error", ... })`。关闭流程靠这条约定判断草稿是否被校验拒绝，拒绝时会中止关闭并把该文案交给主进程的「尚未保存」对话框；不设 error notice 的失败分支会让用户那次输入被静默丢弃。
 
@@ -153,8 +198,9 @@ React UI
 
 - 纯领域逻辑、排序、校验、storage helper：`npm run test:unit`
 - API route、workspace、保存、恢复、上传、导出接口：`npm run test:api`
+- Agent token、manifest 导入、冲突/覆盖、附件、SSE：`npm run test:api`；CLI 冒烟需启动应用或 headless API
 - Electron 主进程、preload、CSP、导航或 IPC：`npm run test:electron`
-- React 组件、hooks、自动保存、交互状态：`npm run test:ui`
+- React 组件、hooks、自动保存、交互状态、审阅页、外部同步：`npm run test:ui`
 - 端到端桌面行为：先 `npm run build`，再 `npm run test:desktop`
 - 发布或跨层改动：`npm run verify`
 
@@ -172,14 +218,14 @@ React UI
 
 开始前：
 
-- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/mastery-heatmap.md` 片段。
+- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/agent-workflow-plan.md` 片段。
 - 确认是否涉及 workspace 持久化、schema、Electron IPC、TeX 执行或文件路径安全。
 - 检查工作区是否已有用户改动，不要回退无关变更。
 
 完成后：
 
 - 运行与改动范围匹配的测试或说明未运行原因。
-- 如果改了用户可见行为，同步 README 或 docs；布局变化还要重新截取 README 实际引用的界面图片。
+- 如果改了用户可见行为，同步 README 或 docs；布局变化还要运行 `npm run screenshots:readme`，并检查 README 实际引用的界面图片。
 - 如果改了 schema 或示例数据，同步迁移脚本、样例和测试。
 - 如果改了导出或编译，确认失败时不会破坏上一次成功输出。
 - 不要提交用户 workspace 内容、生成产物、覆盖率结果或本地应用数据。

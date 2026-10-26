@@ -6,6 +6,7 @@ import { useQuestionItemActions } from "./useQuestionItemActions.js";
 import { useQuestionMenus } from "./useQuestionMenus.js";
 
 interface QuestionReorderOptions {
+  bank: Bank | null;
   activeItem: QuestionItem | null;
   numberById: Map<string, number>;
   orderedItems: QuestionItem[];

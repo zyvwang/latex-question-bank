@@ -1,5 +1,6 @@
 import {
-  AlertCircle,
+  BookOpen,
+  CheckCircle2,
   CheckSquare,
   FolderOpen,
   Gauge,
@@ -11,19 +12,35 @@ import {
   Tags
 } from "lucide-react";
 import {
+  memo,
+  useMemo,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent
+} from "react";
+import {
+  REVIEW_PRIORITY_LABELS,
+  REVIEW_PRIORITY_ORDER,
+  REVIEW_STATUS_LABELS
+} from "../../shared/review-fields.js";
+import { questionSourceDisplay } from "../../shared/question-source.js";
+import type { BookRecord, QuestionItem } from "../../shared/types.js";
+import type { DropPosition } from "../itemOrder.js";
+import {
+  useAppView,
+  useBankSettings,
   useQuestions,
-  useReview,
   useSelection,
   useWorkspaceUi
 } from "../context/questionBankContexts.js";
 import {
   UNCATEGORIZED_FILTER,
-  UNSET_REVIEW_FILTER
+  UNSET_BOOK_FILTER,
+  UNSET_PRIORITY_FILTER
 } from "../questionFilters.js";
-import { UNSET_REVIEW_COLOR } from "../../shared/review-options.js";
 import metadataStyles from "./MetadataTokens.module.css";
-import { ReviewStateMarks } from "./ReviewStateMarks.js";
 import styles from "./Sidebar.module.css";
+import { VirtualQuestionList } from "./VirtualQuestionList.js";
+import { useDesktopQuestionList } from "../hooks/useDesktopQuestionList.js";
 
 interface FilterOption {
   value: string;
@@ -42,8 +59,10 @@ export function SidebarQuestionNavigation() {
 
 function FilterPanel() {
   const questions = useQuestions();
-  const review = useReview();
+  const settings = useBankSettings();
   const selection = useSelection();
+  const appView = useAppView();
+  const reviewMode = appView.activeView === "review";
   const allVisibleSelected =
     selection.listItems.length > 0 &&
     selection.listItems.every((item) => selection.selectedIds.has(item.id));
@@ -51,35 +70,37 @@ function FilterPanel() {
 
   return (
     <section className={styles.filterStack} aria-label="题目筛选">
-      <div className={styles.listActions}>
-        <button
-          className={styles.listModeToggle}
-          onClick={() =>
-            selection.setListMode(showingSelected ? "current" : "selected")
-          }
-          aria-label={showingSelected ? "返回当前列表" : "切换到已选中列表"}
-          aria-pressed={showingSelected}
-        >
-          {showingSelected ? <ListChecks size={16} /> : <ListFilter size={16} />}
-          <span>{showingSelected ? "已选中列表" : "当前列表"}</span>
-          <small>
-            {showingSelected
-              ? selection.selectedIds.size
-              : `${selection.filteredItems.length}/${questions.orderedItems.length}`}
-          </small>
-        </button>
-        <button
-          className={styles.bulkSelectButton}
-          onClick={selection.toggleAllVisible}
-          disabled={selection.listItems.length === 0}
-          aria-label={
-            allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"
-          }
-          title={allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"}
-        >
-          {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-        </button>
-      </div>
+      {!reviewMode && (
+        <div className={styles.listActions}>
+          <button
+            className={styles.listModeToggle}
+            onClick={() =>
+              selection.setListMode(showingSelected ? "current" : "selected")
+            }
+            aria-label={showingSelected ? "返回当前列表" : "切换到已选中列表"}
+            aria-pressed={showingSelected}
+          >
+            {showingSelected ? <ListChecks size={16} /> : <ListFilter size={16} />}
+            <span>{showingSelected ? "已选中列表" : "当前列表"}</span>
+            <small>
+              {showingSelected
+                ? selection.selectedIds.size
+                : `${selection.filteredItems.length}/${questions.orderedItems.length}`}
+            </small>
+          </button>
+          <button
+            className={styles.bulkSelectButton}
+            onClick={selection.toggleAllVisible}
+            disabled={selection.listItems.length === 0}
+            aria-label={
+              allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"
+            }
+            title={allVisibleSelected ? "取消选择当前显示题目" : "选择当前显示题目"}
+          >
+            {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+          </button>
+        </div>
+      )}
       {showingSelected ? (
         <p className={styles.pausedFilters}>
           筛选已保留，返回当前列表后继续生效。
@@ -119,35 +140,46 @@ function FilterPanel() {
               options={selection.tags.map((tag) => ({ value: tag, label: tag }))}
             />
             <MultiSelectFilter
-              icon={<Gauge size={15} />}
-              label="掌握程度"
-              allLabel="全部掌握"
-              selected={selection.masteryFilters}
-              onChange={selection.setMasteryFilters}
+              icon={<BookOpen size={15} />}
+              label="书目"
+              allLabel="全部书目"
+              selected={selection.bookFilters}
+              onChange={selection.setBookFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
-                ...review.masteryOptions.map((option) => ({
-                  value: option.id,
-                  label: option.name,
-                  color: option.color
-                }))
+                ...settings.books.map((book) => ({
+                  value: book.id,
+                  label: book.title
+                })),
+                { value: UNSET_BOOK_FILTER, label: "未关联书目" }
               ]}
             />
             <MultiSelectFilter
-              icon={<AlertCircle size={15} />}
-              label="错误原因"
-              allLabel="全部错因"
-              selected={selection.errorReasonFilters}
-              onChange={selection.setErrorReasonFilters}
+              icon={<Gauge size={15} />}
+              label="复习优先级"
+              allLabel="全部优先级"
+              selected={selection.reviewPriorityFilters}
+              onChange={selection.setReviewPriorityFilters}
               options={[
-                { value: UNSET_REVIEW_FILTER, label: "未设置", color: UNSET_REVIEW_COLOR },
-                ...review.errorReasonOptions.map((option) => ({
-                  value: option.id,
-                  label: option.name,
-                  color: option.color
-                }))
+                ...REVIEW_PRIORITY_ORDER.map((priority) => ({
+                  value: priority,
+                  label: REVIEW_PRIORITY_LABELS[priority]
+                })),
+                { value: UNSET_PRIORITY_FILTER, label: "未标记" }
               ]}
             />
+            {!reviewMode && (
+              <MultiSelectFilter
+                icon={<CheckCircle2 size={15} />}
+                label="审阅状态"
+                allLabel="全部状态"
+                selected={selection.reviewStatusFilters}
+                onChange={selection.setReviewStatusFilters}
+                options={[
+                  { value: "pending", label: REVIEW_STATUS_LABELS.pending },
+                  { value: "approved", label: REVIEW_STATUS_LABELS.approved }
+                ]}
+              />
+            )}
           </div>
         </>
       )}
@@ -215,9 +247,31 @@ function MultiSelectFilter({
 }
 
 function QuestionList() {
+  const desktop = useDesktopQuestionList();
   const questions = useQuestions();
   const selection = useSelection();
   const ui = useWorkspaceUi();
+  const chapterById = useMemo(
+    () => new Map(questions.bank?.chapters.map((chapter) => [chapter.id, chapter.name]) ?? []),
+    [questions.bank?.chapters]
+  );
+  const books = useMemo(
+    () => questions.bank?.books ?? [],
+    [questions.bank?.books]
+  );
+
+  const groups = useMemo(() => {
+    const result: { chapterId: string | null; items: QuestionItem[] }[] = [];
+    for (const item of selection.listItems) {
+      const previous = result.at(-1);
+      if (previous && previous.chapterId === item.chapterId) {
+        previous.items.push(item);
+      } else {
+        result.push({ chapterId: item.chapterId, items: [item] });
+      }
+    }
+    return result;
+  }, [selection.listItems]);
 
   if (selection.listItems.length === 0) {
     return (
@@ -229,81 +283,161 @@ function QuestionList() {
     );
   }
 
+  const renderRow = (item: QuestionItem) => (
+    <QuestionListRow
+      key={item.id}
+      item={item}
+      chapterById={chapterById}
+      books={books}
+      questionNumber={questions.numberById.get(item.id)}
+      active={questions.activeItem?.id === item.id}
+      selected={selection.selectedIds.has(item.id)}
+      dragging={ui.draggingId === item.id}
+      dropPosition={ui.dropTarget?.id === item.id ? ui.dropTarget.position : null}
+      onToggleSelected={selection.toggleSelected}
+      onActivate={questions.setActiveId}
+      onOpenReorderMenu={ui.openReorderMenu}
+      onStartMouseDrag={ui.startMouseDrag}
+      onStartPointerDrag={ui.startPointerDrag}
+    />
+  );
+  if (desktop) {
+    return (
+      <VirtualQuestionList
+        groups={groups}
+        chapterById={chapterById}
+        activeId={questions.activeItem?.id ?? null}
+        draggingId={ui.draggingId}
+        renderRow={renderRow}
+      />
+    );
+  }
+
   return (
-    <div className={styles.questionList} aria-label="题目列表">
-      {selection.listItems.map((item) => {
-        const chapterName = item.chapterId
-          ? (questions.bank?.chapters.find((chapter) => chapter.id === item.chapterId)?.name
-            ?? "未分类")
-          : "未分类";
-        const mastery = item.masteryOptionId
-          ? (questions.bank?.masteryOptions.find(
-            (option) => option.id === item.masteryOptionId
-          ) ?? null)
-          : null;
-        const selectedErrorIds = new Set(item.errorReasonOptionIds);
-        const errors = questions.bank?.errorReasonOptions.filter((option) =>
-          selectedErrorIds.has(option.id)
-        ) ?? [];
-        return (
-          <div
-            key={item.id}
-            className={[
-              styles.questionListItem,
-              questions.activeItem?.id === item.id ? styles.activeQuestion : "",
-              ui.draggingId === item.id ? styles.dragging : "",
-              ui.dropTarget?.id === item.id
-                ? ui.dropTarget.position === "before" ? styles.dropBefore : styles.dropAfter
-                : ""
-            ].filter(Boolean).join(" ")}
-            data-question-id={item.id}
-            onContextMenu={(event) => ui.openReorderMenu(event, item.id)}
-          >
-            <label className={styles.checkHit}>
-              <input
-                type="checkbox"
-                checked={selection.selectedIds.has(item.id)}
-                onChange={() => selection.toggleSelected(item.id)}
-                aria-label={`选择导出 ${item.sourceNumber || chapterName || "未命名题目"}`}
-              />
-            </label>
-            <span
-              className={styles.dragHandle}
-              title="拖拽排序"
-              onMouseDown={(event) => ui.startMouseDrag(event, item.id)}
-              onPointerDown={(event) => ui.startPointerDrag(event, item.id)}
-            >
-              <GripVertical size={16} />
-            </span>
-            <button
-              id={`question-nav-${item.id}`}
-              className={styles.questionMain}
-              onClick={() => questions.setActiveId(item.id)}
-            >
-              <span className={styles.questionIndex}>{questions.numberById.get(item.id)}</span>
-              <span className={styles.questionMeta}>
-                <strong>{item.sourceNumber || chapterName || "未命名题目"}</strong>
-                <ReviewStateMarks mastery={mastery} errors={errors} />
-                <span className={metadataStyles.flow}>
-                  <span
-                    className={`${metadataStyles.token} ${metadataStyles.chapter}`}
-                  >
-                    {chapterName}
-                  </span>
-                  {item.tags.map((tag) => (
-                    <span
-                      className={`${metadataStyles.token} ${metadataStyles.tag}`}
-                      key={tag}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </span>
-              </span>
-            </button>
-          </div>
-        );
-      })}
+    <div className={styles.questionList} aria-label="题目列表" data-question-count={selection.listItems.length}>
+      {groups.map((group) => (
+        <section
+          className={styles.chapterGroup}
+          key={group.chapterId ?? "uncategorized"}
+          onFocusCapture={(event) => {
+            if (!event.target.matches(":focus-visible")) return;
+            const section = event.currentTarget;
+            const list = section.parentElement;
+            const heading = section.querySelector("h3");
+            const row = event.target.closest("[data-question-id]");
+            if (!list || !heading || !row) return;
+            // Wrapped headings have variable height; reserve their actual height for keyboard focus.
+            const offset = row.getBoundingClientRect().top -
+              list.getBoundingClientRect().top - heading.getBoundingClientRect().height - 4;
+            if (offset < 0) list.scrollTop += offset;
+          }}
+        >
+          <h3 className={styles.chapterHeading}>
+            {group.chapterId ? (chapterById.get(group.chapterId) ?? "未分类") : "未分类"}
+          </h3>
+          {group.items.map(renderRow)}
+        </section>
+      ))}
     </div>
   );
 }
+
+const QuestionListRow = memo(function QuestionListRow({
+  item,
+  chapterById,
+  books,
+  questionNumber,
+  active,
+  selected,
+  dragging,
+  dropPosition,
+  onToggleSelected,
+  onActivate,
+  onOpenReorderMenu,
+  onStartMouseDrag,
+  onStartPointerDrag
+}: {
+  item: QuestionItem;
+  chapterById: Map<string, string>;
+  books: BookRecord[];
+  questionNumber: number | undefined;
+  active: boolean;
+  selected: boolean;
+  dragging: boolean;
+  dropPosition: DropPosition | null;
+  onToggleSelected: (id: string) => void;
+  onActivate: (id: string) => void;
+  onOpenReorderMenu: (event: ReactMouseEvent<HTMLElement>, id: string) => void;
+  onStartMouseDrag: (event: ReactMouseEvent<HTMLSpanElement>, id: string) => void;
+  onStartPointerDrag: (event: ReactPointerEvent<HTMLSpanElement>, id: string) => void;
+}) {
+  const chapterName = item.chapterId
+    ? (chapterById.get(item.chapterId) ?? "未分类")
+    : "未分类";
+  const sourceLabel = questionSourceDisplay(item, books);
+
+  return (
+    <div
+      className={[
+        styles.questionListItem,
+        active ? styles.activeQuestion : "",
+        dragging ? styles.dragging : "",
+        dropPosition === "before" ? styles.dropBefore : "",
+        dropPosition === "after" ? styles.dropAfter : ""
+      ].filter(Boolean).join(" ")}
+      data-question-id={item.id}
+      onContextMenu={(event) => onOpenReorderMenu(event, item.id)}
+    >
+      <label className={styles.checkHit}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelected(item.id)}
+          aria-label={`选择导出 ${sourceLabel || chapterName || "未命名题目"}`}
+        />
+      </label>
+      <span
+        className={styles.dragHandle}
+        title="拖拽排序"
+        onMouseDown={(event) => onStartMouseDrag(event, item.id)}
+        onPointerDown={(event) => onStartPointerDrag(event, item.id)}
+      >
+        <GripVertical size={16} />
+      </span>
+      <button
+        id={`question-nav-${item.id}`}
+        className={styles.questionMain}
+        onClick={() => onActivate(item.id)}
+      >
+        <span className={styles.questionIndex}>{questionNumber}</span>
+        <span className={styles.questionMeta}>
+          <strong>{sourceLabel || chapterName || "未命名题目"}</strong>
+          <span className={styles.questionBadges}>
+            {item.reviewStatus === "pending" ? (
+              <span className={styles.pendingBadge}>待审阅</span>
+            ) : null}
+            {item.reviewPriority ? (
+              <span
+                className={styles.priorityBadge}
+                data-priority={item.reviewPriority}
+              >
+                {REVIEW_PRIORITY_LABELS[item.reviewPriority]}
+              </span>
+            ) : null}
+            {item.variantOf ? <span className={styles.variantBadge}>变式</span> : null}
+          </span>
+          {item.tags.length > 0 ? <span className={metadataStyles.flow}>
+            {item.tags.map((tag) => (
+              <span
+                className={`${metadataStyles.token} ${metadataStyles.tag}`}
+                key={tag}
+              >
+                {tag}
+              </span>
+            ))}
+          </span> : null}
+        </span>
+      </button>
+    </div>
+  );
+});

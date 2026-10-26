@@ -6,13 +6,14 @@ import type {
   BankSnapshot,
   CompileResponse,
   ExportDefaultNameResponse,
-  ExportOrderMode,
+  ExportRequest,
   ExportResponse,
   QuestionItem,
   RecoveryCandidate,
   SaveBankAsRequest,
   SaveBankAsResponse,
-  SaveBankRequest
+  SaveBankRequest,
+  WorkspaceTransitionResponse
 } from "../../shared/types.js";
 import {
   BANK_PAYLOAD_TOO_LARGE_CODE,
@@ -41,12 +42,11 @@ export async function saveBank(request: SaveBankRequest): Promise<BankSnapshot> 
       BANK_PAYLOAD_TOO_LARGE_CODE
     );
   }
-  const response = await fetch("/api/bank", {
+  return requestJson<BankSnapshot>("/api/bank", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body
   });
-  return readJsonResponse<BankSnapshot>(response);
 }
 
 export async function fetchRecoveryCandidates(): Promise<RecoveryCandidate[]> {
@@ -54,16 +54,26 @@ export async function fetchRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   return data.candidates;
 }
 
-export async function recoverBank(candidateId: string): Promise<BankSnapshot> {
-  return postJson<BankSnapshot>("/api/recovery", { candidateId });
+export async function recoverBank(candidateId: string, workspacePath: string): Promise<BankSnapshot> {
+  return postJson<BankSnapshot>("/api/recovery", { candidateId, workspacePath });
 }
 
-export async function createSampleWorkspace(workspacePath: string): Promise<AppInfo> {
-  return postJson<AppInfo>("/api/workspaces/create-sample", { workspacePath });
+export async function createSampleWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>(
+    "/api/workspaces/create-sample",
+    { workspacePath }
+  );
 }
 
-export async function createEmptyWorkspace(workspacePath: string): Promise<AppInfo> {
-  return postJson<AppInfo>("/api/workspaces/create-empty", { workspacePath });
+export async function createEmptyWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>(
+    "/api/workspaces/create-empty",
+    { workspacePath }
+  );
 }
 
 export async function saveBankAs(request: SaveBankAsRequest): Promise<SaveBankAsResponse> {
@@ -75,62 +85,80 @@ export async function saveBankAs(request: SaveBankAsRequest): Promise<SaveBankAs
       BANK_PAYLOAD_TOO_LARGE_CODE
     );
   }
-  const response = await fetch("/api/workspaces/save-as", {
+  return requestJson<SaveBankAsResponse>("/api/workspaces/save-as", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body
   });
-  return readJsonResponse<SaveBankAsResponse>(response);
 }
 
-export async function openExistingWorkspace(workspacePath: string): Promise<AppInfo> {
-  return postJson<AppInfo>("/api/workspaces/open", { workspacePath });
+export async function openExistingWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>("/api/workspaces/open", {
+    workspacePath
+  });
 }
 
-export async function switchWorkspace(workspacePath: string): Promise<AppInfo> {
-  return postJson<AppInfo>("/api/workspaces/switch", { workspacePath });
+export async function switchWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>("/api/workspaces/switch", {
+    workspacePath
+  });
+}
+
+export async function relocateWorkspace(
+  workspacePath: string,
+  replacementPath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>("/api/workspaces/relocate", {
+    workspacePath,
+    replacementPath
+  });
 }
 
 export async function moveWorkspace(workspacePath: string, direction: "up" | "down"): Promise<AppInfo> {
   return postJson<AppInfo>("/api/workspaces/move", { workspacePath, direction });
 }
 
-export async function removeWorkspace(workspacePath: string): Promise<AppInfo> {
-  return postJson<AppInfo>("/api/workspaces/remove", { workspacePath });
+export async function removeWorkspace(
+  workspacePath: string
+): Promise<WorkspaceTransitionResponse> {
+  return postJson<WorkspaceTransitionResponse>("/api/workspaces/remove", {
+    workspacePath
+  });
 }
 
 export async function saveTexPath(texPath: string): Promise<AppInfo> {
   return postJson<AppInfo>("/api/tex-path", { texPath });
 }
 
-export async function uploadQuestionAsset(file: File): Promise<AssetUploadResponse> {
+export async function uploadQuestionAsset(file: File, workspacePath: string): Promise<AssetUploadResponse> {
   const formData = new FormData();
+  formData.append("workspacePath", workspacePath);
   formData.append("file", file);
-  const response = await fetch("/api/assets", { method: "POST", body: formData });
-  return readJsonResponse<AssetUploadResponse>(response);
+  return requestJson<AssetUploadResponse>("/api/assets", { method: "POST", body: formData });
 }
 
-export async function compileItem(item: QuestionItem, settings: Bank["settings"]): Promise<CompileResponse> {
-  const response = await fetch("/api/compile-item", {
+export async function compileItem(item: QuestionItem, settings: Bank["settings"], workspacePath: string): Promise<CompileResponse> {
+  return requestJson<CompileResponse>("/api/compile-item", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ item, settings })
+    body: JSON.stringify({ item, settings, workspacePath })
+  }, {
+    allowedErrorStatuses: [422]
   });
-  return readJsonResponse<CompileResponse>(response, { allowErrorPayload: true });
 }
 
-export async function exportItems(input: {
-  itemIds: string[];
-  fileName: string;
-  orderMode: ExportOrderMode;
-  randomSeed?: string;
-}): Promise<ExportResponse> {
-  const response = await fetch("/api/export", {
+export async function exportItems(input: ExportRequest): Promise<ExportResponse> {
+  return requestJson<ExportResponse>("/api/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
+  }, {
+    allowedErrorStatuses: [422]
   });
-  return readJsonResponse<ExportResponse>(response, { allowErrorPayload: true });
 }
 
 export async function fetchDefaultExportName(): Promise<string> {
@@ -143,22 +171,85 @@ export async function revealExportFolder(exportName: string): Promise<void> {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  return readJsonResponse<T>(response);
+  return requestJson<T>(url);
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
+  return requestJson<T>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
-  return readJsonResponse<T>(response);
+}
+
+const pendingWorkspaceWrites = new Set<Promise<unknown>>();
+let pendingSaveAs: Promise<unknown> | null = null;
+
+export async function confirmSaveBankAs(): Promise<SaveBankAsResponse> {
+  if (!pendingSaveAs) throw new Error("没有待确认的另存操作。");
+  const operation = pendingSaveAs;
+  const result = await deadline(operation, 15_000, true) as SaveBankAsResponse;
+  if (pendingSaveAs === operation) pendingSaveAs = null;
+  return result;
+}
+
+export async function waitForWorkspaceWrites(): Promise<void> {
+  await deadline(Promise.allSettled([...pendingWorkspaceWrites]), 15_000, false);
+}
+
+async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+  options: { allowedErrorStatuses?: number[] } = {}
+): Promise<T> {
+  const writing = Boolean(init?.method && init.method !== "GET");
+  const timeout = url === "/api/export" ? 180_000
+    : url === "/api/compile-item" ? 75_000 : writing ? 60_000 : 15_000;
+  const controller = new AbortController();
+  const operation = fetch(url, { ...init, signal: controller.signal })
+    .then((response) => readJsonResponse<T>(response, options));
+  // Keep workspace writes observable after the UI deadline. Aborting the fetch
+  // would discard the response without proving that the server stopped writing.
+  const workspaceWrite = writing && (url.startsWith("/api/workspaces/") || url === "/api/recovery");
+  if (url === "/api/workspaces/save-as") pendingSaveAs = operation;
+  if (workspaceWrite) {
+    pendingWorkspaceWrites.add(operation);
+    void operation.finally(() => pendingWorkspaceWrites.delete(operation)).catch(() => undefined);
+  }
+  try {
+    const result = await deadline(operation, timeout, writing);
+    if (pendingSaveAs === operation) pendingSaveAs = null;
+    return result;
+  } catch (error) {
+    if (error instanceof ApiRequestError) error.requestUrl = url;
+    throw error;
+  } finally {
+    if (!writing) controller.abort();
+  }
+}
+
+async function deadline<T>(operation: Promise<T>, timeout: number, writing: boolean): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new ApiRequestError(
+          writing ? "请求超时，操作结果尚未确认。请核对后重试；后台任务可能仍在执行。"
+            : "请求超时，请重试。",
+          0,
+          writing ? "WRITE_RESULT_UNKNOWN" : "REQUEST_TIMEOUT"
+        )), timeout);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function readJsonResponse<T>(
   response: Response,
-  options: { allowErrorPayload?: boolean } = {}
+  options: { allowedErrorStatuses?: number[] } = {}
 ): Promise<T> {
   // 非 JSON 响应(代理错误页、SPA 兜底 HTML)先转成带状态码的 ApiRequestError,
   // 否则用户看到的是 "Unexpected token '<'"。
@@ -170,13 +261,17 @@ async function readJsonResponse<T>(
     );
   }
   const data = (await response.json()) as T & { error?: string; code?: string };
-  if (!response.ok && !options.allowErrorPayload) {
+  if (
+    !response.ok &&
+    !options.allowedErrorStatuses?.includes(response.status)
+  ) {
     throw new ApiRequestError(data.error ?? "请求失败。", response.status, data.code);
   }
   return data;
 }
 
 export class ApiRequestError extends Error {
+  requestUrl?: string;
   constructor(
     message: string,
     public readonly status: number,

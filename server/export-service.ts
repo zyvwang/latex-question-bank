@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Bank, ExportRequest, ExportResponse } from "../shared/types.js";
 import {
@@ -10,6 +10,7 @@ import {
   sanitizeFileName,
   selectedItems
 } from "./latex.js";
+import { withLatexExecutionSlot, type LatexExecutionSession } from "./latex-execution.js";
 import { StorageError } from "./storage-types.js";
 import {
   EXPORT_TEMP_PREFIX,
@@ -17,11 +18,25 @@ import {
 } from "./temp-directory-cleanup.js";
 import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
 import { getWorkspaceDirs } from "./workspace-storage.js";
+import {
+  assertExportRecoveryComplete,
+  commitExportDirectory,
+  recoverExportTransactions
+} from "./export-transaction.js";
 
 export async function exportBank(
   bank: Bank,
   workspacePath: string,
-  request: ExportRequest
+  request: Omit<ExportRequest, "workspacePath" | "baseRevision">
+): Promise<ExportResponse> {
+  return withLatexExecutionSlot((session) => exportBankExclusive(bank, workspacePath, request, session));
+}
+
+async function exportBankExclusive(
+  bank: Bank,
+  workspacePath: string,
+  request: Omit<ExportRequest, "workspacePath" | "baseRevision">,
+  session: LatexExecutionSession
 ): Promise<ExportResponse> {
   const fileName = sanitizeFileName(request.fileName);
   const items = selectedItems(bank, request.itemIds, {
@@ -37,6 +52,9 @@ export async function exportBank(
     assertRealWorkspaceSubdir(exportDir),
     assertRealWorkspaceSubdir(tempDir)
   ]);
+  assertExportRecoveryComplete(
+    await recoverExportTransactions(exportDir, tempDir)
+  );
   const targetDir = path.join(exportDir, fileName);
   // 失败的 staging 目录会以 /tmp/... 链接给用户查看 tex 和日志,所以保留最近一份;
   // 在新建之前修剪,正在进行中的那份天然不会被删。
@@ -49,11 +67,15 @@ export async function exportBank(
 
   const questionsTex = path.join(stagingDir, "questions.tex");
   const fullTex = path.join(stagingDir, "full.tex");
-  await writeFile(questionsTex, buildQuestionOnlyLatex(items, bank.settings), "utf8");
-  await writeFile(fullTex, buildFullLatex(items, bank.settings), "utf8");
+  await writeFile(
+    questionsTex,
+    buildQuestionOnlyLatex(items, bank.settings, bank.books),
+    "utf8"
+  );
+  await writeFile(fullTex, buildFullLatex(items, bank.settings, bank.books), "utf8");
 
-  const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000);
-  const fullResult = await compileLatex(fullTex, stagingDir, 60_000);
+  const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000, session);
+  const fullResult = await compileLatex(fullTex, stagingDir, 60_000, session);
   const ok = questionsResult.ok && fullResult.ok;
   const files = await listExportFiles(stagingDir);
   const results = ok
@@ -76,7 +98,7 @@ export async function exportBank(
       };
 
   if (ok) {
-    await replaceDirectoryAtomic(stagingDir, targetDir, tempDir);
+    await commitExportDirectory(stagingDir, targetDir, tempDir);
   }
 
   return {
@@ -88,37 +110,7 @@ export async function exportBank(
   };
 }
 
-async function replaceDirectoryAtomic(stagingDir: string, targetDir: string, tempDir: string) {
-  const previousDir = path.join(tempDir, `previous-export-${crypto.randomUUID()}`);
-  let movedPrevious = false;
-  try {
-    await rename(targetDir, previousDir);
-    movedPrevious = true;
-  } catch (error) {
-    if (!isFileSystemCode(error, "ENOENT")) throw error;
-  }
-
-  try {
-    await rename(stagingDir, targetDir);
-  } catch (error) {
-    if (movedPrevious) {
-      await rename(previousDir, targetDir).catch(() => undefined);
-    }
-    throw error;
-  }
-
-  if (movedPrevious) {
-    await rm(previousDir, { recursive: true, force: true }).catch((error) => {
-      console.warn("Unable to remove previous export staging directory.", error);
-    });
-  }
-}
-
 function toPublicTempUrl(filePath: string, tempDir: string): string {
   const relative = path.relative(tempDir, filePath).split(path.sep).map(encodeURIComponent).join("/");
   return `/tmp/${relative}`;
-}
-
-function isFileSystemCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

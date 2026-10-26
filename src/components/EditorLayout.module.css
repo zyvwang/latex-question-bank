@@ -1,0 +1,16 @@
+.layout {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--question-sidebar-width) 12px minmax(0, 1fr);
+}
+
+.collapsed {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+@media (max-width: 760px) {
+  .layout,
+  .collapsed { display: block; }
+  .layout > [role="separator"] { display: none; }
+}

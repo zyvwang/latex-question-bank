@@ -12,6 +12,11 @@ export function WorkspaceExportDock() {
   const questions = useQuestions();
   const selection = useSelection();
   const compileExport = useCompileExport();
+  const pendingSelected =
+    questions.bank?.items.filter(
+      (item) =>
+        selection.selectedIds.has(item.id) && item.reviewStatus === "pending"
+    ).length ?? 0;
   return (
     <footer className={styles.exportDock}>
       <div className={styles.compileBlock}>
@@ -58,6 +63,11 @@ export function WorkspaceExportDock() {
               placeholder="留空则使用导出名"
             />
           </label>
+        )}
+        {pendingSelected > 0 && (
+          <span className={styles.pendingExportWarning}>
+            {`其中 ${pendingSelected} 道待审阅`}
+          </span>
         )}
         <button
           className={controls.primaryAction}

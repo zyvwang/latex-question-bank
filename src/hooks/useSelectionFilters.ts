@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Bank, QuestionItem } from "../../shared/types.js";
 import {
   UNCATEGORIZED_FILTER,
-  UNSET_REVIEW_FILTER
+  UNSET_BOOK_FILTER,
+  UNSET_PRIORITY_FILTER
 } from "../questionFilters.js";
 
 export type QuestionListMode = "current" | "selected";
@@ -11,42 +12,82 @@ export function useSelectionFilters(bank: Bank | null) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [chapterFilters, setChapterFilters] = useState<string[]>([]);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
-  const [masteryFilters, setMasteryFilters] = useState<string[]>([]);
-  const [errorReasonFilters, setErrorReasonFilters] = useState<string[]>([]);
+  const [bookFilters, setBookFilters] = useState<string[]>([]);
+  const [reviewPriorityFilters, setReviewPriorityFilters] = useState<string[]>([]);
+  const [reviewStatusFilters, setReviewStatusFilters] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [listMode, setListMode] = useState<QuestionListMode>("current");
+  const hasBank = bank !== null;
+  const tagCacheRef = useRef<{
+    inputs: Array<{ id: string; tags: string[] }>;
+    values: Set<string>;
+  } | null>(null);
 
   const clearFilters = useCallback(() => {
     setChapterFilters([]);
     setTagFilters([]);
-    setMasteryFilters([]);
-    setErrorReasonFilters([]);
+    setBookFilters([]);
+    setReviewPriorityFilters([]);
+    setReviewStatusFilters([]);
     setSearch("");
     setListMode("current");
   }, []);
 
-  useEffect(() => {
-    if (!bank) return;
-    const validChapters = new Set([
-      ...bank.chapters.map((chapter) => chapter.id),
-      UNCATEGORIZED_FILTER
-    ]);
-    const validTags = new Set(
-      bank.items.flatMap((item) => item.tags.map((tag) => tag.trim())).filter(Boolean)
+  const validChapters = useMemo(() => new Set([
+    ...(bank?.chapters.map((chapter) => chapter.id) ?? []),
+    UNCATEGORIZED_FILTER
+  ]), [bank?.chapters]);
+  const validBooks = useMemo(() => new Set([
+    ...(bank?.books.map((book) => book.id) ?? []),
+    UNSET_BOOK_FILTER
+  ]), [bank?.books]);
+  const validPriorities = useMemo(
+    () => new Set(["skip", "recheck", "must", UNSET_PRIORITY_FILTER]),
+    []
+  );
+  const validStatuses = useMemo(() => new Set(["pending", "approved"]), []);
+  const validTags = useMemo(() => {
+    const inputs = (bank?.items ?? []).map((item) => ({
+      id: item.id,
+      tags: item.tags
+    }));
+    const cache = tagCacheRef.current;
+    if (cache && sameTagInputs(cache.inputs, inputs)) return cache.values;
+    const values = new Set(
+      (bank?.items ?? [])
+        .flatMap((item) => item.tags.map((tag) => tag.trim()))
+        .filter(Boolean)
     );
-    const validMastery = new Set([
-      ...bank.masteryOptions.map((option) => option.id),
-      UNSET_REVIEW_FILTER
-    ]);
-    const validErrorReasons = new Set([
-      ...bank.errorReasonOptions.map((option) => option.id),
-      UNSET_REVIEW_FILTER
-    ]);
+    tagCacheRef.current = { inputs, values };
+    return values;
+  }, [bank?.items]);
+
+  useEffect(() => {
+    if (!hasBank) return;
     setChapterFilters((current) => retainValid(current, validChapters));
+  }, [hasBank, validChapters]);
+
+  useEffect(() => {
+    if (!hasBank) return;
     setTagFilters((current) => retainValid(current, validTags));
-    setMasteryFilters((current) => retainValid(current, validMastery));
-    setErrorReasonFilters((current) => retainValid(current, validErrorReasons));
-  }, [bank]);
+  }, [hasBank, validTags]);
+
+  useEffect(() => {
+    if (!hasBank) return;
+    setBookFilters((current) => retainValid(current, validBooks));
+  }, [hasBank, validBooks]);
+
+  useEffect(() => {
+    if (!hasBank) return;
+    setReviewPriorityFilters((current) =>
+      retainValid(current, validPriorities)
+    );
+  }, [hasBank, validPriorities]);
+
+  useEffect(() => {
+    if (!hasBank) return;
+    setReviewStatusFilters((current) => retainValid(current, validStatuses));
+  }, [hasBank, validStatuses]);
 
   const selectAllItems = useCallback((items: QuestionItem[]) => {
     setSelectedIds(new Set(items.map((item) => item.id)));
@@ -80,14 +121,16 @@ export function useSelectionFilters(bank: Bank | null) {
     setSelectedIds,
     chapterFilters,
     tagFilters,
-    masteryFilters,
-    errorReasonFilters,
+    bookFilters,
+    reviewPriorityFilters,
+    reviewStatusFilters,
     search,
     listMode,
     setChapterFilters,
     setTagFilters,
-    setMasteryFilters,
-    setErrorReasonFilters,
+    setBookFilters,
+    setReviewPriorityFilters,
+    setReviewStatusFilters,
     setSearch,
     setListMode,
     clearFilters,
@@ -95,6 +138,18 @@ export function useSelectionFilters(bank: Bank | null) {
     toggleSelected,
     toggleAllVisible
   };
+}
+
+function sameTagInputs(
+  previous: Array<{ id: string; tags: string[] }>,
+  next: Array<{ id: string; tags: string[] }>
+): boolean {
+  return previous.length === next.length && previous.every((value, index) => {
+    const candidate = next[index];
+    return candidate !== undefined &&
+      value.id === candidate.id &&
+      value.tags === candidate.tags;
+  });
 }
 
 function retainValid(current: string[], valid: Set<string>): string[] {

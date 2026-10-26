@@ -4,9 +4,9 @@ import {
   useQuestions,
   useWorkspace
 } from "../context/questionBankContexts.js";
+import { BooksSettings } from "./BooksSettings.js";
 import { ChapterSettings } from "./ChapterSettings.js";
-import { MasteryHistorySettings } from "./MasteryHistorySettings.js";
-import { ReviewOptionSettings } from "./ReviewOptionSettings.js";
+import { ImportLogSettings } from "./ImportLogSettings.js";
 import { WorkspaceSettings } from "./WorkspaceSettings.js";
 import styles from "./SettingsScreen.module.css";
 
@@ -22,9 +22,8 @@ export function SettingsScreen() {
       </header>
       <WorkspaceSettings />
       <ChapterSettings />
-      <ReviewOptionSettings kind="mastery" />
-      <ReviewOptionSettings kind="errorReason" />
-      <MasteryHistorySettings />
+      <BooksSettings />
+      <ImportLogSettings />
       <LatexSettings />
     </main>
   );
@@ -62,7 +61,7 @@ function LatexSettings() {
           {appInfo.texStatus.available
             ? <FileCheck2 size={15} />
             : <AlertTriangle size={15} />}
-          {appInfo.texStatus.available ? "TeX 可用" : "未检测到 TeX"}
+          {appInfo.texStatus.available ? "TeX 可用" : appInfo.texStatus.missingCommand ? `${appInfo.texStatus.missingCommand} 不可用` : "未检测到 TeX"}
         </button>
         <label>
           <span>题间距</span>
@@ -105,7 +104,9 @@ function LatexSettings() {
           <input
             value={workspace.texPathDraft}
             onChange={(event) => workspace.setTexPathDraft(event.target.value)}
-            onBlur={() => void workspace.saveTexPathOverride()}
+            onBlur={() => {
+              void workspace.saveTexPathOverride().catch(() => undefined);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") event.currentTarget.blur();
             }}

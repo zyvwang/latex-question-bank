@@ -35,11 +35,8 @@
 }
 
 .section h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 21px; }
-.createRow,
-.optionCreateRow { display: flex; align-items: center; gap: 7px; }
-.createRow input,
-.optionCreateRow input,
-.optionCreateRow select {
+.createRow { display: flex; align-items: center; gap: 7px; }
+.createRow input {
   min-height: 40px;
   padding: 0 10px;
   border: 1px solid var(--hairline);
@@ -47,8 +44,6 @@
   background: var(--panel);
   color: var(--ink);
 }
-.optionCreateRow input:first-child { width: 150px; }
-.optionCreateRow .colorInput { width: 92px; font-family: "SFMono-Regular", Consolas, monospace; }
 
 .rows { display: grid; gap: 7px; }
 .row {
@@ -92,16 +87,60 @@
   font-variant-numeric: tabular-nums;
 }
 .rowActions { display: flex; gap: 4px; }
-.systemRow {
-  grid-template-columns: 38px minmax(140px, auto) minmax(220px, 1fr);
+
+.emptyState {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-md);
   color: var(--muted);
-  background: rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.35);
 }
-.systemRow strong { color: var(--ink); }
-.systemRow small { color: var(--muted); }
-.colorField { min-width: 124px; display: flex; align-items: center; gap: 6px; }
-.colorField input { width: 92px; font-family: "SFMono-Regular", Consolas, monospace; }
-.colorField small { color: var(--amber); white-space: nowrap; }
+.bookRow {
+  grid-template-columns:
+    minmax(160px, 0.8fr)
+    minmax(220px, 1.4fr)
+    minmax(220px, 1.4fr)
+    72px
+    132px
+    44px;
+}
+.bookCount,
+.hashState {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hashState { line-height: 1.4; white-space: normal; }
+.importRow {
+  grid-template-columns:
+    140px
+    minmax(140px, 0.8fr)
+    minmax(220px, 1.2fr)
+    80px
+    minmax(150px, 0.9fr)
+    auto;
+}
+.importTime,
+.importCounts {
+  color: var(--muted);
+  font-size: 12px;
+}
+.importBooks { min-width: 0; overflow-wrap: anywhere; }
+.importStatus {
+  color: var(--teal-strong);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.importBatchId {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .latexGrid {
   display: grid;
@@ -157,19 +196,16 @@
 
 @media (max-width: 900px) {
   .section > header, .pageHeader { align-items: stretch; flex-direction: column; }
-  .optionCreateRow { flex-wrap: wrap; }
   .row { grid-template-columns: 28px 36px minmax(140px, 1fr) 112px; }
   .row > select, .rowActions { grid-column: auto; }
+  .bookRow,
+  .importRow { grid-template-columns: 1fr; }
   .latexGrid { grid-template-columns: 1fr; }
   .latexGrid .preambleField { grid-column: auto; }
 }
 
 @media (max-width: 620px) {
-  .createRow, .optionCreateRow { display: grid; grid-template-columns: 1fr; }
-  .optionCreateRow input:first-child,
-  .optionCreateRow .colorInput { width: 100%; }
+  .createRow { display: grid; grid-template-columns: 1fr; }
   .row { grid-template-columns: 28px 36px minmax(0, 1fr); }
-  .colorField, .row > select, .rowActions { grid-column: 3; }
-  .systemRow { grid-template-columns: 38px 1fr; }
-  .systemRow small { grid-column: 1 / -1; }
+  .row > select, .rowActions { grid-column: 3; }
 }

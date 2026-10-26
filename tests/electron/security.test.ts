@@ -11,7 +11,8 @@ import {
   classifySender,
   createSecureWebPreferences,
   isCloseResponse,
-  navigationIsAllowed
+  navigationIsAllowed,
+  resolveDevelopmentUserDataDir
 } from "../../electron/security-policy.js";
 
 const workspacePath = path.resolve(".tmp/vitest-electron-workspace");
@@ -24,6 +25,16 @@ beforeEach(async () => {
 });
 
 describe("Electron shell path allowlist", () => {
+  it("keeps node-test app data inside the repository temp directory", () => {
+    expect(appDataDir).toBe(path.resolve(".tmp/vitest-app-data"));
+  });
+
+  it("keeps desktop development data separate from installed app data", () => {
+    expect(resolveDevelopmentUserDataDir("/repo/latex-question-bank")).toBe(
+      path.resolve("/repo/latex-question-bank/.tmp/electron-dev-app-data")
+    );
+  });
+
   it("allows only current or recent workspace roots", async () => {
     await createEmptyWorkspace(workspacePath);
     await expect(isKnownWorkspacePath(workspacePath)).resolves.toBe(true);
@@ -73,10 +84,10 @@ describe("Electron shell path allowlist", () => {
     expect(classifyExternalUrl("javascript:alert(1)", "http://127.0.0.1:5174"))
       .toBe("blocked");
 
-    expect(isCloseResponse({ ok: true })).toBe(true);
-    expect(isCloseResponse({ ok: false, error: "save failed" })).toBe(true);
-    expect(isCloseResponse({ ok: "yes" })).toBe(false);
-    expect(isCloseResponse({ ok: false, error: 42 })).toBe(false);
+    expect(isCloseResponse({ requestId: "round-1", ok: true })).toBe(true);
+    expect(isCloseResponse({ requestId: "round-1", ok: false, error: "save failed" })).toBe(true);
+    expect(isCloseResponse({ requestId: "round-1", ok: "yes" })).toBe(false);
+    expect(isCloseResponse({ requestId: "round-1", ok: false, error: 42 })).toBe(false);
   });
 
   it("keeps packaged mock-keychain metadata and cleanup command", async () => {
@@ -87,4 +98,10 @@ describe("Electron shell path allowlist", () => {
     expect(packageMetadata.build?.extraMetadata?.lqbUseMockKeychain).toBe(true);
     expect(packageMetadata.scripts?.["dist:mac"]).toContain("cleanup-macos-unpacked.mjs");
   });
+});
+
+it("rejects close responses without a valid request identity", () => {
+  expect(isCloseResponse({ ok: true })).toBe(false);
+  expect(isCloseResponse({ ok: true, requestId: "" })).toBe(false);
+  expect(isCloseResponse({ ok: true, requestId: 1 })).toBe(false);
 });
