@@ -10,6 +10,7 @@ import type {
   AppInfo,
   Bank,
   BankSnapshot,
+  BookRecord,
   ModuleKind,
   QuestionItem,
   WorkspaceTransitionResponse
@@ -19,20 +20,33 @@ import {
   nextChapterOrder,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
-import type { QuestionBankContextValues } from "../context/questionBankContextTypes.js";
+import type {
+  AppViewContextValue,
+  BankSettingsContextValue,
+  CompileExportContextValue,
+  LifecycleContextValue,
+  QuestionBankContextValues,
+  QuestionContextValue,
+  SelectionContextValue,
+  WorkspaceContextValue,
+  WorkspaceUiContextValue
+} from "../context/questionBankContextTypes.js";
 import { useAutosave } from "./useAutosave.js";
 import { useAppView, type AppView } from "./useAppView.js";
 import { useBankSettingsActions } from "./useBankSettingsActions.js";
 import { useCompileExportActions } from "./useCompileExportActions.js";
 import { useQuestionDerivedData } from "./useQuestionDerivedData.js";
-import { useQuestionBankContextValues } from "./useQuestionBankContextValues.js";
 import { useQuestionReorder } from "./useQuestionReorder.js";
 import { useSelectionFilters } from "./useSelectionFilters.js";
+import { useStableSlice } from "./useStableSlice.js";
 import { useWorkspaceActions } from "./useWorkspaceActions.js";
 import { useSaveConflictActions } from "./useSaveConflictActions.js";
 import { usePendingChanges } from "./usePendingChanges.js";
 import { useExternalBankSync } from "./useExternalBankSync.js";
 import type { ExternalBankNotice } from "./controllerTypes.js";
+
+// 空题库时保持同一引用，避免 bankSettings 每次渲染都变成新对象。
+const NO_BOOKS: BookRecord[] = [];
 
 export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
@@ -269,7 +283,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     },
     [resetAutosave, setSelectedIds]
   );
-  const reloadExternalBank = useLatestCallback(async () => {
+  const reloadExternalBank = async () => {
     if (!appInfo?.currentWorkspacePath) return;
     if (
       !window.confirm(
@@ -285,10 +299,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     applyExternalSnapshot(snapshot);
     setExternalBankNotice(null);
     setNotice({ type: "ok", text: "已加载外部题库更新。" });
-  });
-  const dismissExternalBankNotice = useLatestCallback(() =>
-    setExternalBankNotice(null)
-  );
+  };
+  const dismissExternalBankNotice = () => setExternalBankNotice(null);
 
   const workspace = useWorkspaceActions({
     appInfo,
@@ -390,45 +402,26 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     refreshConflict, overwriteConflict, hasPendingUploads: compileExport.hasPendingUploads,
     setNotice, beginDraftCommit, takeDraftCommitRejection
   });
-  const flushPendingChanges = useLatestCallback(() => pending.flushPendingChanges({
+  const flushPendingChanges = () => pending.flushPendingChanges({
     waitForSaveAs: conflicts.waitForSaveAs,
     hasPendingUploads: compileExport.hasPendingUploads,
     isWorkspaceChanging,
     flushCurrentChanges
-  }));
+  });
 
-  return useQuestionBankContextValues({
-    appInfo,
-    bank,
-    activeId,
-    notice,
-    externalBankNotice,
-    loadError,
-    recoveryCandidates,
-    reloadExternalBank,
-    dismissExternalBankNotice,
+  const lifecycleValue = useStableSlice<LifecycleContextValue>({
     saveState,
     saveIssue,
     isConflictDialogOpen: conflicts.isConflictDialogOpen,
     isSavingConflictAs: conflicts.isSavingConflictAs,
     isSaveAsUncertain: conflicts.isSaveAsUncertain,
-    activeModule,
-    derived,
-    selection,
-    compileExport,
-    workspace,
-    reorder,
-    setActiveId,
+    notice,
+    externalBankNotice,
+    loadError,
+    recoveryCandidates,
     setNotice,
-    beginDraftCommit,
-    takeDraftCommitRejection,
-    setActiveModule,
-    appView,
-    updateBank,
-    updateItem,
-    commitSource,
-    moveItemToChapter,
-    bankSettings,
+    reloadExternalBank,
+    dismissExternalBankNotice,
     retrySave,
     refreshSaveConflict: refreshConflict,
     useDiskVersion: conflicts.useDiskVersion,
@@ -436,8 +429,133 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     saveConflictAs: conflicts.saveConflictAs,
     openConflictDialog: conflicts.openConflictDialog,
     closeConflictDialog: conflicts.closeConflictDialog,
-    loadAppAndBank,
+    retryInitialLoad: loadAppAndBank,
     recoverFromCandidate,
-    flushPendingChanges
+    flushPendingChanges,
+    beginDraftCommit,
+    takeDraftCommitRejection
   });
+  const workspaceValue = useStableSlice<WorkspaceContextValue>({
+    appInfo,
+    isChangingWorkspace: workspace.isChangingWorkspace,
+    isWorkspaceUncertain: workspace.isWorkspaceUncertain,
+    texPathDraft: workspace.texPathDraft,
+    setTexPathDraft: workspace.setTexPathDraft,
+    createSampleWorkspace: workspace.createSampleWorkspace,
+    createNewWorkspace: workspace.createNewWorkspace,
+    openWorkspace: workspace.openWorkspace,
+    switchToWorkspace: workspace.switchToWorkspace,
+    relocateWorkspace: workspace.relocateWorkspace,
+    moveWorkspaceInList: workspace.moveWorkspaceInList,
+    removeWorkspaceFromList: workspace.removeWorkspaceFromList,
+    saveTexPathOverride: workspace.saveTexPathOverride,
+    openCurrentWorkspaceFolder: workspace.openCurrentWorkspaceFolder
+  });
+  const questionsValue = useStableSlice<QuestionContextValue>({
+    bank,
+    activeId,
+    activeItem: derived.activeItem,
+    orderedItems: derived.orderedItems,
+    numberById: derived.numberById,
+    setActiveId,
+    updateBank,
+    updateItem,
+    commitSource,
+    moveItemToChapter,
+    addItem: reorder.addItem,
+    deleteItem: reorder.deleteItem,
+    deleteActiveItem: reorder.deleteActiveItem,
+    undoDelete: reorder.undoDelete,
+    moveActive: reorder.moveActive,
+    canUndoDelete: reorder.canUndoDelete
+  });
+  const selectionValue = useStableSlice<SelectionContextValue>({
+    filteredItems: derived.filteredItems,
+    listItems: derived.listItems,
+    chapters: derived.chapters,
+    tags: derived.tags,
+    selectedIds: selection.selectedIds,
+    chapterFilters: selection.chapterFilters,
+    tagFilters: selection.tagFilters,
+    bookFilters: selection.bookFilters,
+    reviewPriorityFilters: selection.reviewPriorityFilters,
+    reviewStatusFilters: selection.reviewStatusFilters,
+    search: selection.search,
+    listMode: selection.listMode,
+    setChapterFilters: selection.setChapterFilters,
+    setTagFilters: selection.setTagFilters,
+    setBookFilters: selection.setBookFilters,
+    setReviewPriorityFilters: selection.setReviewPriorityFilters,
+    setReviewStatusFilters: selection.setReviewStatusFilters,
+    setSearch: selection.setSearch,
+    setListMode: selection.setListMode,
+    clearFilters: selection.clearFilters,
+    toggleSelected: selection.toggleSelected,
+    toggleAllVisible: () => selection.toggleAllVisible(derived.listItems)
+  });
+  const compileExportValue = useStableSlice<CompileExportContextValue>({
+    exportName: compileExport.exportName,
+    exportOrderMode: compileExport.exportOrderMode,
+    randomSeed: compileExport.randomSeed,
+    isExporting: compileExport.isExporting,
+    isCompiling: compileExport.isCompiling,
+    compileResult: compileExport.compileResult,
+    exportFailureResult: compileExport.exportFailureResult,
+    compileStatus: compileExport.compileStatus,
+    setExportName: compileExport.setExportName,
+    setExportOrderMode: compileExport.setExportOrderMode,
+    setRandomSeed: compileExport.setRandomSeed,
+    uploadAsset: compileExport.uploadAsset,
+    compileCurrentItem: compileExport.compileCurrentItem,
+    exportSelected: compileExport.exportSelected
+  });
+  const workspaceUiValue = useStableSlice<WorkspaceUiContextValue>({
+    activeModule,
+    setActiveModule,
+    draggingId: reorder.draggingId,
+    dropTarget: reorder.dropTarget,
+    reorderMenu: reorder.reorderMenu,
+    addMenu: reorder.addMenu,
+    reorderDialogItem: reorder.reorderDialogItem,
+    reorderTarget: reorder.reorderTarget,
+    reorderError: reorder.reorderError,
+    reorderInputRef: reorder.reorderInputRef,
+    setReorderTarget: reorder.setReorderTarget,
+    setReorderError: reorder.setReorderError,
+    openReorderDialog: reorder.openReorderDialog,
+    closeReorderDialog: reorder.closeReorderDialog,
+    submitReorder: reorder.submitReorder,
+    openReorderMenu: reorder.openReorderMenu,
+    openAddMenu: reorder.openAddMenu,
+    startPointerDrag: reorder.startPointerDrag,
+    startMouseDrag: reorder.startMouseDrag
+  });
+  const appViewValue = useStableSlice<AppViewContextValue>({
+    activeView: appView.activeView,
+    setActiveView: appView.setActiveView
+  });
+  const bankSettingsValue = useStableSlice<BankSettingsContextValue>({
+    chapters: derived.chapters,
+    books: bank?.books ?? NO_BOOKS,
+    createChapter: bankSettings.createChapter,
+    renameChapter: bankSettings.renameChapter,
+    moveChapter: bankSettings.moveChapter,
+    moveChapterToIndex: bankSettings.moveChapterToIndex,
+    deleteChapter: bankSettings.deleteChapter,
+    createBook: bankSettings.createBook,
+    renameBook: bankSettings.renameBook,
+    setBookPaths: bankSettings.setBookPaths,
+    deleteBook: bankSettings.deleteBook
+  });
+
+  return {
+    lifecycle: lifecycleValue,
+    workspace: workspaceValue,
+    questions: questionsValue,
+    selection: selectionValue,
+    compileExport: compileExportValue,
+    workspaceUi: workspaceUiValue,
+    appView: appViewValue,
+    bankSettings: bankSettingsValue
+  };
 }
