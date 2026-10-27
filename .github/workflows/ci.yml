@@ -104,9 +104,11 @@ jobs:
         run: npx electron-builder --win nsis --publish never
       - name: Test packaged application
         run: npm run test:packaged
-      - name: Upload packaged test diagnostics
+      # test:desktop 的 trace 在 test-results/<用例>/，打包测试在 test-results/packaged/，
+      # 两者都要上传，否则桌面用例偶发失败时拿不到现场。
+      - name: Upload desktop test diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: packaged-test-${{ runner.os }}
-          path: test-results/packaged/
+          name: desktop-test-${{ runner.os }}
+          path: test-results/
