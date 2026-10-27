@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { mergeTags } from "../../shared/names.js";
 import metadataStyles from "./MetadataTokens.module.css";
 import styles from "./TagEditor.module.css";
 
@@ -17,12 +18,8 @@ export function TagEditor({ tags, suggestions, onChange }: TagEditorProps) {
   }, [tags]);
 
   function commit(value = draft) {
-    const additions = parseTagDraft(value);
-    if (!additions.length) {
-      setDraft("");
-      return;
-    }
-    onChange(uniqueTags([...tags, ...additions]));
+    const next = mergeTags(tags, value.split(/[,，\n]/));
+    if (next.length !== tags.length) onChange(next);
     setDraft("");
   }
 
@@ -74,23 +71,4 @@ export function TagEditor({ tags, suggestions, onChange }: TagEditorProps) {
       </datalist>
     </div>
   );
-}
-
-function parseTagDraft(value: string): string[] {
-  return uniqueTags(
-    value
-      .split(/[,，\n]/)
-      .map((tag) => tag.trim().normalize("NFKC"))
-      .filter(Boolean)
-  );
-}
-
-function uniqueTags(tags: string[]): string[] {
-  const seen = new Set<string>();
-  return tags.filter((tag) => {
-    const key = tag.normalize("NFKC").toLocaleLowerCase("en-US");
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }

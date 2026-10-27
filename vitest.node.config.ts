@@ -37,8 +37,7 @@ export default defineConfig({
         "**/*.d.ts",
         "server/latex.ts",
         "server/storage.ts",
-        "shared/types.ts",
-        "shared/validation.ts"
+        "shared/types.ts"
       ],
       thresholds: {
         statements: 75,

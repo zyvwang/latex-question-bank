@@ -5,7 +5,7 @@ import {
   validateWorkspaceMoveRequest,
   validateWorkspacePathRequest,
   validateWorkspaceRelocateRequest
-} from "../../shared/validation.js";
+} from "../../shared/request-validation.js";
 import { updateTexPathOverride } from "../app-state.js";
 import { refreshAgentDiscovery } from "../agent-discovery.js";
 import { buildAppInfo } from "../app-info.js";

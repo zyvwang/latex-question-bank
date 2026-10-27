@@ -43,6 +43,17 @@ export function itemsInChapter(
     );
 }
 
+// 取章内最大序号 + 1，而不是题数 + 1：调用方未重排时序号可能有空洞。
+export function nextChapterOrder(
+  items: QuestionItem[],
+  chapterId: string | null
+): number {
+  const orders = items
+    .filter((item) => item.chapterId === chapterId)
+    .map((item) => item.chapterOrder);
+  return (orders.length ? Math.max(...orders) : 0) + 1;
+}
+
 export function normalizeChapterItemOrders(
   items: QuestionItem[],
   updatedAt?: string

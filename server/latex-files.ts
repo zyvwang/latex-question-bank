@@ -1,10 +1,6 @@
 import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type {
-  BookRecord,
-  LatexSettings,
-  QuestionItem
-} from "../shared/types.js";
+import type { LatexSettings, QuestionItem } from "../shared/types.js";
 import { buildFullLatex } from "./latex-renderer.js";
 import {
   COMPILE_TEMP_PREFIX,
@@ -23,8 +19,7 @@ import {
 export async function writeCurrentItemCheck(
   item: QuestionItem,
   settings: LatexSettings,
-  workspacePath: string,
-  books: BookRecord[] = []
+  workspacePath: string
 ): Promise<string> {
   const { tempDir } = getWorkspaceDirs(workspacePath);
   // 显式校验放在修剪之前:符号链接的 .tmp 必须让本次请求 403,而不是被修剪的 warn 吞掉。
@@ -37,7 +32,7 @@ export async function writeCurrentItemCheck(
   await mkdir(workDir, { recursive: true });
   await copyAssetsForItems([item], workDir, workspacePath);
   const texPath = path.join(workDir, "current-item.tex");
-  await writeFile(texPath, buildFullLatex([item], settings, books), "utf8");
+  await writeFile(texPath, buildFullLatex([item], settings), "utf8");
   return texPath;
 }
 

@@ -53,8 +53,7 @@ export function orderItemsForExport(
 
 export function buildQuestionOnlyLatex(
   items: QuestionItem[],
-  settings = defaultSettings,
-  _books: BookRecord[] = []
+  settings = defaultSettings
 ): string {
   const body = items
     .map((item, index) => renderQuestionOnlyItem(item, index + 1, settings))
@@ -64,8 +63,7 @@ export function buildQuestionOnlyLatex(
 
 export function buildFullLatex(
   items: QuestionItem[],
-  settings = defaultSettings,
-  _books: BookRecord[] = []
+  settings = defaultSettings
 ): string {
   const body = items
     .map((item, index) => renderFullItem(item, index + 1, settings))

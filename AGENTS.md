@@ -82,7 +82,7 @@ React UI
 - `server/export-service.ts`：导出 staging、PDF 编译和最终目录原子替换。
 - `server/latex*.ts`：LaTeX 渲染、临时文件准备和 TeX 进程管理。
 - `shared/types.ts`：前后端共享数据契约。
-- `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验；`shared/validation.ts` 仅为兼容 barrel。
+- `shared/bank-validation.ts`、`shared/request-validation.ts`、`shared/validation-primitives.ts`：持久化领域、HTTP DTO 和基础值的运行时校验。
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
 - `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉、发布约定。改相关领域时同步更新。
@@ -125,7 +125,6 @@ Agent 导入边界：
 - `shared/types.ts`
 - `shared/bank-validation.ts`
 - `shared/bank-migration.ts`
-- `shared/validation.ts`
 - `server/bank-schema.ts`
 - `examples/sample-bank/bank.json`
 - `data/bank.json`

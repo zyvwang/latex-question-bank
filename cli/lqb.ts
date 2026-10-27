@@ -13,6 +13,7 @@ import type {
 } from "../shared/agent-manifest.js";
 import { validateAgentImportManifest } from "../shared/agent-manifest.js";
 import type { AgentUndoSummary } from "../shared/agent-undo.js";
+import { orderItemsByChapter } from "../shared/chapter-order.js";
 import type { Bank, QuestionItem } from "../shared/types.js";
 import {
   AGENT_GUIDE,
@@ -386,7 +387,7 @@ async function undoCommand(
 
 async function listCommand(args: ParsedArgs): Promise<void> {
   const snapshot = await readCurrentBank(args);
-  const items = orderedItems(snapshot.bank);
+  const items = orderItemsByChapter(snapshot.bank.items, snapshot.bank.chapters);
   const bookFilter = stringFlag(args.flags, "book");
   const chapterFilter = stringFlag(args.flags, "chapter");
   const tagFilter = stringFlag(args.flags, "tag");
@@ -450,7 +451,7 @@ async function searchCommand(
   }
   const snapshot = await readCurrentBank(args);
   const limit = parseLimit(args.flags);
-  const results = orderedItems(snapshot.bank)
+  const results = orderItemsByChapter(snapshot.bank.items, snapshot.bank.chapters)
     .filter((item) => searchText(item, snapshot.bank).includes(normalizedQuery))
     .slice(0, limit)
     .map((item) => summarizeItem(item, snapshot.bank));
@@ -753,27 +754,6 @@ function printImportSummary(summary: AgentImportSummary, json: boolean): void {
   if (!summary.dryRun) {
     console.log("请在应用的「待审阅」页检查导入内容。");
   }
-}
-
-function orderedItems(bank: Bank): QuestionItem[] {
-  const rank = new Map(
-    bank.chapters.map((chapter, index) => [chapter.id, index])
-  );
-  return [...bank.items].sort((left, right) => {
-    const leftRank =
-      left.chapterId === null
-        ? bank.chapters.length
-        : (rank.get(left.chapterId) ?? bank.chapters.length + 1);
-    const rightRank =
-      right.chapterId === null
-        ? bank.chapters.length
-        : (rank.get(right.chapterId) ?? bank.chapters.length + 1);
-    return (
-      leftRank - rightRank ||
-      left.chapterOrder - right.chapterOrder ||
-      left.id.localeCompare(right.id)
-    );
-  });
 }
 
 function summarizeItem(item: QuestionItem, bank: Bank) {

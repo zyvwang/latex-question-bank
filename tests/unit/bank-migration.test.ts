@@ -5,7 +5,7 @@ import type {
   LegacyBankV2,
   LegacyQuestionItem
 } from "../../shared/types.js";
-import { validateBankPayload } from "../../shared/validation.js";
+import { validateBankPayload } from "../../shared/bank-validation.js";
 import { createSampleBank } from "../../server/bank-schema.js";
 
 describe("legacy bank migration to v3", () => {

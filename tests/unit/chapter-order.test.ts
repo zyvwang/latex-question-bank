@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   findSourceConflict,
   moveItemWithinChapter,
+  nextChapterOrder,
   orderItemsByChapter,
   reorderItemWithinChapterByDrop
 } from "../../shared/chapter-order.js";
+import { mergeTags } from "../../shared/names.js";
 import type { Chapter, QuestionItem } from "../../shared/types.js";
 
 const chapters: Chapter[] = [
@@ -28,6 +30,17 @@ describe("chapter-local question order", () => {
       "b-2",
       "u"
     ]);
+  });
+
+  it("appends after the highest order even when orders have gaps", () => {
+    const items = [
+      item("a-1", "chapter-a", 1),
+      item("a-5", "chapter-a", 5),
+      item("u", null, 1)
+    ];
+    expect(nextChapterOrder(items, "chapter-a")).toBe(6);
+    expect(nextChapterOrder(items, null)).toBe(2);
+    expect(nextChapterOrder(items, "chapter-b")).toBe(1);
   });
 
   it("moves and drops only inside the current chapter", () => {
@@ -62,6 +75,14 @@ describe("chapter-local question order", () => {
     expect(
       findSourceConflict(items, "b-1", { bookId: "book-2", label: "12" })
     ).toBeNull();
+  });
+});
+
+describe("mergeTags", () => {
+  it("normalizes, dedupes case-insensitively, and drops reserved tags", () => {
+    expect(
+      mergeTags(["Limit", "洛必达"], [" limit ", "ｔａｙｌｏｒ", "", "待审阅", "Taylor", "洛必达"])
+    ).toEqual(["Limit", "洛必达", "taylor"]);
   });
 });
 

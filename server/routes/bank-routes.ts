@@ -2,7 +2,7 @@ import { Router, json } from "express";
 import {
   validateRecoverBankRequest,
   validateSaveBankRequest
-} from "../../shared/validation.js";
+} from "../../shared/request-validation.js";
 import {
   readBankHead,
   readBankSnapshot,

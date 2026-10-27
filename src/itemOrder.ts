@@ -1,8 +1,8 @@
 import type { Bank, QuestionItem } from "../shared/types.js";
 import {
   findSourceConflict,
-  itemsInChapter,
   moveItemWithinChapter,
+  nextChapterOrder,
   normalizeChapterItemOrders,
   reorderItemWithinChapterByDrop
 } from "../shared/chapter-order.js";
@@ -89,7 +89,7 @@ export function restoreDeletedItem(
         ...bank.items,
         {
           ...sanitized,
-          chapterOrder: itemsInChapter(bank.items, null).length + 1
+          chapterOrder: nextChapterOrder(bank.items, null)
         }
       ];
   return { ...bank, items: normalizeChapterItemOrders(restoredItems, now) };
