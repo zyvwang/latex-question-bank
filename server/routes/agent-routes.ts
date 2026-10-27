@@ -3,9 +3,14 @@ import multer from "multer";
 import {
   validateAgentImportManifest
 } from "../../shared/agent-manifest.js";
+import {
+  validateAgentTagJournal,
+  validateAgentTagManifest
+} from "../../shared/agent-tags.js";
 import { validateWorkspacePathRequest } from "../../shared/request-validation.js";
 import { ValidationError } from "../../shared/validation-primitives.js";
 import { applyAgentImport } from "../agent-import-service.js";
+import { applyAgentTags, undoAgentTags } from "../agent-tag-service.js";
 import { undoAgentImport } from "../agent-undo-service.js";
 import { requireAgentToken } from "../agent-auth.js";
 import {
@@ -148,6 +153,60 @@ export function createAgentRouter(options: {
   );
 
   router.post(
+    "/agent/tags",
+    json({ limit: options.jsonBodyLimitBytes }),
+    async (request, response, next) => {
+      try {
+        const body = request.body as Record<string, unknown>;
+        const validation = validateAgentTagManifest(body.manifest);
+        if (!validation.ok || !validation.value) {
+          throw new ValidationError(validation.error ?? "标签清单无效。");
+        }
+        const summary = await applyAgentTags({
+          workspacePath: requiredString(body, "workspacePath"),
+          manifest: validation.value,
+          dryRun: optionalBoolean(body, "dryRun"),
+          baseRevision: optionalString(body, "baseRevision")
+        });
+        response.json(summary);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          sendApiError(response, 400, error.message, "AGENT_TAGS_INVALID");
+          return;
+        }
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    "/agent/tags/undo",
+    json({ limit: options.jsonBodyLimitBytes }),
+    async (request, response, next) => {
+      try {
+        const body = request.body as Record<string, unknown>;
+        const validation = validateAgentTagJournal(body.journal);
+        if (!validation.ok || !validation.value) {
+          throw new ValidationError(validation.error ?? "撤销记录无效。");
+        }
+        const summary = await undoAgentTags({
+          workspacePath: requiredString(body, "workspacePath"),
+          journal: validation.value,
+          dryRun: optionalBoolean(body, "dryRun"),
+          baseRevision: optionalString(body, "baseRevision")
+        });
+        response.json(summary);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          sendApiError(response, 400, error.message, "AGENT_TAGS_INVALID");
+          return;
+        }
+        next(error);
+      }
+    }
+  );
+
+  router.post(
     "/agent/workspaces/create",
     json({ limit: options.jsonBodyLimitBytes }),
     async (request, response, next) => {
@@ -218,6 +277,19 @@ function requiredString(
     throw new ValidationError(`${key} 必须是非空字符串。`);
   }
   return value.trim();
+}
+
+// dryRun 写错类型（比如字符串 "true"）时不能当成「不是预演」而真的写入，直接拒绝。
+function optionalBoolean(
+  record: Record<string, unknown>,
+  key: string
+): boolean {
+  const value = record[key];
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") {
+    throw new ValidationError(`${key} 必须是布尔值。`);
+  }
+  return value;
 }
 
 function optionalString(

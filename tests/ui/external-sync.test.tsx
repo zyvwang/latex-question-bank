@@ -160,6 +160,70 @@ it("keeps local edits and shows a banner while an input is focused", async () =>
   expect(screen.queryByText("导入题")).not.toBeInTheDocument();
 });
 
+it("reloads an idle app after an agent tag change", async () => {
+  vi.stubGlobal(
+    "EventSource",
+    FakeEventSource as unknown as typeof EventSource
+  );
+  render(<App />);
+  await screen.findByText("2024-1");
+  await waitFor(() =>
+    expect(FakeEventSource.instances.length).toBeGreaterThan(0)
+  );
+
+  setFixtureBank(taggedBank());
+  FakeEventSource.instances.at(-1)!.emit("bank-changed", {
+    workspacePath: "/tmp/latex-bank",
+    revision: "revision-tags",
+    source: "agent-tags",
+    tagCounts: { changed: 1, unchanged: 0, added: 1, removed: 0 }
+  });
+
+  expect(await screen.findByText("已更新 1 道题的标签。")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("button", { name: "删除标签 考点·极限" })
+  ).toBeInTheDocument();
+});
+
+it("describes a tag change in the banner while an input is focused", async () => {
+  vi.stubGlobal(
+    "EventSource",
+    FakeEventSource as unknown as typeof EventSource
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText("2024-1");
+  await waitFor(() =>
+    expect(FakeEventSource.instances.length).toBeGreaterThan(0)
+  );
+  await user.click(screen.getByLabelText("来源题号"));
+
+  setFixtureBank(taggedBank());
+  FakeEventSource.instances.at(-1)!.emit("bank-changed", {
+    workspacePath: "/tmp/latex-bank",
+    revision: "revision-tags",
+    source: "agent-tags",
+    tagCounts: { changed: 3, unchanged: 0, added: 3, removed: 0 }
+  });
+
+  expect(await screen.findByText("题库已在外部更新")).toBeInTheDocument();
+  expect(screen.getByText(/Agent 修改了 3 道题的标签。/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "删除标签 考点·极限" })
+  ).not.toBeInTheDocument();
+});
+
+function taggedBank(): Bank {
+  return {
+    ...bank,
+    items: bank.items.map((item) =>
+      item.id === "limit"
+        ? { ...item, tags: [...item.tags, "考点·极限"] }
+        : item
+    )
+  };
+}
+
 function importedBank(): Bank {
   const template = bank.items[0];
   const now = "2026-01-01T00:00:00.000Z";

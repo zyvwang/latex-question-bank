@@ -76,6 +76,27 @@ lqb import undo <batchId> --json
 
 只撤销仍为待审阅且未被编辑的题；已批准或已人工编辑的题会保留。撤销依赖导入时的 \`.history/\` 快照，快照被清理后不可撤销。撤销只作用于当前打开的题库；新题库尚未切换时，先在应用中打开它。
 
+## 整理标签
+
+整理考点、考法、题型标签用 \`lqb tag\`。它只改标签，不改审阅状态，用户不需要重新审阅：
+
+\`\`\`bash
+lqb tag list --json
+lqb tag apply --file tags.json --dry-run --json
+lqb tag apply --file tags.json --json
+lqb tag rename "旧标签" "新标签" --dry-run --json
+lqb tag delete "标签" --dry-run --json
+lqb tag undo .lqb/tag-undo/<文件>.json --json
+\`\`\`
+
+清单二选一，不能混用：逐题 \`{"schemaVersion":1,"changes":[{"id":"题目ID","add":["考点·变限积分"],"remove":["积分综合"]}]}\`；全库 \`{"schemaVersion":1,"renames":[{"from":"旧","to":"新"}],"deletions":["不要的标签"]}\`。全库操作同时生效，不支持链式改名。
+
+流程：
+
+1. \`lqb list --json\` 里的题面只有前 300 字；需要全文时用 \`lqb get <id>\`。先归类，把方案给用户确认。
+2. 先 dry-run，检查每道题改前改后的标签和警告。
+3. 确认后正式写入，把撤销文件路径告诉用户。用户想还原时运行 \`lqb tag undo <撤销文件>\`，只会还原标签没有被再改过的题。
+
 ## 读取已有题目
 
 \`\`\`bash
@@ -150,6 +171,14 @@ Use this skill when the user wants to add questions, wrong-problem notes, whole 
 - \`lqb import undo <batchId> --json\` only removes or restores questions that are still pending and unedited. Approved or edited questions stay.
 - Undo needs the original \`.history/\` snapshot.
 
+## Tags
+
+- Use \`lqb tag\` to organize tags (topic, technique, question type). It changes only \`tags\` and \`updatedAt\`; review status and priority are untouched.
+- \`lqb list --json\` truncates question text to 300 characters; use \`lqb get <id>\` when the full text matters. Show the user the proposed tag plan before writing.
+- Write a manifest with either \`changes\` (per question: \`id\`, \`add\`, \`remove\`) or global \`renames\`/\`deletions\`, never both. Global operations apply simultaneously; chained renames are rejected.
+- Run \`lqb tag apply --file tags.json --dry-run --json\`, check the before/after tags and warnings, then run it without \`--dry-run\`.
+- The CLI saves an undo file under \`.lqb/tag-undo/\`; tell the user its path. \`lqb tag undo <file>\` restores only questions whose tags have not been changed since.
+
 ## Rules
 
 - Never approve or delete questions from the agent side.
@@ -215,6 +244,9 @@ lqb import --file manifest.json --batch-id <id> --json
 lqb import --file book.json --create-bank --switch --batch-id <id> --json
 lqb import undo <id> --json
 lqb bank create --name "书名" --json
+lqb tag list --json
+lqb tag apply --file tags.json --dry-run --json
+lqb tag undo <撤销文件> --json
 \`\`\`
 
 导入前运行 \`lqb status --json\`，并确保桌面应用已打开目标题库。整书分块导入时共用一个 \`--batch-id\`，方便整体撤销。

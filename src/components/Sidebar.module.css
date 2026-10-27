@@ -280,7 +280,8 @@
 .questionBadges { display: flex; flex-wrap: wrap; gap: 4px; }
 .pendingBadge,
 .priorityBadge,
-.variantBadge {
+.variantBadge,
+.typeBadge {
   min-height: 22px;
   display: inline-flex;
   align-items: center;
@@ -297,6 +298,7 @@
 .priorityBadge[data-priority="recheck"] { color: var(--amber); }
 .priorityBadge[data-priority="skip"] { color: var(--muted); }
 .variantBadge { color: var(--blue); }
+.typeBadge { color: var(--teal-strong); }
 .dropBefore::before,
 .dropAfter::after {
   content: "";

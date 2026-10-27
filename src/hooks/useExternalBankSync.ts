@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { AgentImportCounts } from "../../shared/agent-manifest.js";
+import type { AgentTagCounts } from "../../shared/agent-tags.js";
 import type { AgentUndoCounts } from "../../shared/agent-undo.js";
 import type { BankSnapshot } from "../../shared/types.js";
 import { fetchBank } from "../api/client.js";
@@ -24,9 +25,10 @@ interface ExternalBankSyncOptions {
 interface BankChangedEvent {
   workspacePath: string;
   revision: string;
-  source?: "agent-import" | "agent-undo";
+  source?: "agent-import" | "agent-undo" | "agent-tags";
   counts?: AgentImportCounts;
   undoCounts?: AgentUndoCounts;
+  tagCounts?: AgentTagCounts;
 }
 
 export function useExternalBankSync(options: ExternalBankSyncOptions): void {
@@ -54,10 +56,7 @@ export function useExternalBankSync(options: ExternalBankSyncOptions): void {
       const current = latest.current;
       if (payload.workspacePath !== current.workspacePath) return;
       if (hasLocalWork(current)) {
-        current.setExternalBankNotice({
-          revision: payload.revision,
-          counts: payload.counts
-        });
+        current.setExternalBankNotice(externalBankNotice(payload));
         return;
       }
       if (applying) return;
@@ -69,25 +68,11 @@ export function useExternalBankSync(options: ExternalBankSyncOptions): void {
           latest.current.setExternalBankNotice(null);
           latest.current.showNotice({
             type: "ok",
-            text:
-              payload.source === "agent-undo" && payload.undoCounts
-                ? payload.undoCounts.deleted
-                  ? `已撤销导入批次：删除 ${payload.undoCounts.deleted} 道，恢复 ${payload.undoCounts.restored} 道。`
-                  : `已撤销导入批次：恢复 ${payload.undoCounts.restored} 道。`
-                : payload.counts
-                  ? payload.counts.created
-                    ? `已导入 ${payload.counts.created} 道题。`
-                    : payload.counts.updated
-                      ? `已更新 ${payload.counts.updated} 道题。`
-                      : "题库已在外部更新。"
-                  : "题库已在外部更新。"
+            text: externalUpdateText(payload)
           });
         })
         .catch((error) => {
-          latest.current.setExternalBankNotice({
-            revision: payload.revision,
-            counts: payload.counts
-          });
+          latest.current.setExternalBankNotice(externalBankNotice(payload));
           latest.current.showNotice({
             type: "error",
             text:
@@ -113,6 +98,28 @@ export function useExternalBankSync(options: ExternalBankSyncOptions): void {
       source.close();
     };
   }, [options.enabled, options.workspacePath]);
+}
+
+function externalBankNotice(payload: BankChangedEvent): ExternalBankNotice {
+  return {
+    revision: payload.revision,
+    counts: payload.counts,
+    ...(payload.tagCounts ? { tagsChanged: payload.tagCounts.changed } : {})
+  };
+}
+
+function externalUpdateText(payload: BankChangedEvent): string {
+  if (payload.source === "agent-undo" && payload.undoCounts) {
+    return payload.undoCounts.deleted
+      ? `已撤销导入批次：删除 ${payload.undoCounts.deleted} 道，恢复 ${payload.undoCounts.restored} 道。`
+      : `已撤销导入批次：恢复 ${payload.undoCounts.restored} 道。`;
+  }
+  if (payload.source === "agent-tags" && payload.tagCounts) {
+    return `已更新 ${payload.tagCounts.changed} 道题的标签。`;
+  }
+  if (payload.counts?.created) return `已导入 ${payload.counts.created} 道题。`;
+  if (payload.counts?.updated) return `已更新 ${payload.counts.updated} 道题。`;
+  return "题库已在外部更新。";
 }
 
 function hasLocalWork(options: ExternalBankSyncOptions): boolean {

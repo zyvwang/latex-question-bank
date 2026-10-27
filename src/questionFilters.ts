@@ -1,4 +1,5 @@
 import { questionSourceSearchText } from "../shared/question-source.js";
+import { tagDimensionOf } from "./tagDimensions.js";
 import type {
   BookRecord,
   Chapter,
@@ -58,9 +59,9 @@ export function matchesQuestionFilters(
         ? item.chapterId === null
         : item.chapterId === filter
     );
-  const matchesTag =
-    filters.tagFilters.length === 0 ||
-    filters.tagFilters.some((filter) => item.tags.includes(filter));
+  const matchesTag = tagFilterGroups(filters.tagFilters).every((group) =>
+    group.some((filter) => item.tags.includes(filter))
+  );
   const matchesBook =
     filters.bookFilters.length === 0 ||
     filters.bookFilters.some((filter) =>
@@ -99,4 +100,21 @@ export function matchesQuestionFilters(
     ? runtime.getSearchText(item, chapterName)
     : buildQuestionSearchText(item, chapterName, books);
   return haystack.includes(term);
+}
+
+// 标签筛选：同一维度（考点/考法/题型/其他）内是「或」，不同维度之间是「且」。
+const tagFilterGroupCache = new WeakMap<string[], string[][]>();
+
+function tagFilterGroups(tagFilters: string[]): string[][] {
+  if (tagFilters.length === 0) return [];
+  const cached = tagFilterGroupCache.get(tagFilters);
+  if (cached) return cached;
+  const groups = new Map<string, string[]>();
+  for (const filter of tagFilters) {
+    const key = tagDimensionOf(filter)?.key ?? "other";
+    groups.set(key, [...(groups.get(key) ?? []), filter]);
+  }
+  const result = [...groups.values()];
+  tagFilterGroupCache.set(tagFilters, result);
+  return result;
 }

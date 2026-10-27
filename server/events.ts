@@ -1,20 +1,21 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { AgentImportCounts } from "../shared/agent-manifest.js";
+import type { AgentTagCounts } from "../shared/agent-tags.js";
 import type { AgentUndoCounts } from "../shared/agent-undo.js";
 
-export interface BankChangedEvent {
+export type BankChangedEvent = {
   workspacePath: string;
   revision: string;
-  source: "agent-import" | "agent-undo";
-  batchId: string;
-  counts: {
-    created: number;
-    updated: number;
-    skipped: number;
-    conflicts: number;
-    assets: number;
-  };
-  undoCounts?: AgentUndoCounts;
-}
+} & (
+  | { source: "agent-import"; batchId: string; counts: AgentImportCounts }
+  | {
+      source: "agent-undo";
+      batchId: string;
+      counts: AgentImportCounts;
+      undoCounts: AgentUndoCounts;
+    }
+  | { source: "agent-tags"; tagCounts: AgentTagCounts }
+);
 
 const clients = new Set<ServerResponse>();
 const heartbeatTimers = new Map<ServerResponse, NodeJS.Timeout>();

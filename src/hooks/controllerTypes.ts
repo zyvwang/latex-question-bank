@@ -30,6 +30,7 @@ export type Notice = {
 export type ExternalBankNotice = {
   revision: string;
   counts?: AgentImportCounts;
+  tagsChanged?: number;
 };
 export type ReorderMenu = { id: string; x: number; y: number };
 export type AddMenu = { x: number; y: number };

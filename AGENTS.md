@@ -73,6 +73,7 @@ React UI
 - `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-plan.ts`（纯规划，不落盘）、`server/agent-import-service.ts`、`server/agent-workspace-service.ts`、`server/agent-undo-service.ts`：Agent token、发现文件、manifest 导入、新建题库、批次撤销与附件。
 - `server/routes/events-routes.ts`、`server/events.ts`：本地 SSE 广播。
 - `shared/agent-manifest.ts`：Agent 导入清单契约与校验。
+- `shared/agent-tags.ts`、`server/agent-tag-plan.ts`（纯规划，不落盘）、`server/agent-tag-service.ts`：`lqb tag` 标签整理的清单/撤销记录契约与校验、规划、加锁落盘。
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
 - `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export、agent/events 分组。
 - `server/http/`：共享 middleware 和 API 错误响应。
@@ -108,7 +109,8 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 - Agent 和 `lqb` 不直接修改 `bank.json`。`server/agent-import-plan.ts` 只做纯规划；`server/agent-import-service.ts` 在 workspace 写锁内校验 revision，dry-run 不写，正式导入先校验清单和全部附件，再写 `.history/` 快照、导入记录和 bank。新增导入规则放 plan，落盘与加锁留在 service。
 - 新建题库（`--create-bank`）不覆盖已有 `bank.json`，不自动切换。撤销只动仍 pending 且未编辑的题；失败返回 `UNDO_*` 错误。
 - 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256。不读取书目的 PDF 路径，只保存路径和哈希。
-- 外部导入或撤销成功后通过 `/api/events` 广播；渲染端有草稿时只显示横幅，不静默覆盖。
+- `lqb tag` 只改 `tags` 和 `updatedAt`：不重置 `reviewStatus`（对“Agent 更新已有题回到待审阅”的有意例外，理由见 `docs/agent-workflow.md`），也不拍 `.history/` 快照（只有 10 份，留给用户恢复点和导入批次）。撤销记录由服务端返回、CLI 存到 `.lqb/tag-undo/`，撤销只恢复标签仍等于 `after` 的题。
+- 外部导入、撤销或标签整理成功后通过 `/api/events` 广播；渲染端有草稿时只显示横幅，不静默覆盖。
 
 每道题的 LaTeX 内容存在：
 
