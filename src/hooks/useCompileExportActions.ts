@@ -236,7 +236,7 @@ export function useCompileExportActions({
     exportingRef.current = true;
     setIsExporting(true);
     setExportFailureResult(null);
-    setNotice({ type: "info", text: "正在导出四份文件。" });
+    setNotice({ type: "info", text: "正在导出五份文件。" });
     let automaticName = !exportNameManualRef.current;
     try {
       let requestedName = exportNameRef.current;

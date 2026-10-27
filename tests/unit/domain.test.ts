@@ -14,6 +14,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import {
   buildQuestionOnlyLatex,
   buildFullLatex,
+  buildSourcesMarkdown,
   copyAssetsForItems,
   createLatexProcessEnv,
   listExportFiles,
@@ -176,17 +177,80 @@ describe("domain helpers", () => {
       bank.settings,
       bank.books
     );
-    ok(latex.includes("Body $x^2$"));
+    ok(latex.includes("\\noindent\\textbf{1.}\\hspace{0.4em}Body $x^2$"));
+    ok(!latex.includes("source_1"));
     ok(!latex.includes("\\documentclass{article}"));
-    ok(latex.includes("\\documentclass[UTF8,12pt]{ctexart}"));
+    ok(latex.includes("\\documentclass[UTF8,zihao=5]{ctexart}"));
     ok(buildFullLatex([], bank.settings, bank.books).includes("暂无选中题目"));
-    ok(
-      buildFullLatex(
-        [{ ...items[0], source: { bookId: null, label: "a_b#c~d^e" } }],
-        bank.settings,
-        bank.books
-      ).includes("a\\_b\\#c\\textasciitilde{}d\\textasciicircum{}e")
+
+    const fullWithEmptyNote = buildFullLatex(
+      [
+        {
+          ...items[0],
+          modules: {
+            question: { tex: "求极限。" },
+            solution: { tex: "直接计算得 1。" },
+            note: { tex: "   " }
+          }
+        }
+      ],
+      bank.settings,
+      bank.books
     );
+    ok(fullWithEmptyNote.includes("\\noindent\\textbf{1.}\\hspace{0.4em}求极限。"));
+    ok(fullWithEmptyNote.includes("\\noindent\\textbf{【解析】}直接计算得 1。"));
+    ok(!fullWithEmptyNote.includes("【备注】"));
+
+    const choiceShort = buildQuestionOnlyLatex(
+      [
+        {
+          ...items[0],
+          modules: {
+            ...items[0].modules,
+            question: {
+              tex: "下列极限值为（ ）\nA. $0$\nB. $1$\nC. $2$\nD. $3$"
+            }
+          }
+        }
+      ],
+      bank.settings,
+      bank.books
+    );
+    ok(choiceShort.includes("\\parbox[t]{0.235\\linewidth}{A. $0$}\\hfill\\parbox[t]{0.235\\linewidth}{B. $1$}"));
+
+    const choiceMedium = buildQuestionOnlyLatex(
+      [
+        {
+          ...items[0],
+          modules: {
+            ...items[0].modules,
+            question: {
+              tex: [
+                "设 $a_n$ 满足条件，则正确的是（ ）",
+                "A. 数列 $\\{a_n\\}$ 单调增加且收敛于 $e$",
+                "B. 数列 $\\{a_n\\}$ 单调减少且收敛于 $e$",
+                "C. 数列 $\\{a_n\\}$ 单调增加且收敛于 $\\mathrm{e}^{\\cos 1}$",
+                "D. 数列 $\\{a_n\\}$ 单调减少且收敛于 $\\mathrm{e}^{\\cos 1}$"
+              ].join("\n")
+            }
+          }
+        }
+      ],
+      bank.settings,
+      bank.books
+    );
+    ok(choiceMedium.includes("\\parbox[t]{0.485\\linewidth}{A. 数列 $\\{a_n\\}$ 单调增加且收敛于 $e$}"));
+
+    const sourcesMd = buildSourcesMarkdown(
+      [
+        { ...items[0], source: { bookId: bank.books[0].id, label: "1.2|3" } },
+        { ...items[1], source: null }
+      ],
+      bank.books
+    );
+    ok(sourcesMd.includes("| 1 | 示例题库 1.2\\|3 |"));
+    ok(sourcesMd.includes("| 2 | — |"));
+
     equal(sanitizeFileName(" ../bad:name  "), "bad-name");
     ok(sanitizeFileName("...").startsWith("export-"));
 
@@ -229,8 +293,9 @@ describe("domain helpers", () => {
     equal(await readFile(path.join(targetDir, "assets", "exists.png"), "utf8"), "image");
     await writeFile(path.join(targetDir, "questions.tex"), "tex", "utf8");
     await writeFile(path.join(targetDir, "questions.pdf"), "pdf", "utf8");
+    await writeFile(path.join(targetDir, "sources.md"), "md", "utf8");
     await writeFile(path.join(targetDir, "ignored.log"), "log", "utf8");
-    deepStrictEqual(await listExportFiles(targetDir), ["questions.pdf", "questions.tex"]);
+    deepStrictEqual(await listExportFiles(targetDir), ["questions.pdf", "questions.tex", "sources.md"]);
     deepStrictEqual(await listExportFiles(path.join(targetDir, "missing")), []);
   });
 
@@ -242,19 +307,13 @@ describe("domain helpers", () => {
     equal(
       compileContentVersion({
         ...item,
+        source: { bookId: null, label: "changed" },
         chapterId: null,
         chapterOrder: 9,
         tags: ["changed"]
       }, bank.settings, bank.books),
       initial
     );
-    expect(
-      compileContentVersion(
-        { ...item, source: { bookId: null, label: "changed" } },
-        bank.settings,
-        bank.books
-      )
-    ).not.toBe(initial);
     expect(
       compileContentVersion({
         ...item,

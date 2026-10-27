@@ -74,7 +74,7 @@ export async function copyAssetsForItems(
 
 export async function listExportFiles(dir: string): Promise<string[]> {
   try {
-    return (await readdir(dir)).filter((file) => /\.(tex|pdf)$/i.test(file)).sort();
+    return (await readdir(dir)).filter((file) => /\.(tex|pdf|md)$/i.test(file)).sort();
   } catch {
     return [];
   }

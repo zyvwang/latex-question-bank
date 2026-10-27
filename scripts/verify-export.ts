@@ -5,6 +5,7 @@ import { deflateSync } from "node:zlib";
 import {
   buildFullLatex,
   buildQuestionOnlyLatex,
+  buildSourcesMarkdown,
   compileLatex,
   copyAssetsForItems,
   detectTexInstallation,
@@ -132,8 +133,10 @@ await copyAssetsForItems(exportItems, workDir);
 
 const questionsPath = path.join(workDir, "questions.tex");
 const fullPath = path.join(workDir, "full.tex");
+const sourcesPath = path.join(workDir, "sources.md");
 await writeFile(questionsPath, buildQuestionOnlyLatex(exportItems, defaultSettings), "utf8");
 await writeFile(fullPath, buildFullLatex(exportItems, defaultSettings), "utf8");
+await writeFile(sourcesPath, buildSourcesMarkdown(exportItems), "utf8");
 
 const texStatus = await detectTexInstallation();
 if (!texStatus.available) {

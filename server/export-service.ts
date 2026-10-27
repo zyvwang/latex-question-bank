@@ -4,6 +4,7 @@ import type { Bank, ExportRequest, ExportResponse } from "../shared/types.js";
 import {
   buildFullLatex,
   buildQuestionOnlyLatex,
+  buildSourcesMarkdown,
   compileLatex,
   copyAssetsForItems,
   listExportFiles,
@@ -67,12 +68,14 @@ async function exportBankExclusive(
 
   const questionsTex = path.join(stagingDir, "questions.tex");
   const fullTex = path.join(stagingDir, "full.tex");
+  const sourcesMd = path.join(stagingDir, "sources.md");
   await writeFile(
     questionsTex,
     buildQuestionOnlyLatex(items, bank.settings, bank.books),
     "utf8"
   );
   await writeFile(fullTex, buildFullLatex(items, bank.settings, bank.books), "utf8");
+  await writeFile(sourcesMd, buildSourcesMarkdown(items, bank.books), "utf8");
 
   const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000, session);
   const fullResult = await compileLatex(fullTex, stagingDir, 60_000, session);

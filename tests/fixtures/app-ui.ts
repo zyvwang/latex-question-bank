@@ -26,7 +26,7 @@ export const bank: Bank = {
   version: 3,
   settings: {
     pageSize: "a4",
-    spacing: { item: "1.0em", module: "0.45em" },
+    spacing: { item: "0.5em", module: "0.25em" },
     preamble: "% test"
   },
   chapters: [

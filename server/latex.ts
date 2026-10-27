@@ -6,6 +6,7 @@ export {
 export {
   buildFullLatex,
   buildQuestionOnlyLatex,
+  buildSourcesMarkdown,
   orderItemsForExport,
   sanitizeFileName,
   selectedItems

@@ -1,4 +1,3 @@
-import { questionSourceDisplay } from "../../shared/question-source.js";
 import type {
   BookRecord,
   LatexSettings,
@@ -8,10 +7,9 @@ import type {
 export function compileContentVersion(
   item: QuestionItem,
   settings: LatexSettings,
-  books: BookRecord[] = []
+  _books: BookRecord[] = []
 ): string {
   const content = JSON.stringify({
-    source: item.source ? questionSourceDisplay(item, books) : "",
     modules: {
       question: item.modules.question.tex,
       solution: item.modules.solution.tex,

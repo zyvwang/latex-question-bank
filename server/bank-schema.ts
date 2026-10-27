@@ -9,8 +9,8 @@ import type {
 export const defaultSettings: LatexSettings = {
   pageSize: "a4",
   spacing: {
-    item: "1.0em",
-    module: "0.45em"
+    item: "0.5em",
+    module: "0.25em"
   },
   preamble: `% 可在这里添加全局宏命令，例如：
 % \\newcommand{\\R}{\\mathbb{R}}`
