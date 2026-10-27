@@ -1,11 +1,11 @@
 import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import request from "supertest";
 import { beforeEach, expect, it } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import { appDataDir } from "../../server/app-state.js";
 import { validPng } from "../fixtures/images.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 const workspacePath = path.resolve(".tmp/vitest-image-content");
 beforeEach(async () => {
@@ -13,7 +13,7 @@ beforeEach(async () => {
   await rm(appDataDir, { recursive: true, force: true });
 });
 async function setup() {
-  const app = createApiApp();
+  const app = await listenLocal(createApiApp());
   await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
   return app;
 }

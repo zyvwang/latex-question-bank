@@ -7,12 +7,12 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import { appDataDir } from "../../server/app-state.js";
 import { createSampleBank } from "../../server/bank-schema.js";
 import { revisionForContent } from "../../server/storage-utils.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 const workspacePath = path.resolve(".tmp/vitest-api-workspace");
 const saveAsWorkspacePath = path.resolve(
@@ -35,7 +35,7 @@ describe("API validation", () => {
       "utf8"
     );
 
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/open")
       .send({ workspacePath })
@@ -51,7 +51,7 @@ describe("API validation", () => {
   });
 
   it("validates a workspace before changing the current app state", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     const created = await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -90,7 +90,7 @@ describe("API validation", () => {
   });
 
   it("relocates a recent workspace in one validated transition", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -117,7 +117,7 @@ describe("API validation", () => {
   });
 
   it("does not remove the old recent path when relocation validation fails", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -143,13 +143,13 @@ describe("API validation", () => {
   it("answers unknown API routes with JSON instead of the SPA shell", async () => {
     // 落到 SPA 兜底会返回 200 text/html,客户端 response.json() 抛 SyntaxError,
     // 而只检查 response.ok 的调用方会把 HTML 当成成功。
-    const response = await request(createApiApp())
+    const response = await request(await listenLocal(createApiApp()))
       .get("/api/does-not-exist")
       .expect(404);
     expect(response.headers["content-type"]).toContain("application/json");
     expect(response.body.code).toBe("API_NOT_FOUND");
 
-    await request(createApiApp())
+    await request(await listenLocal(createApiApp()))
       .post("/api/does-not-exist")
       .send({})
       .expect(404)
@@ -157,7 +157,7 @@ describe("API validation", () => {
   });
 
   it("returns the raw bank revision even when the disk JSON is invalid", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -180,7 +180,7 @@ describe("API validation", () => {
   });
 
   it("saves the current in-memory bank as an independent workspace", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -247,7 +247,7 @@ describe("API validation", () => {
   });
 
   it("leaves the current workspace unchanged when save-as cannot commit", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -291,7 +291,7 @@ describe("API validation", () => {
   });
 
   it("applies the bank payload limit to save-as requests", async () => {
-    const bootstrapApp = createApiApp();
+    const bootstrapApp = await listenLocal(createApiApp());
     await request(bootstrapApp)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -303,9 +303,9 @@ describe("API validation", () => {
     };
     const requestBytes = Buffer.byteLength(JSON.stringify(saveAsRequest));
 
-    await request(createApiApp({
+    await request(await listenLocal(createApiApp({
       bankBodyLimitBytes: requestBytes - 1
-    }))
+    })))
       .post("/api/workspaces/save-as")
       .set("Content-Type", "application/json")
       .send(JSON.stringify(saveAsRequest))
@@ -317,7 +317,7 @@ describe("API validation", () => {
   });
 
   it("fails save-as atomically when a referenced asset is missing", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -364,7 +364,7 @@ describe("API validation", () => {
   });
 
   it("reports workspace lifecycle failures with stable codes", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -382,12 +382,12 @@ describe("API validation", () => {
   });
 
   it("allows the MathJax worker required for repeated preview typesetting", async () => {
-    const response = await request(createApiApp()).get("/api/app").expect(200);
+    const response = await request(await listenLocal(createApiApp())).get("/api/app").expect(200);
     expect(response.headers["content-security-policy"]).toContain("worker-src 'self' blob:");
   });
 
   it("rejects foreign mutating origins", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     const response = await request(app)
       .post("/api/tex-path")
       .set("Origin", "https://example.invalid")
@@ -407,7 +407,7 @@ describe("API validation", () => {
     const previousDevUrl = process.env.LQB_DEV_SERVER_URL;
     process.env.LQB_DEV_SERVER_URL = "http://127.0.0.1:5173";
     try {
-      await request(createApiApp())
+      await request(await listenLocal(createApiApp()))
         .post("/api/tex-path")
         .set("Origin", "http://127.0.0.1:5173")
         .send({ texPath: "" })
@@ -419,7 +419,7 @@ describe("API validation", () => {
   });
 
   it("checks mutating origins before parsing an oversized JSON body", async () => {
-    await request(createApiApp({ jsonBodyLimitBytes: 32 }))
+    await request(await listenLocal(createApiApp({ jsonBodyLimitBytes: 32 })))
       .post("/api/tex-path")
       .set("Origin", "https://example.invalid")
       .set("Content-Type", "application/json")
@@ -429,7 +429,7 @@ describe("API validation", () => {
   });
 
   it("accepts the bank limit boundary and rejects larger saves without changing disk", async () => {
-    const bootstrapApp = createApiApp();
+    const bootstrapApp = await listenLocal(createApiApp());
     await request(bootstrapApp)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -442,7 +442,7 @@ describe("API validation", () => {
     };
     const boundaryBytes = Buffer.byteLength(JSON.stringify(boundaryRequest));
     const boundaryResponse = await request(
-      createApiApp({ bankBodyLimitBytes: boundaryBytes })
+      await listenLocal(createApiApp({ bankBodyLimitBytes: boundaryBytes }))
     )
       .put("/api/bank")
       .set("Content-Type", "application/json")
@@ -463,9 +463,9 @@ describe("API validation", () => {
       }
     };
     const oversizedBytes = Buffer.byteLength(JSON.stringify(oversizedRequest));
-    const limitedApp = createApiApp({
+    const limitedApp = await listenLocal(createApiApp({
       bankBodyLimitBytes: oversizedBytes - 1
-    });
+    }));
     await request(limitedApp)
       .put("/api/bank")
       .set("Content-Type", "application/json")
@@ -483,7 +483,7 @@ describe("API validation", () => {
   });
 
   it("validates workspace and bank request bodies", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app).post("/api/workspaces/create-empty").send({}).expect(400);
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(400);
@@ -540,7 +540,7 @@ describe("API validation", () => {
   });
 
   it("validates move, compile, export, and upload inputs", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
     const initial = await request(app).get("/api/bank").expect(200);
     await request(app)
@@ -618,7 +618,7 @@ describe("API validation", () => {
   });
 
   it("reads v1 without rewriting it and preserves v1 before the first v3 save", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
       .send({ workspacePath })
@@ -671,7 +671,7 @@ describe("API validation", () => {
   });
 
   it("keeps the previous export when a replacement compile fails", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
     const initial = await request(app).get("/api/bank").expect(200);
     const bank = createSampleBank();
@@ -705,7 +705,7 @@ describe("API validation", () => {
   });
 
   it("serves the next export name and rejects unsafe reveal requests", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
     await Promise.all([
       mkdir(path.join(workspacePath, "exports", "questions-2026-06-13-1")),

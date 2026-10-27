@@ -1,6 +1,5 @@
 import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import { appDataDir } from "../../server/app-state.js";
@@ -8,6 +7,7 @@ import { compileLatex } from "../../server/latex-runtime.js";
 import { assertLatexExecutionSession } from "../../server/latex-execution.js";
 import * as transactions from "../../server/export-transaction.js";
 import type { BankSnapshot, CompileResult } from "../../shared/types.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 vi.mock("../../server/latex-runtime.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../server/latex-runtime.js")>(),
@@ -40,7 +40,7 @@ beforeEach(async () => {
 });
 
 async function setup() {
-  const app = createApiApp();
+  const app = await listenLocal(createApiApp());
   const response = await request(app).post("/api/workspaces/create-sample").send({ workspacePath });
   expect(response.status).toBe(200);
   const snapshot = response.body.snapshot as BankSnapshot;
