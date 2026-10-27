@@ -20,7 +20,6 @@ export function useQuestionDerivedData(
   listMode: QuestionListMode
 ) {
   const orderCacheRef = useRef<OrderCache | null>(null);
-  const tagCacheRef = useRef<TagCache | null>(null);
   const searchTextCacheRef = useRef(
     new WeakMap<QuestionItem, { chapterName: string; text: string }>()
   );
@@ -69,28 +68,16 @@ export function useQuestionDerivedData(
     return new Map(chapters.map((chapter) => [chapter.id, chapter]));
   }, [chapters]);
 
-  const tags = useMemo(() => {
-    const inputs = orderedItems.map((item) => ({ id: item.id, tags: item.tags }));
-    const cache = tagCacheRef.current;
-    if (cache && sameTagInputs(cache.inputs, inputs)) return cache.tags;
-    const nextTags = [
-      ...new Set(
-        orderedItems
-          .flatMap((item) => item.tags)
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      )
-    ].sort();
-    tagCacheRef.current = { inputs, tags: nextTags };
-    return nextTags;
-  }, [orderedItems]);
+  const topics = useSortedLabels(orderedItems, "topics");
+  const questionTypes = useSortedLabels(orderedItems, "questionTypes");
 
   const deferredSearch = useDeferredValue(filters.search);
   const books = useMemo(() => bank?.books ?? [], [bank?.books]);
   const effectiveFilters = useMemo<QuestionFilters>(
     () => ({
       chapterFilters: filters.chapterFilters,
-      tagFilters: filters.tagFilters,
+      topicFilters: filters.topicFilters,
+      typeFilters: filters.typeFilters,
       bookFilters: filters.bookFilters,
       reviewPriorityFilters: filters.reviewPriorityFilters,
       reviewStatusFilters: filters.reviewStatusFilters,
@@ -102,7 +89,8 @@ export function useQuestionDerivedData(
       filters.chapterFilters,
       filters.reviewPriorityFilters,
       filters.reviewStatusFilters,
-      filters.tagFilters
+      filters.topicFilters,
+      filters.typeFilters
     ]
   );
   const searchTerm = useMemo(
@@ -154,7 +142,8 @@ export function useQuestionDerivedData(
     numberById,
     chapters,
     chapterById,
-    tags,
+    topics,
+    questionTypes,
     activeItem
   };
 }
@@ -177,14 +166,14 @@ interface OrderCache {
   numberById: Map<string, number>;
 }
 
-interface TagInput {
+interface LabelInput {
   id: string;
-  tags: string[];
+  values: string[];
 }
 
-interface TagCache {
-  inputs: TagInput[];
-  tags: string[];
+interface LabelCache {
+  inputs: LabelInput[];
+  labels: string[];
 }
 
 const EMPTY_NUMBER_BY_ID = new Map<string, number>();
@@ -226,12 +215,28 @@ function sameChapterOrderInputs(
   });
 }
 
-function sameTagInputs(previous: TagInput[], next: TagInput[]): boolean {
+// 编辑正文不会换掉 topics/questionTypes 数组引用，按引用比较可以跳过重新排序。
+function useSortedLabels(
+  items: QuestionItem[],
+  field: "topics" | "questionTypes"
+): string[] {
+  const cacheRef = useRef<LabelCache | null>(null);
+  return useMemo(() => {
+    const inputs = items.map((item) => ({ id: item.id, values: item[field] }));
+    const cache = cacheRef.current;
+    if (cache && sameLabelInputs(cache.inputs, inputs)) return cache.labels;
+    const labels = [...new Set(inputs.flatMap((input) => input.values))].sort();
+    cacheRef.current = { inputs, labels };
+    return labels;
+  }, [items, field]);
+}
+
+function sameLabelInputs(previous: LabelInput[], next: LabelInput[]): boolean {
   return previous.length === next.length && previous.every((value, index) => {
     const candidate = next[index];
     return candidate !== undefined &&
       value.id === candidate.id &&
-      value.tags === candidate.tags;
+      value.values === candidate.values;
   });
 }
 

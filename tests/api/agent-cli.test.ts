@@ -78,7 +78,7 @@ it("creates a bank, imports a whole book, and undoes a batch from the CLI", asyn
   const emptyBank = JSON.parse(
     await readFile(path.join(createdBankPath, "bank.json"), "utf8")
   ) as Bank;
-  expect(emptyBank.version).toBe(3);
+  expect(emptyBank.version).toBe(4);
   expect(emptyBank.items).toHaveLength(0);
 
   await writeFile(
@@ -154,85 +154,105 @@ it("creates a bank, imports a whole book, and undoes a batch from the CLI", asyn
   expect(undo.counts.deleted).toBe(1);
 });
 
-it("lists, previews, applies, and undoes a tag rename from the CLI", async () => {
-  const tags = JSON.parse(await runCli(["tag", "list", "--json"])) as Array<{
-    tag: string;
+it("lists, previews, applies, and undoes a topic rename from the CLI", async () => {
+  const topics = JSON.parse(await runCli(["topic", "list", "--json"])) as Array<{
+    value: string;
     count: number;
   }>;
-  expect(tags).toContainEqual({ tag: "极限", count: 1 });
+  expect(topics).toContainEqual({ value: "极限", count: 1 });
 
   const preview = JSON.parse(
-    await runCli(["tag", "rename", "极限", "考点·极限", "--dry-run", "--json"])
+    await runCli(["topic", "rename", "极限", "函数极限", "--dry-run", "--json"])
   ) as AgentTagSummary & { undoFile: string | null };
   expect(preview).toMatchObject({
+    field: "topics",
     dryRun: true,
     undoFile: null,
     counts: { changed: 1, added: 1, removed: 1 }
   });
-  expect(await sampleTags()).toEqual([
-    ["极限", "等价无穷小"],
-    ["矩阵", "行列式"]
-  ]);
-  await expect(access(path.join(agentDir, ".lqb", "tag-undo"))).rejects.toThrow();
+  expect(await sampleLabels()).toEqual(INITIAL_LABELS);
+  await expect(access(path.join(agentDir, ".lqb", "topic-undo"))).rejects.toThrow();
 
   const applied = JSON.parse(
-    await runCli(["tag", "rename", "极限", "考点·极限", "--json"])
+    await runCli(["topic", "rename", "极限", "函数极限", "--json"])
   ) as AgentTagSummary & { undoFile: string };
   expect(applied.dryRun).toBe(false);
   expect(applied).not.toHaveProperty("journal");
   expect(path.dirname(applied.undoFile)).toBe(
-    path.join(agentDir, ".lqb", "tag-undo")
+    path.join(agentDir, ".lqb", "topic-undo")
   );
   const journal = JSON.parse(
     await readFile(applied.undoFile, "utf8")
   ) as AgentTagJournal;
+  expect(journal.field).toBe("topics");
   expect(journal.entries).toEqual([
     {
       id: "sample-limit",
       before: ["极限", "等价无穷小"],
-      after: ["考点·极限", "等价无穷小"]
+      after: ["函数极限", "等价无穷小"]
     }
   ]);
-  expect(await sampleTags()).toEqual([
-    ["考点·极限", "等价无穷小"],
-    ["矩阵", "行列式"]
+  // 只动考点，题型保持原样。
+  expect(await sampleLabels()).toEqual([
+    { topics: ["函数极限", "等价无穷小"], questionTypes: ["解答"] },
+    INITIAL_LABELS[1]
   ]);
 
-  const text = await runCli(["tag", "undo", applied.undoFile, "--dry-run"]);
+  const text = await runCli(["topic", "undo", applied.undoFile, "--dry-run"]);
   expect(text).toContain("恢复 1 道");
-  expect(await sampleTags()).toEqual([
-    ["考点·极限", "等价无穷小"],
-    ["矩阵", "行列式"]
-  ]);
+
+  const wrongCommand = await runCliExpectingFailure(["type", "undo", applied.undoFile]);
+  expect(wrongCommand.code).toBe(2);
+  expect(wrongCommand.stderr).toContain("lqb topic undo");
 
   const undone = JSON.parse(
-    await runCli(["tag", "undo", applied.undoFile, "--json"])
+    await runCli(["topic", "undo", applied.undoFile, "--json"])
   ) as AgentTagUndoSummary;
+  expect(undone.field).toBe("topics");
   expect(undone.counts).toEqual({ restored: 1, unchanged: 0, conflicts: 0 });
-  expect(await sampleTags()).toEqual([
-    ["极限", "等价无穷小"],
-    ["矩阵", "行列式"]
-  ]);
+  expect(await sampleLabels()).toEqual(INITIAL_LABELS);
 });
 
-it("applies a tag change file and maps failures to exit codes", async () => {
+it("applies a question type change file and maps failures to exit codes", async () => {
   await writeFile(
-    path.join(agentDir, "changes.json"),
+    path.join(agentDir, "types.json"),
     JSON.stringify({
       schemaVersion: 1,
-      note: "归类",
-      changes: [{ id: "sample-linear-algebra", add: ["考点·矩阵"], remove: ["行列式"] }]
+      note: "题型归类",
+      changes: [{ id: "sample-linear-algebra", add: ["选择"], remove: ["填空"] }]
     }),
     "utf8"
   );
-  const text = await runCli(["tag", "apply", "--file", "changes.json"]);
-  expect(text).toContain("标签已更新：修改 1 道");
-  expect(text).toContain("矩阵、行列式 → 矩阵、考点·矩阵");
-  expect(text).toContain("撤销命令：lqb tag undo");
-  expect(await sampleTags()).toEqual([
-    ["极限", "等价无穷小"],
-    ["矩阵", "考点·矩阵"]
+  const text = await runCli(["type", "apply", "--file", "types.json"]);
+  expect(text).toContain("题型已更新：修改 1 道");
+  expect(text).toContain("填空 → 选择");
+  expect(text).toContain("撤销命令：lqb type undo");
+  expect(await sampleLabels()).toEqual([
+    INITIAL_LABELS[0],
+    { topics: ["矩阵", "行列式"], questionTypes: ["选择"] }
   ]);
+  const types = JSON.parse(await runCli(["type", "list", "--json"])) as Array<{
+    value: string;
+    count: number;
+  }>;
+  expect(types).toEqual([
+    { value: "解答", count: 1 },
+    { value: "选择", count: 1 }
+  ]);
+
+  // 清单写了 field 就必须和命令一致。
+  await writeFile(
+    path.join(agentDir, "mismatch.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      field: "topics",
+      changes: [{ id: "sample-limit", add: ["证明"] }]
+    }),
+    "utf8"
+  );
+  const mismatch = await runCliExpectingFailure(["type", "apply", "--file", "mismatch.json"]);
+  expect(mismatch.code).toBe(2);
+  expect(mismatch.stderr).toContain("不一致");
 
   await writeFile(
     path.join(agentDir, "unknown.json"),
@@ -243,7 +263,7 @@ it("applies a tag change file and maps failures to exit codes", async () => {
     "utf8"
   );
   const unknown = await runCliExpectingFailure([
-    "tag",
+    "topic",
     "apply",
     "--file",
     "unknown.json"
@@ -257,16 +277,36 @@ it("applies a tag change file and maps failures to exit codes", async () => {
     "utf8"
   );
   expect(
-    (await runCliExpectingFailure(["tag", "apply", "--file", "invalid.json"])).code
+    (await runCliExpectingFailure(["topic", "apply", "--file", "invalid.json"])).code
   ).toBe(2);
   expect(
-    (await runCliExpectingFailure(["tag", "apply", "--file", "missing.json"])).code
+    (await runCliExpectingFailure(["topic", "apply", "--file", "missing.json"])).code
   ).toBe(2);
+  expect(await sampleLabels()).toEqual([
+    INITIAL_LABELS[0],
+    { topics: ["矩阵", "行列式"], questionTypes: ["选择"] }
+  ]);
+});
+
+it("filters lqb list by topic and question type", async () => {
+  const byTopic = JSON.parse(
+    await runCli(["list", "--topic", "矩阵", "--json"])
+  ) as Array<{ id: string; topics: string[]; questionTypes: string[] }>;
+  expect(byTopic.map((item) => item.id)).toEqual(["sample-linear-algebra"]);
+  expect(byTopic[0]).toMatchObject({ topics: ["矩阵", "行列式"], questionTypes: ["填空"] });
+  expect(byTopic[0]).not.toHaveProperty("tags");
+  const byType = JSON.parse(
+    await runCli(["list", "--type", "解答", "--json"])
+  ) as Array<{ id: string }>;
+  expect(byType.map((item) => item.id)).toEqual(["sample-limit"]);
+  const legacyFlag = await runCliExpectingFailure(["list", "--tag", "极限"]);
+  expect(legacyFlag.code).toBe(1);
+  expect(legacyFlag.stderr).toContain("--topic");
 });
 
 it("exits 3 when an undo cannot restore questions edited afterwards", async () => {
   const applied = JSON.parse(
-    await runCli(["tag", "rename", "矩阵", "考点·矩阵", "--json"])
+    await runCli(["topic", "rename", "矩阵", "线性代数", "--json"])
   ) as { undoFile: string };
 
   const current = (await (await fetch(`${server.url}/api/bank`)).json()) as {
@@ -283,7 +323,7 @@ it("exits 3 when an undo cannot restore questions edited afterwards", async () =
         ...current.bank,
         items: current.bank.items.map((item) =>
           item.id === "sample-linear-algebra"
-            ? { ...item, tags: [...item.tags, "用户后加"] }
+            ? { ...item, topics: [...item.topics, "用户后加"] }
             : item
         )
       }
@@ -291,16 +331,16 @@ it("exits 3 when an undo cannot restore questions edited afterwards", async () =
   });
   expect(response.ok).toBe(true);
 
-  const failure = await runCliExpectingFailure(["tag", "undo", applied.undoFile]);
+  const failure = await runCliExpectingFailure(["topic", "undo", applied.undoFile]);
   expect(failure.code).toBe(3);
-  expect(failure.stdout).toContain("未恢复（标签之后又被改动）");
-  expect(await sampleTags()).toEqual([
-    ["极限", "等价无穷小"],
-    ["考点·矩阵", "行列式", "用户后加"]
+  expect(failure.stdout).toContain("未恢复（考点之后又被改动）");
+  expect(await sampleLabels()).toEqual([
+    INITIAL_LABELS[0],
+    { topics: ["线性代数", "行列式", "用户后加"], questionTypes: ["填空"] }
   ]);
 });
 
-it("explains when the running app is too old to support lqb tag", async () => {
+it("explains when the running app is too old to support lqb topic", async () => {
   const stub = createServer((request, response) => {
     response.setHeader("Content-Type", "application/json");
     if (request.url === "/api/agent/status") {
@@ -336,36 +376,45 @@ it("explains when the running app is too old to support lqb tag", async () => {
   );
   try {
     const failure = await runCliExpectingFailure(
-      ["tag", "rename", "a", "b", "--dry-run"],
+      ["topic", "rename", "a", "b", "--dry-run"],
       { LQB_AGENT_DISCOVERY_FILE: stubDiscovery }
     );
     expect(failure.code).toBe(1);
-    expect(failure.stderr).toContain("不支持 lqb tag");
+    expect(failure.stderr).toContain("不支持 lqb topic/type");
   } finally {
     await new Promise<void>((resolve) => stub.close(() => resolve()));
     await rm(stubDiscovery, { force: true });
   }
 });
 
-it("reports tag command usage errors with exit code 1", async () => {
+it("reports topic/type command usage errors with exit code 1", async () => {
   for (const args of [
-    ["tag"],
-    ["tag", "unknown"],
-    ["tag", "rename", "只有一个"],
-    ["tag", "delete"],
-    ["tag", "undo"]
+    ["topic"],
+    ["topic", "unknown"],
+    ["topic", "rename", "只有一个"],
+    ["type", "delete"],
+    ["type", "undo"],
+    ["type", "apply"]
   ]) {
     expect((await runCliExpectingFailure(args)).code).toBe(1);
   }
-  const same = await runCliExpectingFailure(["tag", "rename", "A", "A"]);
+  const removed = await runCliExpectingFailure(["tag", "list"]);
+  expect(removed.code).toBe(1);
+  expect(removed.stderr).toContain("lqb topic");
+  const same = await runCliExpectingFailure(["type", "rename", "A", "A"]);
   expect(same.code).toBe(2);
 });
 
-async function sampleTags(): Promise<string[][]> {
+const INITIAL_LABELS = [
+  { topics: ["极限", "等价无穷小"], questionTypes: ["解答"] },
+  { topics: ["矩阵", "行列式"], questionTypes: ["填空"] }
+];
+
+async function sampleLabels(): Promise<Array<{ topics: string[]; questionTypes: string[] }>> {
   const bank = JSON.parse(
     await readFile(path.join(workspacePath, "bank.json"), "utf8")
   ) as Bank;
-  return bank.items.map((item) => item.tags);
+  return bank.items.map(({ topics, questionTypes }) => ({ topics, questionTypes }));
 }
 
 async function runCliExpectingFailure(

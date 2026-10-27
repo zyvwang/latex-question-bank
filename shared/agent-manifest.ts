@@ -1,7 +1,7 @@
+import { parseLabelList } from "./bank-validation.js";
 import { normalizeUniqueName } from "./names.js";
 import { normalizeSourceLabel } from "./question-source.js";
 import {
-  isReservedTag,
   isReviewPriority,
   isSolutionSource
 } from "./review-fields.js";
@@ -15,7 +15,6 @@ import {
   hasControlCharacter,
   invalid,
   isRecord,
-  parseStringArray,
   ValidationError,
   type ValidationResult
 } from "./validation-primitives.js";
@@ -62,7 +61,8 @@ export interface AgentManifestQuestion {
   source?: AgentManifestSource | null;
   chapterId?: string;
   chapterName?: string;
-  tags?: string[];
+  topics?: string[];
+  questionTypes?: string[];
   reviewPriority?: ReviewPriority | null;
   modules: {
     question: { tex: string };
@@ -305,10 +305,17 @@ function parseQuestion(
   if (modules.solution?.tex.trim() && !solutionSource) {
     throw new ValidationError("有解答内容时必须提供 solutionSource。");
   }
-  const tags = parseStringArray(value.tags ?? [], "tags");
-  if (tags.some((tag) => isReservedTag(tag))) {
-    throw new ValidationError("「待审阅」是保留标签，请使用审阅状态。");
+  if (Object.hasOwn(value, "tags")) {
+    throw new ValidationError(
+      "题目不再有 tags 字段：考点写 topics，题型写 questionTypes（都不带前缀）。"
+    );
   }
+  const topics = parseLabelList(value.topics ?? [], "topics", "考点");
+  const questionTypes = parseLabelList(
+    value.questionTypes ?? [],
+    "questionTypes",
+    "题型"
+  );
   const questionAssets = parseQuestionAssets(value.assets, assetKeys);
   return {
     ...(optionalString(value, "id") ? { id: optionalString(value, "id") } : {}),
@@ -321,7 +328,8 @@ function parseQuestion(
     ...(optionalString(value, "chapterName")
       ? { chapterName: optionalString(value, "chapterName") }
       : {}),
-    tags,
+    topics,
+    questionTypes,
     reviewPriority: parsePriority(value.reviewPriority),
     modules,
     ...(solutionSource ? { solutionSource } : {}),

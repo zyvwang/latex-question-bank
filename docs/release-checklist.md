@@ -47,14 +47,15 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - rapid repeated edits to numbered or labelled equations, confirming one MathJax typeset at a time, stable final numbering, and no duplicate preview nodes
    - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in the editor preview
    - a production build with the 1000-item fixture, typing continuously in the active question and checking sidebar/preview response without noticeable input blocking
-   - v1/v2 migration creates books/source labels, converts an existing “待审阅” tag to pending, drops legacy mastery/error/history, and keeps `.history/` recovery snapshots readable
+   - v1/v2 migration creates books/source labels, converts an existing “待审阅” tag to pending, keeps other tags as topics, drops legacy mastery/error/history, and keeps `.history/` recovery snapshots readable
+   - v3 migration turns `考点·x` into topics and `题型·x` into question types, drops `考法·` and unprefixed tags, and the first save leaves the v3 file in `.history/` and `bank.json.bak`
    - restoration keeps bodies, chapters, order, assets, books, and newer questions
    - source uniqueness is enforced for book-linked items across the whole bank; bookless labels may repeat
    - Agent discovery file is created with 0600 permissions; missing/wrong bearer tokens return `AGENT_UNAUTHORIZED`
    - `lqb status`, `lqb link`, `lqb agent-init`, `lqb list/search/get`, `lqb book list`, and `lqb batch list` work with the app running
    - agent dry-run writes nothing; commit creates pending items, import-log records, and a `.history/` snapshot
    - approved duplicates are skipped with a partial result; `--overwrite` updates and returns them to pending
-   - `lqb bank create` creates an empty v3 bank with copied settings; `--switch` switches and omitting it leaves the app on the prior workspace
+   - `lqb bank create` creates an empty v4 bank with copied settings; `--switch` switches and omitting it leaves the app on the prior workspace
    - `lqb import --create-bank` creates the requested/default path, copies settings and top-level chapters, imports pending items, and refuses an existing `bank.json`
    - chunked imports with one `--batch-id` merge into a single import record; `lqb import undo <batchId>` removes only pending, unedited items, restores overwritten items, keeps approved/edited items, and reports missing snapshots with exit code 6
    - book path edits clear the matching hash with a visible notice; referenced books cannot be deleted; the import log shows batch IDs and undone status
@@ -66,10 +67,10 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - agent import rejects a stale `baseRevision`, a mismatched workspace, and an invalid manifest without partial writes
    - the Review page approves, advances, bulk-approves, deletes with undo, shows the pending count, and handles empty/filtered-empty states
    - idle external imports and undos auto-refresh; focused drafts, uploads, saves, or workspace transitions show the external-update banner instead of overwriting
-   - `/api/events` sends `bank-changed` after a successful import, undo, or tag change and cleans up clients when the server closes
-   - `lqb tag --dry-run` writes nothing; a real `lqb tag apply/rename/delete` changes only tags and `updatedAt` (approved questions stay approved, no `.history/` snapshot), writes `.lqb/tag-undo/*.json`, and an idle app reloads with a notice while a focused draft shows the banner
-   - with prefixed tags (`考点·`/`考法·`/`题型·`): the sidebar shows separate 考点/考法/题型 filters that combine with AND, rows list topics plus a type badge, and the details panel edits each dimension in its own field with the prefix added automatically; banks without such tags look unchanged
-   - `lqb tag undo` restores only questions whose tags are unchanged since, lists the rest, exits 3 when any were skipped, and can be re-run safely
+   - `/api/events` sends `bank-changed` after a successful import, undo, or topic/type change and cleans up clients when the server closes
+   - `lqb topic`/`lqb type --dry-run` writes nothing; a real `apply/rename/delete` changes only `topics` or `questionTypes` and `updatedAt` (approved questions stay approved, no `.history/` snapshot unless the bank on disk is still an older version), writes `.lqb/topic-undo/*.json` or `.lqb/type-undo/*.json`, and an idle app reloads with a notice naming the field while a focused draft shows the banner
+   - the sidebar shows 考点 and 题型 filters that combine with AND, rows list topics plus one badge per question type, and the details panel edits topics and question types in separate fields; there is no 标签 or 考法 filter
+   - `lqb topic undo`/`lqb type undo` restores only questions whose field is unchanged since, refuses a journal for the other field, lists the rest, exits 3 when any were skipped, and can be re-run safely; `lqb tag` and `lqb list --tag` print a pointer to the new commands
    - workspace create/open/switch/reorder/relocate/reveal/remove-from-list actions on Bank Settings, including staying on that page after a switch
    - removing the final workspace returns to Setup while its directory and `bank.json` remain on disk
    - a bank save beyond 64 MiB shows the persistent size error and leaves disk/revision unchanged; reducing content retries successfully

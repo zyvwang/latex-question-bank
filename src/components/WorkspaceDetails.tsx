@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link2 } from "lucide-react";
 import {
   questionSourceDisplay,
@@ -19,12 +19,6 @@ import {
 } from "../context/questionBankContexts.js";
 import { ChapterCombobox } from "./ChapterCombobox.js";
 import { QuestionAssets } from "./QuestionAssets.js";
-import {
-  groupTagsByDimension,
-  replaceTagGroup,
-  stripTagPrefix,
-  TAG_DIMENSIONS
-} from "../tagDimensions.js";
 import { TagEditor } from "./TagEditor.js";
 import styles from "./WorkspaceView.module.css";
 
@@ -40,7 +34,7 @@ export function WorkspaceDetails() {
           <span>章节</span>
           <ChapterCombobox />
         </label>
-        <TagsField />
+        <LabelsField />
       </div>
       <div className={styles.reviewRow}>
         <ReviewPriorityField />
@@ -231,48 +225,33 @@ function SourceField() {
   );
 }
 
-function TagsField() {
+function LabelsField() {
   const questions = useQuestions();
   const selection = useSelection();
   const item = questions.activeItem;
-  const bankTags = useMemo(() => groupTagsByDimension(selection.tags), [selection.tags]);
   if (!item) return null;
-  const own = groupTagsByDimension(item.tags);
-  // 题库里用过的维度才单独成栏，没用过的不占位置。
-  const dimensions = TAG_DIMENSIONS.filter(
-    (dimension) =>
-      bankTags.byDimension[dimension.key].length > 0 ||
-      own.byDimension[dimension.key].length > 0
-  );
   return (
-    <div className={`${styles.tagsField} ${styles.tagsGroup}`} role="group" aria-label="标签">
-      {dimensions.map((dimension) => (
-        <label key={dimension.key}>
-          <span>{dimension.label}</span>
-          <TagEditor
-            tags={own.byDimension[dimension.key]}
-            suggestions={bankTags.byDimension[dimension.key].map(stripTagPrefix)}
-            prefix={dimension.prefix}
-            inputLabel={`添加${dimension.label}`}
-            listId={`workspace-tag-suggestions-${dimension.key}`}
-            onChange={(next) =>
-              questions.updateItem(item.id, {
-                tags: replaceTagGroup(item.tags, dimension.key, next)
-              })
-            }
-          />
-        </label>
-      ))}
+    <div className={`${styles.tagsField} ${styles.tagsGroup}`} role="group" aria-label="考点与题型">
       <label>
-        <span>标签</span>
+        <span>考点</span>
         <TagEditor
-          tags={own.other}
-          suggestions={bankTags.other}
-          onChange={(next) =>
-            questions.updateItem(item.id, {
-              tags: replaceTagGroup(item.tags, null, next)
-            })
-          }
+          tags={item.topics}
+          suggestions={selection.topics}
+          noun="考点"
+          listId="workspace-topic-suggestions"
+          placeholder="极限, 泰勒公式"
+          onChange={(topics) => questions.updateItem(item.id, { topics })}
+        />
+      </label>
+      <label>
+        <span>题型</span>
+        <TagEditor
+          tags={item.questionTypes}
+          suggestions={selection.questionTypes}
+          noun="题型"
+          listId="workspace-type-suggestions"
+          placeholder="选择, 解答"
+          onChange={(questionTypes) => questions.updateItem(item.id, { questionTypes })}
         />
       </label>
     </div>

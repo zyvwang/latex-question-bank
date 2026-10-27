@@ -30,7 +30,7 @@ const items = [
 ];
 
 describe("question filters", () => {
-  it("uses OR inside chapter, tag, book, priority, and status fields", () => {
+  it("uses OR inside chapter, topic, type, book, priority, and status fields", () => {
     expect(
       matchingIds({
         ...emptyFilters(),
@@ -61,7 +61,7 @@ describe("question filters", () => {
     expect(
       matchingIds({
         ...emptyFilters(),
-        tagFilters: ["极限"],
+        topicFilters: ["极限"],
         reviewPriorityFilters: ["must"]
       })
     ).toEqual(["a"]);
@@ -94,29 +94,47 @@ describe("question filters", () => {
     ).toBe(true);
   });
 
-  it("combines tag filters with OR inside a dimension and AND across dimensions", () => {
-    const tagged = (tags: string[]) => item("t", "chapter-a", tags, "must");
-    const match = (candidate: QuestionItem, tagFilters: string[]) =>
-      matchesQuestionFilters(candidate, { ...emptyFilters(), tagFilters }, chapterById, books);
-    const limitChoice = tagged(["考点·数列极限", "题型·选择", "考法·夹逼准则"]);
-    const limitSolve = tagged(["考点·数列极限", "题型·解答"]);
-    const taylorChoice = tagged(["考点·泰勒公式", "题型·选择"]);
+  it("combines topic and type filters with OR inside a field and AND across fields", () => {
+    const labeled = (topics: string[], questionTypes: string[]) => ({
+      ...item("t", "chapter-a", topics, "must"),
+      questionTypes
+    });
+    const match = (
+      candidate: QuestionItem,
+      topicFilters: string[],
+      typeFilters: string[] = []
+    ) =>
+      matchesQuestionFilters(
+        candidate,
+        { ...emptyFilters(), topicFilters, typeFilters },
+        chapterById,
+        books
+      );
+    const limitChoice = labeled(["数列极限"], ["选择"]);
+    const limitSolve = labeled(["数列极限"], ["解答"]);
+    const taylorChoice = labeled(["泰勒公式"], ["选择"]);
+    const multiType = labeled(["数列极限"], ["解答", "证明"]);
 
-    // 同一维度内是「或」
-    expect(match(limitChoice, ["考点·数列极限", "考点·泰勒公式"])).toBe(true);
-    expect(match(taylorChoice, ["考点·数列极限", "考点·泰勒公式"])).toBe(true);
-    // 不同维度之间是「且」
-    expect(match(limitChoice, ["考点·数列极限", "题型·选择"])).toBe(true);
-    expect(match(limitSolve, ["考点·数列极限", "题型·选择"])).toBe(false);
-    expect(match(taylorChoice, ["考点·数列极限", "题型·选择"])).toBe(false);
-    expect(match(limitChoice, ["考点·数列极限", "题型·选择", "考法·夹逼准则"])).toBe(true);
-    expect(match(limitChoice, ["题型·选择", "考法·单调有界准则"])).toBe(false);
-    // 没有前缀的标签自成一组，仍是「或」
-    const plain = tagged(["极限"]);
-    expect(match(plain, ["极限", "矩阵"])).toBe(true);
-    expect(match(plain, ["矩阵"])).toBe(false);
-    expect(match(plain, ["极限", "题型·选择"])).toBe(false);
-    expect(match(plain, [])).toBe(true);
+    // 同一字段内是「或」
+    expect(match(limitChoice, ["数列极限", "泰勒公式"])).toBe(true);
+    expect(match(taylorChoice, ["数列极限", "泰勒公式"])).toBe(true);
+    expect(match(multiType, [], ["证明", "填空"])).toBe(true);
+    // 考点与题型之间是「且」
+    expect(match(limitChoice, ["数列极限"], ["选择"])).toBe(true);
+    expect(match(limitSolve, ["数列极限"], ["选择"])).toBe(false);
+    expect(match(taylorChoice, ["数列极限"], ["选择"])).toBe(false);
+    // 考点与题型的值互不串用：同名值只按所在字段匹配
+    expect(match(labeled(["选择"], []), [], ["选择"])).toBe(false);
+    expect(match(limitChoice, [], [])).toBe(true);
+  });
+
+  it("searches topics and question types", () => {
+    const candidate = { ...item("s", "chapter-a", ["数列极限"], "must"), questionTypes: ["证明"] };
+    const search = (term: string) =>
+      matchesQuestionFilters(candidate, { ...emptyFilters(), search: term }, chapterById, books);
+    expect(search("数列极限")).toBe(true);
+    expect(search("证明")).toBe(true);
+    expect(search("填空")).toBe(false);
   });
 
   it("does not read LaTeX modules after a structured filter rejects the item", () => {
@@ -162,7 +180,8 @@ function matchingIds(filters: QuestionFilters): string[] {
 function emptyFilters(): QuestionFilters {
   return {
     chapterFilters: [],
-    tagFilters: [],
+    topicFilters: [],
+    typeFilters: [],
     bookFilters: [],
     reviewPriorityFilters: [],
     reviewStatusFilters: [],
@@ -173,7 +192,7 @@ function emptyFilters(): QuestionFilters {
 function item(
   id: string,
   chapterId: string | null,
-  tags: string[],
+  topics: string[],
   reviewPriority: ReviewPriority | null,
   reviewStatus: ReviewStatus = "approved",
   bookId: string | null = null
@@ -183,7 +202,8 @@ function item(
     source: { bookId, label: id },
     chapterId,
     chapterOrder: 1,
-    tags,
+    topics,
+    questionTypes: [],
     reviewPriority,
     reviewStatus,
     solutionSource: "user",

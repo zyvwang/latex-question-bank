@@ -5,7 +5,7 @@ import type {
   AgentImportManifest,
   AgentImportSummary
 } from "../shared/agent-manifest.js";
-import { parseV3Bank } from "../shared/bank-validation.js";
+import { parseV4Bank } from "../shared/bank-validation.js";
 import type { Bank, ImportBatchRecord } from "../shared/types.js";
 import { ValidationError } from "../shared/validation-primitives.js";
 import {
@@ -187,11 +187,11 @@ async function applyCreateBankImport(
   });
   if (input.dryRun) {
     await assertAgentWorkspaceAvailable(workspacePath);
-    parseV3Bank({ ...draft.bank, imports: [] });
+    parseV4Bank({ ...draft.bank, imports: [] });
     return summary;
   }
 
-  parseV3Bank({ ...draft.bank, imports: [] });
+  parseV4Bank({ ...draft.bank, imports: [] });
   await assertAgentWorkspaceAvailable(workspacePath);
   const committed = await withWorkspaceWriteLock(workspacePath, async () => {
     await assertAgentWorkspaceAvailable(workspacePath);
@@ -267,7 +267,7 @@ async function importIntoBank(options: {
     assetCount: assetPlan.toWrite.length
   });
   if (input.dryRun) {
-    parseV3Bank({ ...draft.bank, imports: current.imports });
+    parseV4Bank({ ...draft.bank, imports: current.imports });
     return summary;
   }
 
@@ -378,7 +378,7 @@ async function commitImport(options: {
           batch.id === record.id ? record : batch
         )
       : [record, ...current.imports].slice(0, 50);
-    const finalBank = parseV3Bank({ ...draft.bank, imports });
+    const finalBank = parseV4Bank({ ...draft.bank, imports });
     await writeJsonFileAtomic(dirs.bankPath, finalBank);
     const revision = revisionForContent(serializeJson(finalBank));
     return { record, finalBank, revision };

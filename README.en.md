@@ -34,13 +34,13 @@ The application interface currently uses Simplified Chinese. This README provide
 - Resize the source/preview split and the question sidebar; keyboard-adjust or collapse the side panes.
 - Preview formulas with MathJax and insert PNG or JPEG images.
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
-- Organize items with formal chapters, books, source labels, and multiple tags.
+- Organize items with formal chapters, books, source labels, topics (考点), and question types (题型); an item can have several of each.
 - Mark each item with a review priority (skip / review again / must review).
 - Let an external agent import selected examples, exercises, screenshots, or variants through the local `lqb` CLI, or import a whole book into a new bank; imported items enter pending review automatically.
 - Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
 - Undo an agent import batch; approved or manually edited items are kept.
 - Variant questions link back to their original; screenshot attachments appear as expandable thumbnails in the details row.
-- Combine keyword, chapter, book, tag, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
+- Combine keyword, chapter, topic, question-type, book, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
 - Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
 - Manage chapters, books, import history, and global LaTeX on the dedicated Bank Settings page.
@@ -86,7 +86,7 @@ xattr -dr com.apple.quarantine "/Applications/LaTeX Question Bank.app"
 1. Launch the app and choose “新建空白题库” (New blank bank).
 2. Pick a normal folder for the workspace.
 3. Click `+` in the upper-left corner to create an item.
-4. Choose a book, source label, chapter, and tags, then set the review priority as needed.
+4. Choose a book, source label, chapter, topics, and question types, then set the review priority as needed.
 5. Write LaTeX in the Question, Solution, and Note tabs; the solution header can record the answer source and reference page.
 6. Click “检查当前题” (Check current item) to run a real compile.
 7. Filter and select the items you need, review them in the selected-items list, choose an order, and export.
@@ -131,20 +131,20 @@ lqb import undo whole-book --json
 
 Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports and undos automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
 
-Use `lqb tag` to organize tags (add, remove, rename, merge). Preview with `--dry-run` first; a write changes only tags, leaves review status alone, and saves an undo file so it can be reverted:
+Use `lqb topic` for topics and `lqb type` for question types (add, remove, rename, merge). Preview with `--dry-run` first; a write changes only that field, leaves review status alone, and saves an undo file so it can be reverted:
 
 ```bash
-lqb tag list
-lqb tag rename 数列极限 "考点·数列极限" --dry-run
-lqb tag apply --file tags.json --json
-lqb tag undo .lqb/tag-undo/<file>.json
+lqb topic list
+lqb topic rename 数列极限 "数列极限与收敛" --dry-run
+lqb type apply --file types.json --json
+lqb topic undo .lqb/topic-undo/<file>.json
 ```
 
 ![Review page with a variant link and screenshot attachment](docs/screenshots/review.png)
 
 ![Books and import history in Bank Settings](docs/screenshots/settings.png)
 
-This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, batch undo, and tag organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, batch undo, and topic/question-type organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
 
@@ -204,7 +204,7 @@ workspace/
 └── .history/
 ```
 
-- `bank.json` uses schema `version: 3` for formal chapters, books, chapter-local order, item sources, review priorities, review status, answer sources, import history, item content, and LaTeX settings. Agent import records include batch counts and a `.history/` snapshot reference.
+- `bank.json` uses schema `version: 4` for formal chapters, books, chapter-local order, item sources, topics, question types, review priorities, review status, answer sources, import history, item content, and LaTeX settings. Agent import records include batch counts and a `.history/` snapshot reference.
 - `assets/` stores inserted images.
 - `exports/` stores completed exports.
 - `.tmp/` stores temporary files from current-item checks and export work. The app limits how many it keeps during a session and removes entries older than seven days at startup.
@@ -214,7 +214,7 @@ Save requests carry a content revision. If another program changes the file, the
 
 A complete bank save request is supported up to 64 MiB. Oversized banks remain pending and prompt you to split the workspace or reduce its content. File content is flushed to storage, and parent directory entries are synced on a best-effort basis on POSIX platforms.
 
-Existing `version: 1` and `version: 2` banks open directly. Legacy chapter text is converted to formal chapters in memory, `sourceNumber` is split into a book and source label, and an existing “待审阅” tag becomes the pending-review status. Legacy mastery, error reasons, and mastery history are discarded; every migrated item starts with no review priority. Read-only use does not rewrite the file. Before the first real edit is saved as v3, the original content is retained in `bank.json.bak` and the session recovery snapshot.
+Existing `version: 1`, `version: 2`, and `version: 3` banks open directly. In v3 banks, `考点·` tags become topics and `题型·` tags become question types (prefix removed); `考法·` and unprefixed tags are dropped. In older banks, legacy chapter text is converted to formal chapters in memory, `sourceNumber` is split into a book and source label, an existing “待审阅” tag becomes the pending-review status, and other tags are kept as topics. Legacy mastery, error reasons, and mastery history are discarded; every migrated item starts with no review priority. Read-only use does not rewrite the file. Before the first real edit is saved as v4, the original content is retained in `bank.json.bak` and the session recovery snapshot.
 
 Layout save failures show a separate retry action in the navigation bar. Retry saves the latest layout; quitting with an unresolved write failure opens the existing unsaved-changes dialog. Bank save status remains independent.
 

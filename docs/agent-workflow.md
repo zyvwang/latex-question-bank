@@ -14,7 +14,7 @@ LaTeX 题库的外部 Agent 工作流是**本地优先**的：Agent 读取本机
 - 独立「待审阅」页批准、编辑、删除和批量批准；
 - 外部导入和撤销时应用自动刷新，编辑中显示提示横幅；
 - 书目路径、答案册和哈希元数据的设置页管理。
-- `lqb tag` 整理标签：批量加、删、改名、合并，先预演再写入，不改审阅状态，可按撤销文件还原。
+- `lqb topic` / `lqb type` 分别整理考点和题型：批量加、删、改名、合并，先预演再写入，不改审阅状态，可按撤销文件还原。
 
 截图、变式和整书导入共用同一套清单与审阅流程。
 
@@ -55,16 +55,17 @@ lqb import --file manifest.json [--overwrite] [--switch] [--batch-id <id>] [--js
 lqb import --file book.json --create-bank [--switch] [--batch-id <id>] [--json]
 lqb import undo <batchId> [--json]
 lqb bank create --name <name> [--path <path>] [--switch] [--json]
-lqb list [--book <title>] [--chapter <name>] [--tag <tag>] [--priority <p>] [--status <s>] [--limit <n>] [--json]
+lqb list [--book <title>] [--chapter <name>] [--topic <考点>] [--type <题型>] [--priority <p>] [--status <s>] [--limit <n>] [--json]
 lqb search <query> [--json]
 lqb get <id> [--json]
 lqb book list [--json]
 lqb batch list [--json]
-lqb tag list [--json]
-lqb tag apply --file changes.json [--dry-run] [--json]
-lqb tag rename <旧标签> <新标签> [--dry-run] [--json]
-lqb tag delete <标签> [--dry-run] [--json]
-lqb tag undo <撤销文件> [--dry-run] [--json]
+lqb topic list [--json]
+lqb topic apply --file changes.json [--dry-run] [--json]
+lqb topic rename <旧考点> <新考点> [--dry-run] [--json]
+lqb topic delete <考点> [--dry-run] [--json]
+lqb topic undo <撤销文件> [--dry-run] [--json]
+lqb type list | apply | rename | delete | undo   # 同 lqb topic，整理题型
 lqb manifest example
 ```
 
@@ -77,7 +78,7 @@ lqb manifest example
 | 0 | 成功 |
 | 1 | 用法错误、找不到题目、其他请求失败 |
 | 2 | 清单或附件校验失败，未导入（服务端 400 也归入此类） |
-| 3 | 部分导入（存在已审阅冲突），或 `BANK_CONFLICT`：题库在读取后被修改；`lqb tag undo` 有题目因标签被改动或已删除而未恢复 |
+| 3 | 部分导入（存在已审阅冲突），或 `BANK_CONFLICT`：题库在读取后被修改；`lqb topic undo` / `lqb type undo` 有题目因该字段被改动或已删除而未恢复 |
 | 4 | 没有打开题库，或目标题库不是当前工作区且未 `--switch` |
 | 5 | 找不到/无法连接应用，或 token 无效 |
 | 6 | 撤销不可用：批次不存在、已撤销、快照缺失/无效或撤销冲突 |
@@ -98,7 +99,8 @@ lqb manifest example
     {
       "source": { "bookTitle": "A 书", "label": "例 3.58" },
       "chapterName": "函数、极限与连续",
-      "tags": ["洛必达", "函数极限"],
+      "topics": ["函数极限", "洛必达"],
+      "questionTypes": ["解答"],
       "reviewPriority": "must",
       "modules": {
         "question": { "tex": "题目 LaTeX" },
@@ -122,7 +124,8 @@ lqb manifest example
 - 单次最多 200 题、40 个附件；建议按 50 题左右分块。
 - 导入题目默认 `reviewStatus: pending`，不能通过清单直接批准。
 - 已审阅题默认跳过并报告冲突；只有显式 `--overwrite` 才覆盖，覆盖后回到待审阅。
-- 标签按并集合并，附件按 SHA-256 去重追加。
+- `topics`（考点）和 `questionTypes`（题型）都是不带前缀的字符串数组，可以省略；更新已有题时各自按并集合并。题目上不再有 `tags` 字段，带 `tags` 的清单会被拒绝。
+- 附件按 SHA-256 去重追加。
 - 章节名不确定时可以省略；题目进入未分类并保持待审阅。
 - 同一 `--batch-id` 的多次导入会合并成一条导入记录，使用首个块的 `.history/` 快照作为整批撤销点。
 - 章节找不到时返回 `CHAPTER_NOT_FOUND` 警告：新题进入未分类，已有题保留原章节。
@@ -215,7 +218,8 @@ lqb import --file book-2.json --batch-id whole-book --json
   "questions": [
     {
       "source": { "bookTitle": "A 书", "label": "变式 1" },
-      "tags": ["洛必达", "变式"],
+      "topics": ["洛必达"],
+      "questionTypes": ["解答"],
       "modules": {
         "question": { "tex": "更换参数后的变式题面。" },
         "solution": { "tex": "变式解析。" }
@@ -230,24 +234,26 @@ lqb import --file book-2.json --batch-id whole-book --json
 - 先通过 `lqb get <id>` 或 `lqb search` 取得原题 ID。
 - `variantOf` 必须指向当前题库已有题目；同一清单内新题之间不能互相引用，需要分两次导入。
 - 变式默认 `pending`、复习优先级未标记、`solutionSource: "agent"`。
-- 单题来源时设置 `variantOf`；按章节/考点批量生成时可以设为 `null`，用标签表达考点和考法。
+- 单题来源时设置 `variantOf`；按章节/考点批量生成时可以设为 `null`，用 `topics` 写考点。
 - 应用侧栏显示「变式」徽标；题目详情区显示原题来源链接，原题已删除时显示「原题已删除」。
 
-## 整理标签
+## 整理考点与题型
 
-`lqb tag` 只改题目的 `tags`，用来整理考点、考法、题型这类分类。它不碰题面、解析、章节、复习优先级和审阅状态：已批准的题仍是已批准，不会回到待审阅。
+`lqb topic` 只改题目的 `topics`（考点），`lqb type` 只改 `questionTypes`（题型）。两个命令的子命令和清单格式完全一样。它们不碰题面、解析、章节、复习优先级和审阅状态：已批准的题仍是已批准，不会回到待审阅。
 
 ```bash
-lqb tag list [--json]
-lqb tag apply --file changes.json [--dry-run] [--json]
-lqb tag rename <旧标签> <新标签> [--dry-run] [--json]
-lqb tag delete <标签> [--dry-run] [--json]
-lqb tag undo <撤销文件> [--dry-run] [--json]
+lqb topic list [--json]
+lqb topic apply --file changes.json [--dry-run] [--json]
+lqb topic rename <旧考点> <新考点> [--dry-run] [--json]
+lqb topic delete <考点> [--dry-run] [--json]
+lqb topic undo <撤销文件> [--dry-run] [--json]
+lqb type list | apply | rename | delete | undo   # 同上，整理题型
 ```
 
-- `tag list` 列出全部标签和使用次数（按次数降序）。
+- `list` 列出全部值和使用次数（按次数降序）。
 - `rename`、`delete` 是全库操作；`apply` 读取清单文件，可以逐题改，也可以做全库操作。
-- 先加 `--dry-run` 预演：返回每道题改前、改后的标签，新增/移除数量和警告，不写盘。
+- 先加 `--dry-run` 预演：返回每道题改前、改后的值，新增/移除数量和警告，不写盘。
+- 旧的 `lqb tag` 已删除，运行时会提示改用 `lqb topic` / `lqb type`。
 
 ### 清单
 
@@ -258,7 +264,7 @@ lqb tag undo <撤销文件> [--dry-run] [--json]
   "schemaVersion": 1,
   "note": "考点归类 v1",
   "changes": [
-    { "id": "题目 ID", "add": ["考点·变限积分", "题型·解答"], "remove": ["积分综合"] }
+    { "id": "题目 ID", "add": ["变限积分"], "remove": ["积分综合"] }
   ]
 }
 ```
@@ -268,28 +274,29 @@ lqb tag undo <撤销文件> [--dry-run] [--json]
 ```json
 {
   "schemaVersion": 1,
-  "renames": [{ "from": "数列极限", "to": "考点·数列极限" }],
+  "renames": [{ "from": "数列极限", "to": "数列极限与收敛" }],
   "deletions": ["辨析"]
 }
 ```
 
 规则：
 
+- 清单可以写 `"field": "topics"` 或 `"field": "questionTypes"`；不写时由命令决定（`lqb topic` 对应 `topics`，`lqb type` 对应 `questionTypes`），写了必须和命令一致，避免把考点清单误用到题型上。
 - 一份清单只能用 `changes`，或只用 `renames`/`deletions`，不能混用。拼错的字段名会被拒绝，不会被忽略。
-- 逐题：每项至少有 `add` 或 `remove`；同一题不能同时添加和移除同一标签；`id` 不能重复；找不到的 `id` 会让整份清单被拒绝，不会有任何写入。
-- 全库：所有改名和删除同时生效，不是依次执行，所以不支持链式改名（A→B 且 B→C）和互换，也不能同时改名和删除同一标签。多个旧标签可以改成同一个新标签（合并），同一题上撞名的标签会合并成一个。
-- 标签匹配忽略大小写和全半角；新增的标签按 NFKC 规范化。「待审阅」是保留标签，不能出现在清单里。
-- 改名或删除一个没有任何题在用的标签只给警告（`TAG_NOT_FOUND`），多半是拼错了。
+- 逐题：每项至少有 `add` 或 `remove`；同一题不能同时添加和移除同一个值；`id` 不能重复；找不到的 `id` 会让整份清单被拒绝，不会有任何写入。
+- 全库：所有改名和删除同时生效，不是依次执行，所以不支持链式改名（A→B 且 B→C）和互换，也不能同时改名和删除同一个值。多个旧值可以改成同一个新值（合并），同一题上撞名的值会合并成一个。
+- 匹配忽略大小写和全半角；新增的值按 NFKC 规范化。「待审阅」是保留值，不能出现在清单里。
+- 改名或删除一个没有任何题在用的值只给警告（`TAG_NOT_FOUND`），多半是拼错了。考点和题型分开统计：题型整理不会匹配考点里的同名值。
 - 单次最多修改 5000 道题；`renames`、`deletions` 各最多 200 项。
 
 ### 写入与撤销
 
 - 正式写入和导入一样：持有 workspace 写锁、校验 `baseRevision`（题库在读取后被修改返回 `BANK_CONFLICT`，退出码 3）、原子写入，成功后通过 `/api/events` 通知应用刷新。没有任何题需要修改时不写盘。
-- 被改动的题只更新 `tags` 和 `updatedAt`。
-- 不拍 `.history/` 快照：快照只有 10 份，要留给用户的恢复点和导入批次。
-- 写入成功后，CLI 把撤销记录（每道题的 `before`/`after` 标签）写到当前目录的 `.lqb/tag-undo/<时间>-<随机>.json`，并打印路径和撤销命令；写入前会先确认该目录可写。
-- `lqb tag undo <文件>` 只恢复标签仍然等于 `after` 的题。之后又被人改过标签的题、已被删除的题都不动，会列出来并以退出码 3 结束；已经是原状的题计为「已是原状」，所以同一份撤销记录可以重复执行。撤销记录只能用于它所属的题库。
-- 仍待审阅的导入题被 `lqb tag` 改过标签后，`updatedAt` 已变，批次撤销会把它当作「已编辑」而保留。
+- 被改动的题只更新对应字段和 `updatedAt`。
+- 不拍 `.history/` 快照：快照只有 10 份，要留给用户的恢复点和导入批次。例外：磁盘上还是旧版本题库时，这次写入会顺带升级到 v4，所以会先留一份迁移前快照。
+- 写入成功后，CLI 把撤销记录（带 `field`，以及每道题的 `before`/`after`）写到当前目录的 `.lqb/topic-undo/` 或 `.lqb/type-undo/`，文件名为 `<时间>-<随机>.json`，并打印路径和撤销命令；写入前会先确认该目录可写。
+- `lqb topic undo <文件>` 只恢复考点仍然等于 `after` 的题（`lqb type undo` 同理，用错命令会被拒绝）。之后又被人改过的题、已被删除的题都不动，会列出来并以退出码 3 结束；已经是原状的题计为「已是原状」，所以同一份撤销记录可以重复执行。撤销记录只能用于它所属的题库。旧 `lqb tag` 留下的撤销记录不带 `field`，不能再使用。
+- 仍待审阅的导入题被 `lqb topic`/`lqb type` 改过后，`updatedAt` 已变，批次撤销会把它当作「已编辑」而保留。
 
 ## 撤销批次
 
@@ -352,8 +359,8 @@ Agent 导入或撤销成功后，应用通过本地 SSE 收到通知：
 - 复习优先级和审阅状态不打印进 PDF。
 - 手动新建题默认已审阅、优先级未标记；Agent 按「做错了」导入时通常设 `must`，整书导入默认未标记。
 - 不做按书目分组的侧栏、章节嵌套或变式嵌套树；变式只用 `variantOf` 平铺关联，不加 `variantType`。
-- 标签没有独立字段；以「考点·」「考法·」「题型·」开头的标签由界面按前缀分开显示：侧栏筛选拆成考点/考法/题型三个下拉（不同下拉之间是「且」），侧栏每行只列考点并把题型缩成角标，详情区分栏编辑并自动补前缀。没用到的维度不显示，没有这些前缀的标签仍在「标签」里，行为不变。
-- `lqb tag` 是对「Agent 更新已有题一律回到待审阅」的有意例外：标签是整理用的元数据，不是题目内容，所以不重置审阅状态。代价是这些改动不经过「待审阅」页，因此要先 dry-run，并保存撤销记录。
+- 考点（`topics`）和题型（`questionTypes`）是两个独立字段，不再有通用标签和「考法」。侧栏筛选是考点、题型两个下拉（字段内「或」，两个下拉之间「且」），侧栏每行列出考点、题型缩成角标，详情区分两栏编辑。v3 题库里的考法和无前缀标签在迁移时丢弃，原文件保留在 `.history/` 和 `bank.json.bak`。
+- `lqb topic`/`lqb type` 是对「Agent 更新已有题一律回到待审阅」的有意例外：考点和题型是整理用的元数据，不是题目内容，所以不重置审阅状态。代价是这些改动不经过「待审阅」页，因此要先 dry-run，并保存撤销记录。
 
 ## 安全边界
 

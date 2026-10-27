@@ -85,7 +85,8 @@ export interface QuestionItem {
   source: QuestionSource | null;
   chapterId: string | null;
   chapterOrder: number;
-  tags: string[];
+  topics: string[];
+  questionTypes: string[];
   reviewPriority: ReviewPriority | null;
   reviewStatus: ReviewStatus;
   solutionSource: SolutionSource | null;
@@ -109,7 +110,7 @@ export interface LatexSettings {
 }
 
 export interface Bank {
-  version: 3;
+  version: 4;
   settings: LatexSettings;
   chapters: Chapter[];
   books: BookRecord[];

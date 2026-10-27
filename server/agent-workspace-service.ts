@@ -145,7 +145,7 @@ export async function buildAgentBank(input: {
     order: index + 1
   }));
   return {
-    version: 3,
+    version: 4,
     settings,
     chapters,
     books: [],

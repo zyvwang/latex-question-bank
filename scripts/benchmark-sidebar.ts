@@ -22,7 +22,8 @@ function createBank(count: number): Bank {
       ...bank.items[0], id: `benchmark-${index}`, source: { bookId: null, label: `性能题 ${index + 1}` },
       chapterId: chapters[Math.floor(index / (count / 10))].id,
       chapterOrder: index % (count / 10) + 1,
-      tags: [index % 10 === 0 ? "基准命中" : "普通题", "求极限"],
+      topics: [index % 10 === 0 ? "基准命中" : "普通题", "求极限"],
+      questionTypes: [],
       modules: {
         question: { tex: `求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$，第 ${index + 1} 题。` },
         solution: { tex: "由等价无穷小可得 $1$。" }, note: { tex: "合成性能数据。" }

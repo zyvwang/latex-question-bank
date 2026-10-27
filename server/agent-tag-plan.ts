@@ -1,10 +1,12 @@
-// Agent 标签整理的纯规划逻辑：不读写磁盘，只根据当前 bank 和清单算出新 bank、预览与撤销记录。
-// 落盘、加锁和广播在 agent-tag-service.ts。
+// Agent 考点/题型整理的纯规划逻辑：不读写磁盘，只根据当前 bank 和清单算出新 bank、预览与撤销记录。
+// 每次只动清单 field 指定的那一个字段。落盘、加锁和广播在 agent-tag-service.ts。
 import {
+  AGENT_TAG_FIELD_LABELS,
   MAX_TAG_ENTRIES,
   tagKey,
   type AgentTagChangePreview,
   type AgentTagCounts,
+  type AgentTagField,
   type AgentTagItemChange,
   type AgentTagJournal,
   type AgentTagManifest,
@@ -44,6 +46,8 @@ export interface TagRestoreResult {
 
 export function planTagChanges(input: TagPlanInput): TagPlanResult {
   const { current, manifest, now } = input;
+  const { field } = manifest;
+  const noun = AGENT_TAG_FIELD_LABELS[field];
   const itemsById = new Map(current.items.map((item) => [item.id, item]));
   const nextTags = new Map<string, string[]>();
   const warnings: AgentTagWarning[] = [];
@@ -53,36 +57,36 @@ export function planTagChanges(input: TagPlanInput): TagPlanResult {
     for (const change of manifest.changes) {
       const item = itemsById.get(change.id);
       if (!item) {
-        throw new ValidationError(`要修改标签的题目不存在：${change.id}`);
+        throw new ValidationError(`要修改${noun}的题目不存在：${change.id}`);
       }
-      nextTags.set(item.id, applyItemChange(item.tags, change));
+      nextTags.set(item.id, applyItemChange(item[field], change));
       addressed += 1;
     }
   } else {
     const operations = buildGlobalOperations(manifest);
     for (const item of current.items) {
-      if (item.tags.some((tag) => operations.affects(tag))) {
-        nextTags.set(item.id, operations.apply(item.tags));
+      if (item[field].some((tag) => operations.affects(tag))) {
+        nextTags.set(item.id, operations.apply(item[field]));
       }
     }
-    warnings.push(...missingTagWarnings(current.items, operations.selectors));
+    warnings.push(...missingTagWarnings(current.items, field, operations.selectors));
   }
 
   const changes: AgentTagChangePreview[] = [];
   const items = current.items.map((item) => {
     const after = nextTags.get(item.id);
-    if (!after || sameTags(item.tags, after)) return item;
+    if (!after || sameTags(item[field], after)) return item;
     changes.push({
       id: item.id,
       source: questionSourceDisplay(item, current.books),
-      before: [...item.tags],
+      before: [...item[field]],
       after: [...after]
     });
-    return { ...item, tags: after, updatedAt: now };
+    return { ...item, [field]: after, updatedAt: now };
   });
   if (changes.length > MAX_TAG_ENTRIES) {
     throw new ValidationError(
-      `单次最多修改 ${MAX_TAG_ENTRIES} 道题的标签，本次会修改 ${changes.length} 道。`
+      `单次最多修改 ${MAX_TAG_ENTRIES} 道题的${noun}，本次会修改 ${changes.length} 道。`
     );
   }
 
@@ -99,6 +103,7 @@ export function planTagChanges(input: TagPlanInput): TagPlanResult {
 }
 
 export function buildTagJournal(options: {
+  field: AgentTagField;
   workspacePath: string;
   note: string | undefined;
   now: string;
@@ -106,6 +111,7 @@ export function buildTagJournal(options: {
 }): AgentTagJournal {
   return {
     schemaVersion: 1,
+    field: options.field,
     workspacePath: options.workspacePath,
     createdAt: options.now,
     note: options.note ?? null,
@@ -117,10 +123,11 @@ export function buildTagJournal(options: {
   };
 }
 
-// 只恢复标签仍等于 after 的题：之后被人改过的题保持现状，已经是原状的题也不动，
+// 只恢复该字段仍等于 after 的题：之后被人改过的题保持现状，已经是原状的题也不动，
 // 所以同一份撤销记录可以重复执行。
 export function planTagRestore(input: TagRestoreInput): TagRestoreResult {
   const { current, journal, now } = input;
+  const { field } = journal;
   const itemsById = new Map(current.items.map((item) => [item.id, item]));
   const restoredTags = new Map<string, string[]>();
   const conflicts: AgentTagUndoConflict[] = [];
@@ -130,9 +137,9 @@ export function planTagRestore(input: TagRestoreInput): TagRestoreResult {
     const item = itemsById.get(entry.id);
     if (!item) {
       conflicts.push({ id: entry.id, source: entry.id, reason: "missing" });
-    } else if (sameTags(item.tags, entry.before)) {
+    } else if (sameTags(item[field], entry.before)) {
       unchanged += 1;
-    } else if (sameTags(item.tags, entry.after)) {
+    } else if (sameTags(item[field], entry.after)) {
       restoredTags.set(item.id, [...entry.before]);
     } else {
       conflicts.push({
@@ -150,10 +157,10 @@ export function planTagRestore(input: TagRestoreInput): TagRestoreResult {
     restored.push({
       id: item.id,
       source: questionSourceDisplay(item, current.books),
-      before: [...item.tags],
+      before: [...item[field]],
       after: [...tags]
     });
-    return { ...item, tags, updatedAt: now };
+    return { ...item, [field]: tags, updatedAt: now };
   });
   return { bank: { ...current, items }, restored, unchanged, conflicts };
 }
@@ -170,8 +177,8 @@ interface GlobalOperations {
   apply: (tags: string[]) => string[];
 }
 
-// 每个标签只会被映射一次，所以改名是同时生效的，不存在先后顺序；
-// 改名后撞上同一题已有的标签时合并成一个。
+// 每个值只会被映射一次，所以改名是同时生效的，不存在先后顺序；
+// 改名后撞上同一题已有的值时合并成一个。
 function buildGlobalOperations(manifest: AgentTagManifest): GlobalOperations {
   const renameByKey = new Map(
     (manifest.renames ?? []).map((rename) => [tagKey(rename.from), rename.to])
@@ -204,17 +211,18 @@ function buildGlobalOperations(manifest: AgentTagManifest): GlobalOperations {
   };
 }
 
-// 改名或删除一个没有任何题在用的标签，多半是拼错了，提醒而不是报错。
+// 改名或删除一个没有任何题在用的值，多半是拼错了，提醒而不是报错。
 function missingTagWarnings(
   items: QuestionItem[],
+  field: AgentTagField,
   selectors: string[]
 ): AgentTagWarning[] {
-  const used = new Set(items.flatMap((item) => item.tags.map(tagKey)));
+  const used = new Set(items.flatMap((item) => item[field].map(tagKey)));
   return selectors
     .filter((tag) => !used.has(tagKey(tag)))
     .map((tag) => ({
       code: "TAG_NOT_FOUND" as const,
-      message: `没有题目使用标签「${tag}」。`
+      message: `没有题目使用${AGENT_TAG_FIELD_LABELS[field]}「${tag}」。`
     }));
 }
 

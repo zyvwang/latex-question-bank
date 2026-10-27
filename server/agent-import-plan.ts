@@ -121,7 +121,8 @@ export function planBank(input: PlanInput): PlanResult {
   const chapters = input.current.chapters.map((chapter) => ({ ...chapter }));
   const items = input.current.items.map((item) => ({
     ...item,
-    tags: [...item.tags],
+    topics: [...item.topics],
+    questionTypes: [...item.questionTypes],
     assets: [...item.assets],
     modules: {
       question: { ...item.modules.question },
@@ -320,7 +321,8 @@ function buildUpdatedItem(target: QuestionItem, context: ItemContext): QuestionI
     chapterOrder: moving
       ? nextChapterOrder(items, chapter.chapterId)
       : target.chapterOrder,
-    tags: mergeTags(target.tags, question.tags ?? []),
+    topics: mergeTags(target.topics, question.topics ?? []),
+    questionTypes: mergeTags(target.questionTypes, question.questionTypes ?? []),
     reviewPriority: target.reviewPriority,
     reviewStatus: "pending",
     solutionSource: question.solutionSource ?? target.solutionSource,
@@ -354,7 +356,8 @@ function buildNewItem(context: ItemContext): QuestionItem {
     source,
     chapterId: chapter.chapterId,
     chapterOrder: nextChapterOrder(items, chapter.chapterId),
-    tags: question.tags ?? [],
+    topics: question.topics ?? [],
+    questionTypes: question.questionTypes ?? [],
     reviewPriority: question.reviewPriority ?? null,
     reviewStatus: "pending",
     solutionSource:

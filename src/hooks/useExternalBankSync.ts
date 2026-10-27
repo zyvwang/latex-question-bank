@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { AgentImportCounts } from "../../shared/agent-manifest.js";
-import type { AgentTagCounts } from "../../shared/agent-tags.js";
+import {
+  AGENT_TAG_FIELD_LABELS,
+  type AgentTagCounts,
+  type AgentTagField
+} from "../../shared/agent-tags.js";
 import type { AgentUndoCounts } from "../../shared/agent-undo.js";
 import type { BankSnapshot } from "../../shared/types.js";
 import { fetchBank } from "../api/client.js";
@@ -28,6 +32,7 @@ interface BankChangedEvent {
   source?: "agent-import" | "agent-undo" | "agent-tags";
   counts?: AgentImportCounts;
   undoCounts?: AgentUndoCounts;
+  field?: AgentTagField;
   tagCounts?: AgentTagCounts;
 }
 
@@ -104,7 +109,9 @@ function externalBankNotice(payload: BankChangedEvent): ExternalBankNotice {
   return {
     revision: payload.revision,
     counts: payload.counts,
-    ...(payload.tagCounts ? { tagsChanged: payload.tagCounts.changed } : {})
+    ...(payload.tagCounts && payload.field
+      ? { labelsChanged: { field: payload.field, count: payload.tagCounts.changed } }
+      : {})
   };
 }
 
@@ -114,8 +121,8 @@ function externalUpdateText(payload: BankChangedEvent): string {
       ? `已撤销导入批次：删除 ${payload.undoCounts.deleted} 道，恢复 ${payload.undoCounts.restored} 道。`
       : `已撤销导入批次：恢复 ${payload.undoCounts.restored} 道。`;
   }
-  if (payload.source === "agent-tags" && payload.tagCounts) {
-    return `已更新 ${payload.tagCounts.changed} 道题的标签。`;
+  if (payload.source === "agent-tags" && payload.tagCounts && payload.field) {
+    return `已更新 ${payload.tagCounts.changed} 道题的${AGENT_TAG_FIELD_LABELS[payload.field]}。`;
   }
   if (payload.counts?.created) return `已导入 ${payload.counts.created} 道题。`;
   if (payload.counts?.updated) return `已更新 ${payload.counts.updated} 道题。`;

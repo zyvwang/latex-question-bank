@@ -8,8 +8,19 @@ import {
   type ValidationResult
 } from "./validation-primitives.js";
 
-// 一份清单要么逐题改（changes），要么全库改（renames/deletions），不能混用；
-// 全库操作对每个标签同时生效，不是依次执行。
+// 一份清单只整理一个字段（考点或题型）；要么逐题改（changes），要么全库改
+// （renames/deletions），不能混用；全库操作对每个值同时生效，不是依次执行。
+export type AgentTagField = "topics" | "questionTypes";
+
+export const AGENT_TAG_FIELD_LABELS: Record<AgentTagField, string> = {
+  topics: "考点",
+  questionTypes: "题型"
+};
+
+export function isAgentTagField(value: unknown): value is AgentTagField {
+  return value === "topics" || value === "questionTypes";
+}
+
 export interface AgentTagItemChange {
   id: string;
   add?: string[];
@@ -23,6 +34,7 @@ export interface AgentTagRename {
 
 export interface AgentTagManifest {
   schemaVersion: 1;
+  field: AgentTagField;
   note?: string;
   changes?: AgentTagItemChange[];
   renames?: AgentTagRename[];
@@ -54,9 +66,10 @@ export interface AgentTagJournalEntry {
   after: string[];
 }
 
-// 撤销记录由服务端生成、CLI 保存；撤销时只恢复标签仍等于 after 的题。
+// 撤销记录由服务端生成、CLI 保存；撤销时只恢复该字段仍等于 after 的题。
 export interface AgentTagJournal {
   schemaVersion: 1;
+  field: AgentTagField;
   workspacePath: string;
   createdAt: string;
   note: string | null;
@@ -64,6 +77,7 @@ export interface AgentTagJournal {
 }
 
 export interface AgentTagSummary {
+  field: AgentTagField;
   dryRun: boolean;
   revision: string;
   counts: AgentTagCounts;
@@ -79,6 +93,7 @@ export interface AgentTagUndoConflict {
 }
 
 export interface AgentTagUndoSummary {
+  field: AgentTagField;
   dryRun: boolean;
   revision: string;
   counts: { restored: number; unchanged: number; conflicts: number };
@@ -90,7 +105,7 @@ export interface AgentTagUndoSummary {
 export const MAX_TAG_ENTRIES = 5000;
 const MAX_TAG_GLOBAL_OPERATIONS = 200;
 const MAX_NOTE_LENGTH = 200;
-const RESERVED_TAG_MESSAGE = "「待审阅」是保留标签，请使用审阅状态。";
+const RESERVED_TAG_MESSAGE = "「待审阅」是保留值，请使用审阅状态。";
 
 export function tagKey(tag: string): string {
   return normalizeUniqueName(tag);
@@ -118,11 +133,16 @@ function runValidation<T>(parse: () => T): ValidationResult<T> {
 }
 
 function parseManifest(value: unknown): AgentTagManifest {
-  if (!isRecord(value)) throw new ValidationError("标签清单必须是对象。");
-  assertKnownKeys(value, ["schemaVersion", "note", "changes", "renames", "deletions"], "标签清单");
+  if (!isRecord(value)) throw new ValidationError("整理清单必须是对象。");
+  assertKnownKeys(
+    value,
+    ["schemaVersion", "field", "note", "changes", "renames", "deletions"],
+    "整理清单"
+  );
   if (value.schemaVersion !== 1) {
-    throw new ValidationError("标签清单 schemaVersion 必须为 1。");
+    throw new ValidationError("整理清单 schemaVersion 必须为 1。");
   }
+  const field = parseField(value.field);
   const note = parseNote(value.note);
   const changes = parseChanges(value.changes);
   const renames = parseRenames(value.renames);
@@ -134,16 +154,24 @@ function parseManifest(value: unknown): AgentTagManifest {
     );
   }
   if (changes.length === 0 && !global) {
-    throw new ValidationError("标签清单必须包含 changes，或 renames/deletions。");
+    throw new ValidationError("整理清单必须包含 changes，或 renames/deletions。");
   }
   assertGlobalOperationsConsistent(renames, deletions);
   return {
     schemaVersion: 1,
+    field,
     ...(note ? { note } : {}),
     ...(changes.length ? { changes } : {}),
     ...(renames.length ? { renames } : {}),
     ...(deletions.length ? { deletions } : {})
   };
+}
+
+function parseField(value: unknown): AgentTagField {
+  if (!isAgentTagField(value)) {
+    throw new ValidationError("field 必须是 topics（考点）或 questionTypes（题型）。");
+  }
+  return value;
 }
 
 function parseNote(value: unknown): string | undefined {
@@ -162,7 +190,7 @@ function parseChanges(value: unknown): AgentTagItemChange[] {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) throw new ValidationError("changes 必须是数组。");
   if (value.length > MAX_TAG_ENTRIES) {
-    throw new ValidationError(`单次最多修改 ${MAX_TAG_ENTRIES} 道题的标签。`);
+    throw new ValidationError(`单次最多修改 ${MAX_TAG_ENTRIES} 道题。`);
   }
   const ids = new Set<string>();
   return value.map((entry, index) => {
@@ -177,7 +205,7 @@ function parseChanges(value: unknown): AgentTagItemChange[] {
     const add = parseTagList(entry.add, `${label}.add`, true);
     const remove = parseTagList(entry.remove, `${label}.remove`, false);
     if (add.length === 0 && remove.length === 0) {
-      throw new ValidationError(`${label} 至少需要一个 add 或 remove 标签。`);
+      throw new ValidationError(`${label} 至少需要一个 add 或 remove 值。`);
     }
     const removeKeys = new Set(remove.map(tagKey));
     const clash = add.find((tag) => removeKeys.has(tagKey(tag)));
@@ -209,7 +237,7 @@ function parseRenames(value: unknown): AgentTagRename[] {
       throw new ValidationError(`${label} 的 from 与 to 相同：${from}`);
     }
     if (fromKeys.has(tagKey(from))) {
-      throw new ValidationError(`renames 中来源标签重复：${from}`);
+      throw new ValidationError(`renames 中来源值重复：${from}`);
     }
     fromKeys.add(tagKey(from));
     return { from, to };
@@ -251,12 +279,13 @@ function parseJournal(value: unknown): AgentTagJournal {
   if (!isRecord(value)) throw new ValidationError("撤销记录必须是对象。");
   assertKnownKeys(
     value,
-    ["schemaVersion", "workspacePath", "createdAt", "note", "entries"],
+    ["schemaVersion", "field", "workspacePath", "createdAt", "note", "entries"],
     "撤销记录"
   );
   if (value.schemaVersion !== 1) {
     throw new ValidationError("撤销记录 schemaVersion 必须为 1。");
   }
+  const field = parseField(value.field);
   const workspacePath = parseNonEmptyString(value.workspacePath, "workspacePath");
   const createdAt = parseNonEmptyString(value.createdAt, "createdAt");
   if (
@@ -287,11 +316,11 @@ function parseJournal(value: unknown): AgentTagJournal {
       after: parseStoredTags(entry.after, `${label}.after`)
     };
   });
-  return { schemaVersion: 1, workspacePath, createdAt, note, entries };
+  return { schemaVersion: 1, field, workspacePath, createdAt, note, entries };
 }
 
-// 撤销记录里的标签就是题库里已有的标签，只校验类型和保留标签，
-// 不能比题库自身的校验更严，否则带特殊字符的旧标签永远无法撤销。
+// 撤销记录里的值就是题库里已有的值，只校验类型和保留值，
+// 不能比题库自身的校验更严，否则带特殊字符的旧值永远无法撤销。
 function parseStoredTags(value: unknown, label: string): string[] {
   if (!Array.isArray(value) || !value.every((tag) => typeof tag === "string")) {
     throw new ValidationError(`${label} 必须是字符串数组。`);
@@ -302,8 +331,8 @@ function parseStoredTags(value: unknown, label: string): string[] {
   return [...value];
 }
 
-// create 为 true 时（add、改名目标）标签会写入题库，按 mergeTags 的规则规范化并拒绝控制字符；
-// 否则只是用来匹配题库里已有的标签，比较时用 tagKey 忽略大小写和全半角。
+// create 为 true 时（add、改名目标）值会写入题库，按 mergeTags 的规则规范化并拒绝控制字符；
+// 否则只是用来匹配题库里已有的值，比较时用 tagKey 忽略大小写和全半角。
 function parseTag(value: unknown, label: string, create: boolean): string {
   if (typeof value !== "string") {
     throw new ValidationError(`${label} 必须是字符串。`);

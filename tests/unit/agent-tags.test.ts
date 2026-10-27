@@ -15,6 +15,7 @@ describe("agent tag manifest validation", () => {
   it("accepts per-item changes and normalizes tags that will be created", () => {
     const result = validateAgentTagManifest({
       schemaVersion: 1,
+      field: "topics",
       note: "  考点归类 v1  ",
       changes: [
         {
@@ -28,6 +29,7 @@ describe("agent tag manifest validation", () => {
     expect(result.ok).toBe(true);
     expect(result.value).toEqual({
       schemaVersion: 1,
+      field: "topics",
       note: "考点归类 v1",
       changes: [
         { id: "q1", add: ["考点·极限", "AB"], remove: ["旧标签"] },
@@ -39,6 +41,7 @@ describe("agent tag manifest validation", () => {
   it("accepts global renames and deletions", () => {
     const result = validateAgentTagManifest({
       schemaVersion: 1,
+      field: "topics",
       renames: [
         { from: "数列极限", to: "考点·数列极限" },
         { from: "函数极限", to: "考点·函数极限" }
@@ -54,11 +57,12 @@ describe("agent tag manifest validation", () => {
     // 题库里已有的怪标签（含控制字符）仍然要能被移除和删除。
     const result = validateAgentTagManifest({
       schemaVersion: 1,
+      field: "topics",
       changes: [{ id: "q1", remove: ["旧\t标签"] }]
     });
     expect(result.ok).toBe(true);
     expect(
-      validateAgentTagManifest({ schemaVersion: 1, deletions: ["旧\t标签"] }).ok
+      validateAgentTagManifest({ schemaVersion: 1, field: "topics", deletions: ["旧\t标签"] }).ok
     ).toBe(true);
   });
 
@@ -67,36 +71,50 @@ describe("agent tag manifest validation", () => {
     expect(manifestError({ schemaVersion: 2, changes: [] })).toContain(
       "schemaVersion"
     );
-    expect(manifestError({ schemaVersion: 1 })).toContain("必须包含");
-    expect(manifestError({ schemaVersion: 1, changes: [] })).toContain("必须包含");
-    expect(manifestError({ schemaVersion: 1, changes: "x" })).toContain(
+    expect(manifestError({ schemaVersion: 1, field: "topics" })).toContain("必须包含");
+    expect(manifestError({ schemaVersion: 1, field: "topics", changes: [] })).toContain("必须包含");
+    expect(manifestError({ schemaVersion: 1, field: "topics", changes: "x" })).toContain(
       "changes 必须是数组"
     );
-    expect(manifestError({ schemaVersion: 1, note: 3, changes: [] })).toContain(
+    expect(manifestError({ schemaVersion: 1, field: "topics", note: 3, changes: [] })).toContain(
       "note"
     );
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         note: "x".repeat(201),
         deletions: ["a"]
       })
     ).toContain("note");
   });
 
+  it("requires a known field", () => {
+    expect(manifestError({ schemaVersion: 1, deletions: ["a"] })).toContain("field");
+    expect(
+      manifestError({ schemaVersion: 1, field: "tags", deletions: ["a"] })
+    ).toContain("field");
+    expect(
+      validateAgentTagManifest({ schemaVersion: 1, field: "questionTypes", deletions: ["a"] })
+        .value?.field
+    ).toBe("questionTypes");
+  });
+
   it("rejects unknown fields instead of silently ignoring typos", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         changes: [{ id: "q1", add: ["a"], removes: ["b"] }]
       })
     ).toContain("removes");
     expect(
-      manifestError({ schemaVersion: 1, change: [], deletions: ["a"] })
+      manifestError({ schemaVersion: 1, field: "topics", change: [], deletions: ["a"] })
     ).toContain("change");
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [{ from: "a", to: "b", note: "x" }]
       })
     ).toContain("note");
@@ -106,6 +124,7 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         changes: [{ id: "q1", add: ["a"] }],
         deletions: ["b"]
       })
@@ -113,7 +132,7 @@ describe("agent tag manifest validation", () => {
   });
 
   it("rejects invalid per-item entries", () => {
-    const base = { schemaVersion: 1 };
+    const base = { schemaVersion: 1, field: "topics" };
     expect(manifestError({ ...base, changes: [{ add: ["a"] }] })).toContain(
       "changes[0].id"
     );
@@ -145,13 +164,13 @@ describe("agent tag manifest validation", () => {
 
   it("rejects the reserved review tag everywhere", () => {
     for (const manifest of [
-      { schemaVersion: 1, changes: [{ id: "q1", add: ["待审阅"] }] },
-      { schemaVersion: 1, changes: [{ id: "q1", remove: ["待审阅"] }] },
-      { schemaVersion: 1, renames: [{ from: "待审阅", to: "x" }] },
-      { schemaVersion: 1, renames: [{ from: "x", to: "待审阅" }] },
-      { schemaVersion: 1, deletions: ["待审阅"] }
+      { schemaVersion: 1, field: "topics", changes: [{ id: "q1", add: ["待审阅"] }] },
+      { schemaVersion: 1, field: "topics", changes: [{ id: "q1", remove: ["待审阅"] }] },
+      { schemaVersion: 1, field: "topics", renames: [{ from: "待审阅", to: "x" }] },
+      { schemaVersion: 1, field: "topics", renames: [{ from: "x", to: "待审阅" }] },
+      { schemaVersion: 1, field: "topics", deletions: ["待审阅"] }
     ]) {
-      expect(manifestError(manifest)).toContain("保留标签");
+      expect(manifestError(manifest)).toContain("保留值");
     }
   });
 
@@ -159,12 +178,14 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [{ from: "A", to: "a" }]
       })
     ).toContain("相同");
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [
           { from: "a", to: "b" },
           { from: "A", to: "c" }
@@ -174,6 +195,7 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [
           { from: "a", to: "b" },
           { from: "b", to: "c" }
@@ -183,6 +205,7 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [
           { from: "a", to: "b" },
           { from: "b", to: "a" }
@@ -192,6 +215,7 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [{ from: "a", to: "b" }],
         deletions: ["a"]
       })
@@ -199,6 +223,7 @@ describe("agent tag manifest validation", () => {
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         renames: [{ from: "a", to: "b" }],
         deletions: ["B"]
       })
@@ -208,6 +233,7 @@ describe("agent tag manifest validation", () => {
   it("allows merging several tags into one target", () => {
     const result = validateAgentTagManifest({
       schemaVersion: 1,
+      field: "topics",
       renames: [
         { from: "a", to: "c" },
         { from: "b", to: "c" }
@@ -221,10 +247,11 @@ describe("agent tag manifest validation", () => {
       id: `q${index}`,
       add: ["a"]
     }));
-    expect(manifestError({ schemaVersion: 1, changes })).toContain("最多");
+    expect(manifestError({ schemaVersion: 1, field: "topics", changes })).toContain("最多");
     expect(
       manifestError({
         schemaVersion: 1,
+        field: "topics",
         deletions: Array.from({ length: 201 }, (_value, index) => `t${index}`)
       })
     ).toContain("最多");
@@ -235,6 +262,7 @@ describe("agent tag journal validation", () => {
   function journal(overrides: Record<string, unknown> = {}) {
     return {
       schemaVersion: 1,
+      field: "topics",
       workspacePath: "/tmp/bank",
       createdAt: "2026-10-27T00:00:00.000Z",
       note: null,
@@ -264,6 +292,8 @@ describe("agent tag journal validation", () => {
     for (const bad of [
       null,
       journal({ schemaVersion: 2 }),
+      journal({ field: undefined }),
+      journal({ field: "tags" }),
       journal({ workspacePath: " " }),
       journal({ createdAt: 3 }),
       journal({ note: 3 }),
