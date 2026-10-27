@@ -198,6 +198,7 @@ Agent 导入边界：
 - 纯领域逻辑、排序、校验、storage helper：`npm run test:unit`
 - API route、workspace、保存、恢复、上传、导出接口：`npm run test:api`
 - Agent token、manifest 导入、冲突/覆盖、附件、SSE：`npm run test:api`；CLI 冒烟需启动应用或 headless API
+- API 测试一律用 `tests/fixtures/api-server.ts` 的 `listenLocal()` + `request()`，不要把 Express app 直接交给 supertest（ESLint 已禁止）：supertest 会绑定通配地址，在 macOS 上可能与本机其他进程占用的 127.0.0.1 端口冲突，请求会打到那个进程（包括正在运行的正式版应用）。
 - Electron 主进程、preload、CSP、导航或 IPC：`npm run test:electron`
 - React 组件、hooks、自动保存、交互状态、审阅页、外部同步：`npm run test:ui`
 - 端到端桌面行为：先 `npm run build`，再 `npm run test:desktop`

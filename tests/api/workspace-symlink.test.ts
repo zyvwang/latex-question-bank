@@ -9,7 +9,6 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import { appDataDir } from "../../server/app-state.js";
@@ -17,6 +16,7 @@ import { createSampleBank } from "../../server/bank-schema.js";
 import { cleanupTempDirectory } from "../../server/temp-directory-cleanup.js";
 import { assertRealWorkspaceSubdir } from "../../server/workspace-paths.js";
 import { getWorkspaceDirs } from "../../server/workspace-storage.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 const workspacePath = path.resolve(".tmp/vitest-symlink-workspace");
 const externalDir = path.resolve(".tmp/vitest-symlink-external");
@@ -48,7 +48,7 @@ function withAsset(fileName: string) {
   };
 }
 
-async function createEmptyWorkspaceViaApi(app: ReturnType<typeof createApiApp>) {
+async function createEmptyWorkspaceViaApi(app: string) {
   await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
 }
 
@@ -99,7 +99,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects saving (history snapshot) when .history is a symlink and writes nothing outside", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const initial = await request(app).get("/api/bank").expect(200);
     await linkSubdirToExternal(".history");
@@ -118,7 +118,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects exporting when exports is a symlink", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const initial = await request(app).get("/api/bank").expect(200);
     await request(app)
@@ -148,7 +148,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects asset upload when assets is a symlink and writes nothing outside", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await linkSubdirToExternal("assets");
 
@@ -163,7 +163,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects opening a workspace whose subdirectory is a symlink", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await linkSubdirToExternal("exports");
 
@@ -178,7 +178,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("does not falsely reject a workspace with normal real subdirectories", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const initial = await request(app).get("/api/bank").expect(200);
     await request(app)
@@ -197,7 +197,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("serves regular files for GET and HEAD without falling through missing files to the SPA", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const uploaded = await request(app)
       .post("/api/assets")
@@ -222,7 +222,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects a symlinked asset for preview, compile, and export", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const initial = await request(app).get("/api/bank").expect(200);
     const fileName = "linked.png";
@@ -256,7 +256,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects recovery reads when .history is replaced by a symlink", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await mkdir(externalDir, { recursive: true });
     await writeFile(
@@ -273,7 +273,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("omits symlinked recovery candidates and refuses them during restore", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await mkdir(path.join(workspacePath, ".history"), { recursive: true });
     await mkdir(externalDir, { recursive: true });
@@ -304,7 +304,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("revalidates a history candidate when it becomes a symlink before restore", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     const historyDir = path.join(workspacePath, ".history");
     const candidateId = "replace-after-list.json";
@@ -332,7 +332,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects save-as when a referenced asset file is a symlink", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await mkdir(externalDir, { recursive: true });
     const externalFile = path.join(externalDir, "private.png");
@@ -362,7 +362,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
   });
 
   it("rejects a save-as target that is a symlink", async () => {
-    const app = createApiApp();
+    const app = await listenLocal(createApiApp());
     await createEmptyWorkspaceViaApi(app);
     await mkdir(externalDir, { recursive: true });
     await symlink(externalDir, saveAsPath);
@@ -386,7 +386,7 @@ describe.skipIf(process.platform === "win32")("workspace subdirectory symlink gu
 it("rejects recovery addressed to a different workspace before touching its backup", async () => {
   await rm(appDataDir, { recursive: true, force: true });
   await rm(workspacePath, { recursive: true, force: true });
-  const app = createApiApp();
+  const app = await listenLocal(createApiApp());
   await createEmptyWorkspaceViaApi(app);
   const before = await readFile(path.join(workspacePath, "bank.json"), "utf8");
   await request(app).post("/api/recovery")

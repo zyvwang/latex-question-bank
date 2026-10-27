@@ -1,7 +1,6 @@
 import { validPng } from "../fixtures/images.js";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import * as assetService from "../../server/asset-service.js";
@@ -10,6 +9,7 @@ import { createSampleBank } from "../../server/bank-schema.js";
 import { compileLatex } from "../../server/latex-runtime.js";
 import { exportBank } from "../../server/export-service.js";
 import type { BankSnapshot, CompileResult, ExportResponse } from "../../shared/types.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 vi.mock("../../server/latex-runtime.js", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../server/latex-runtime.js")>(),
@@ -31,7 +31,7 @@ beforeEach(async () => {
   vi.mocked(exportBank).mockReset();
 });
 async function setup() {
-  const app = createApiApp();
+  const app = await listenLocal(createApiApp());
   for (const workspacePath of [a, b]) {
     await mkdir(workspacePath, { recursive: true });
     await writeFile(path.join(workspacePath, "bank.json"), JSON.stringify(createSampleBank()));

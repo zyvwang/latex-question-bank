@@ -52,6 +52,18 @@ export default tseslint.config(
     }
   },
   {
+    files: ["tests/**/*.{ts,tsx}"],
+    ignores: ["tests/fixtures/api-server.ts"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [{
+          name: "supertest",
+          message: "Use listenLocal/request from tests/fixtures/api-server.ts so test servers bind 127.0.0.1."
+        }]
+      }]
+    }
+  },
+  {
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "error"

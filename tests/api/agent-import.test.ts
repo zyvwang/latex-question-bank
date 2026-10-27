@@ -1,6 +1,5 @@
 import { access, rm } from "node:fs/promises";
 import path from "node:path";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AgentImportManifest } from "../../shared/agent-manifest.js";
 import type { Bank } from "../../shared/types.js";
@@ -9,6 +8,7 @@ import { appDataDir } from "../../server/app-state.js";
 import { readBankSnapshotAt } from "../../server/bank-reader.js";
 import { createApiApp } from "../../server/index.js";
 import { validPng } from "../fixtures/images.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 const workspacePath = path.resolve(".tmp/vitest-agent-import-workspace");
 const createdBankPath = path.resolve(".tmp/vitest-agent-created-bank");
@@ -518,8 +518,8 @@ describe("agent import API", () => {
   });
 });
 
-async function setup(): Promise<ReturnType<typeof createApiApp>> {
-  const app = createApiApp();
+async function setup(): Promise<string> {
+  const app = await listenLocal(createApiApp());
   await request(app)
     .post("/api/workspaces/create-sample")
     .send({ workspacePath })
@@ -528,7 +528,7 @@ async function setup(): Promise<ReturnType<typeof createApiApp>> {
   return app;
 }
 
-async function getBank(app: ReturnType<typeof createApiApp>): Promise<{
+async function getBank(app: string): Promise<{
   workspacePath: string;
   revision: string;
   bank: Bank;
@@ -538,7 +538,7 @@ async function getBank(app: ReturnType<typeof createApiApp>): Promise<{
 }
 
 async function postImport(
-  app: ReturnType<typeof createApiApp>,
+  app: string,
   manifest: AgentImportManifest,
   options: {
     dryRun?: boolean;
@@ -577,7 +577,7 @@ async function postImport(
 }
 
 async function postUndo(
-  app: ReturnType<typeof createApiApp>,
+  app: string,
   batchId: string,
   options: { workspace?: string } = {}
 ) {
@@ -593,7 +593,7 @@ async function postUndo(
 }
 
 async function postImportRaw(
-  app: ReturnType<typeof createApiApp>,
+  app: string,
   manifest: unknown
 ) {
   const snapshot = await getBank(app);
@@ -673,7 +673,7 @@ function createBankManifest(): AgentImportManifest {
 }
 
 async function putBank(
-  app: ReturnType<typeof createApiApp>,
+  app: string,
   updater: (bank: Bank) => Bank
 ): Promise<void> {
   const snapshot = await getBank(app);

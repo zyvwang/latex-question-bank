@@ -1,11 +1,11 @@
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
-import request from "supertest";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createApiApp } from "../../server/index.js";
 import { apiErrorHandler } from "../../server/http/middleware.js";
 import { appDataDir } from "../../server/app-state.js";
+import { listenLocal, request } from "../fixtures/api-server.js";
 
 const workspacePath = path.resolve(".tmp/vitest-json-errors");
 beforeEach(async () => {
@@ -14,7 +14,7 @@ beforeEach(async () => {
 });
 
 it("returns a safe 400 for invalid JSON before mutating the bank", async () => {
-  const app = createApiApp();
+  const app = await listenLocal(createApiApp());
   await request(app).post("/api/workspaces/create-empty").send({ workspacePath }).expect(200);
   const before = await readFile(path.join(workspacePath, "bank.json"), "utf8");
   for (const body of ['{"bank":', '{ broken private-content }', '{"bank":{}', '{"bank":undefined}']) {
@@ -29,7 +29,7 @@ it("returns a safe 400 for invalid JSON before mutating the bank", async () => {
 });
 
 it("preserves origin and body-size gates before JSON syntax errors", async () => {
-  const app = createApiApp({ jsonBodyLimitBytes: 16 });
+  const app = await listenLocal(createApiApp({ jsonBodyLimitBytes: 16 }));
   await request(app).post("/api/compile-item").set("Content-Type", "application/json")
     .set("Origin", "https://example.invalid").send("{ broken").expect(403);
   await request(app).post("/api/compile-item").set("Content-Type", "application/json")
@@ -42,6 +42,6 @@ it("does not classify an internal SyntaxError as invalid request JSON", async ()
   const app = express();
   app.get("/internal", () => { throw new SyntaxError("private internal details"); });
   app.use(apiErrorHandler);
-  await request(app).get("/internal").expect(500)
+  await request(await listenLocal(app)).get("/internal").expect(500)
     .expect(({ body }) => expect(body).toEqual({ error: "服务器内部错误。", code: "INTERNAL_ERROR" }));
 });
