@@ -70,7 +70,7 @@ React UI
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
 - `src/styles/controls.module.css`：共享按钮样式。
 - `cli/`：本地 Agent CLI（`lqb`），只通过本地 API 写入，不直接改 `bank.json`。
-- `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-service.ts`、`server/agent-workspace-service.ts`、`server/agent-undo-service.ts`：Agent token、发现文件、manifest 导入、新建题库、批次撤销与附件。
+- `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-plan.ts`（纯规划，不落盘）、`server/agent-import-service.ts`、`server/agent-workspace-service.ts`、`server/agent-undo-service.ts`：Agent token、发现文件、manifest 导入、新建题库、批次撤销与附件。
 - `server/routes/events-routes.ts`、`server/events.ts`：本地 SSE 广播。
 - `shared/agent-manifest.ts`：Agent 导入清单契约与校验。
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
