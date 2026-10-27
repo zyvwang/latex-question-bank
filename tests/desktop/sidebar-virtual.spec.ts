@@ -14,7 +14,7 @@ test("virtual sidebar preserves selection, focus, sticky handoff and drag after 
   bank.items = Array.from({ length: 1200 }, (_, i) => ({
     ...bank.items[0], id: `virtual-${i}`, chapterId: i < 600 ? "a" : "b",
     chapterOrder: i % 600 + 1, source: { bookId: null, label: `V${i}` }, assets: [],
-    tags: i % 10 === 0 ? ["目标", "这是需要完整换行显示的长方法标签"] : ["普通"]
+    topics: i % 10 === 0 ? ["目标", "这是需要完整换行显示的长考点名称"] : ["普通"]
   }));
   await writeFile(path.join(workspace, "bank.json"), JSON.stringify(bank));
   const app = await electron.launch({ args: ["."], env: {

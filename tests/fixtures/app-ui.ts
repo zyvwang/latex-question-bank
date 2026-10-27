@@ -23,7 +23,7 @@ export const appInfo: AppInfo = {
 };
 
 export const bank: Bank = {
-  version: 3,
+  version: 4,
   settings: {
     pageSize: "a4",
     spacing: { item: "0.5em", module: "0.25em" },
@@ -41,7 +41,8 @@ export const bank: Bank = {
       source: { bookId: null, label: "2024-1" },
       chapterId: "chapter-calculus",
       chapterOrder: 1,
-      tags: ["极限"],
+      topics: ["极限"],
+      questionTypes: [],
       reviewPriority: "must",
       reviewStatus: "approved",
       solutionSource: "user",
@@ -63,7 +64,8 @@ export const bank: Bank = {
       source: { bookId: null, label: "2024-2" },
       chapterId: "chapter-linear-algebra",
       chapterOrder: 1,
-      tags: ["矩阵"],
+      topics: ["矩阵"],
+      questionTypes: [],
       reviewPriority: "skip",
       reviewStatus: "pending",
       solutionSource: "agent",

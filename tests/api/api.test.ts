@@ -617,7 +617,7 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_MIME_MISMATCH"));
   });
 
-  it("reads v1 without rewriting it and preserves v1 before the first v3 save", async () => {
+  it("reads v1 without rewriting it and preserves v1 before the first v4 save", async () => {
     const app = await listenLocal(createApiApp());
     await request(app)
       .post("/api/workspaces/create-empty")
@@ -631,7 +631,7 @@ describe("API validation", () => {
     const loaded = await request(app).get("/api/bank").expect(200);
     expect(loaded.body.revision).toBe(revisionForContent(raw));
     expect(loaded.body.bank).toMatchObject({
-      version: 3,
+      version: 4,
       books: [],
       imports: []
     });
@@ -653,7 +653,7 @@ describe("API validation", () => {
         bank: {
           ...loaded.body.bank,
           items: loaded.body.bank.items.map((item: { id: string }) =>
-            item.id === "legacy-b" ? { ...item, tags: ["saved"] } : item
+            item.id === "legacy-b" ? { ...item, topics: ["saved"] } : item
           )
         }
       })
@@ -667,7 +667,50 @@ describe("API validation", () => {
         await readFile(path.join(workspacePath, ".history", historyFiles[0]), "utf8")
       ).version
     ).toBe(1);
-    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(3);
+    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(4);
+  });
+
+  it("splits v3 prefixed tags on read and keeps the v3 file in .history on the first save", async () => {
+    const app = await listenLocal(createApiApp());
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const sample = createSampleBank();
+    const v3 = {
+      ...sample,
+      version: 3,
+      items: sample.items.map(({ topics: _topics, questionTypes: _types, ...item }) => ({
+        ...item,
+        tags: ["考点·极限", "题型·解答", "考法·泰勒展开", "无前缀"]
+      }))
+    };
+    const raw = `${JSON.stringify(v3, null, 2)}\n`;
+    const bankPath = path.join(workspacePath, "bank.json");
+    await writeFile(bankPath, raw, "utf8");
+
+    const loaded = await request(app).get("/api/bank").expect(200);
+    expect(loaded.body.revision).toBe(revisionForContent(raw));
+    expect(loaded.body.bank.version).toBe(4);
+    expect(loaded.body.bank.items[0]).toMatchObject({
+      topics: ["极限"],
+      questionTypes: ["解答"]
+    });
+    expect(loaded.body.bank.items[0]).not.toHaveProperty("tags");
+    // 只读不写：首次保存前磁盘上仍是 v3。
+    expect(await readFile(bankPath, "utf8")).toBe(raw);
+
+    await request(app)
+      .put("/api/bank")
+      .send({ workspacePath, baseRevision: loaded.body.revision, bank: loaded.body.bank })
+      .expect(200);
+
+    expect(JSON.parse(await readFile(bankPath, "utf8")).version).toBe(4);
+    const historyFiles = await readdir(path.join(workspacePath, ".history"));
+    expect(historyFiles).toHaveLength(1);
+    expect(
+      await readFile(path.join(workspacePath, ".history", historyFiles[0]), "utf8")
+    ).toBe(raw);
   });
 
   it("keeps the previous export when a replacement compile fails", async () => {

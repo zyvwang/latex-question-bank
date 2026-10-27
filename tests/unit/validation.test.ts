@@ -60,12 +60,18 @@ describe("shared validation", () => {
     ).toBe("seed");
   });
 
-  it("accepts valid v3 banks and rejects unsafe v3 saves", () => {
+  it("accepts valid v4 banks and rejects unsafe v4 saves", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
 
     expect(validateBankPayload(bank).ok).toBe(true);
-    expect(validateBankPayload(bank).value?.version).toBe(3);
+    expect(validateBankPayload(bank).value?.version).toBe(4);
+    expect(
+      validateBankPayload({
+        ...bank,
+        items: [{ ...item, topics: [" 极限 ", "极限", "泰勒"], questionTypes: ["解答", " 解答"] }]
+      }).value?.items[0]
+    ).toMatchObject({ topics: ["极限", "泰勒"], questionTypes: ["解答"] });
     expect(
       validateBankPayload({
         ...bank,
@@ -89,6 +95,14 @@ describe("shared validation", () => {
       }).ok
     ).toBe(true);
     expect(validateSaveBankRequest(null).ok).toBe(false);
+    // 保存请求只接受当前版本；旧版本只能作为磁盘上的迁移输入。
+    expect(
+      validateSaveBankRequest({
+        workspacePath: "/tmp/bank",
+        baseRevision: "a".repeat(64),
+        bank: { ...bank, version: 3 }
+      }).ok
+    ).toBe(false);
     expect(validateSaveBankRequest({ workspacePath: " ", baseRevision: "", bank }).ok).toBe(false);
     expect(validateSaveBankRequest({ workspacePath: "/tmp", baseRevision: 1, bank }).ok).toBe(false);
 
@@ -111,8 +125,14 @@ describe("shared validation", () => {
       { ...bank, items: [{ ...item, chapterOrder: 0 }] },
       { ...bank, items: [{ ...item, chapterId: 5 }] },
       { ...bank, items: [{ ...item, chapterId: "missing" }] },
-      { ...bank, items: [{ ...item, tags: [5] }] },
-      { ...bank, items: [{ ...item, tags: ["待审阅"] }] },
+      { ...bank, items: [{ ...item, topics: [5] }] },
+      { ...bank, items: [{ ...item, topics: undefined }] },
+      { ...bank, items: [{ ...item, topics: ["待审阅"] }] },
+      { ...bank, items: [{ ...item, topics: [" "] }] },
+      { ...bank, items: [{ ...item, questionTypes: "解答" }] },
+      { ...bank, items: [{ ...item, questionTypes: undefined }] },
+      { ...bank, items: [{ ...item, questionTypes: ["待审阅"] }] },
+      { ...bank, items: [{ ...item, questionTypes: ["选\u0007择"] }] },
       { ...bank, items: [{ ...item, reviewPriority: "urgent" }] },
       { ...bank, items: [{ ...item, reviewStatus: "draft" }] },
       { ...bank, items: [{ ...item, solutionSource: "book" }] },
@@ -220,7 +240,7 @@ describe("shared validation", () => {
           order: 1,
           sourceNumber: "1",
           chapter: "旧章节",
-          tags: item.tags,
+          tags: item.topics,
           star: 3,
           modules: undefined,
           assets: item.assets,

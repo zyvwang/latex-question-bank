@@ -99,10 +99,10 @@ describe("close boundary commits focused drafts", () => {
     expect(savedBanks).toEqual([]);
   });
 
-  it("saves a half-typed tag that was never committed with Enter", async () => {
+  it("saves a half-typed topic that was never committed with Enter", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const tagInput = await screen.findByLabelText("添加标签");
+    const tagInput = await screen.findByLabelText("添加考点");
 
     await user.click(tagInput);
     await user.type(tagInput, "洛必达");
@@ -111,7 +111,7 @@ describe("close boundary commits focused drafts", () => {
     await closeListener!();
 
     expect(savedBanks).toHaveLength(1);
-    expect(savedBanks[0].items[0].tags).toContain("洛必达");
+    expect(savedBanks[0].items[0].topics).toContain("洛必达");
   });
 
   it("still flushes normally when nothing is focused", async () => {

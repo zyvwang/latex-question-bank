@@ -306,7 +306,8 @@ describe("domain helpers", () => {
         source: { bookId: null, label: "changed" },
         chapterId: null,
         chapterOrder: 9,
-        tags: ["changed"]
+        topics: ["changed"],
+        questionTypes: ["changed"]
       }, bank.settings),
       initial
     );
@@ -630,7 +631,8 @@ function createItems(ids: string[]): QuestionItem[] {
     source: { bookId: null, label: id },
     chapterId: null,
     chapterOrder: index + 1,
-    tags: [],
+    topics: [],
+    questionTypes: [],
     reviewPriority: null,
     reviewStatus: "approved",
     solutionSource: "none",

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { migrateLegacyBank } from "../../shared/bank-migration.js";
+import {
+  migrateLegacyBank,
+  splitLegacyTags
+} from "../../shared/bank-migration.js";
 import type {
   LegacyBank,
   LegacyBankV2,
@@ -8,14 +11,14 @@ import type {
 import { validateBankPayload } from "../../shared/bank-validation.js";
 import { createSampleBank } from "../../server/bank-schema.js";
 
-describe("legacy bank migration to v3", () => {
+describe("legacy bank migration to v4", () => {
   it("is deterministic, discards stars, and derives chapter-local order", () => {
     const legacy = createLegacyBank();
     const first = migrateLegacyBank(legacy);
     const second = migrateLegacyBank(legacy);
 
     expect(second).toEqual(first);
-    expect(first.version).toBe(3);
+    expect(first.version).toBe(4);
     expect(first.chapters.map(({ name, order }) => ({ name, order }))).toEqual([
       { name: "第一章", order: 1 },
       { name: "第二章", order: 2 }
@@ -105,7 +108,8 @@ describe("legacy bank migration to v3", () => {
     expect(
       result.items.map((item) => ({
         source: item.source,
-        tags: item.tags,
+        topics: item.topics,
+        questionTypes: item.questionTypes,
         reviewStatus: item.reviewStatus
       }))
     ).toEqual([
@@ -114,7 +118,8 @@ describe("legacy bank migration to v3", () => {
           bookId: result.books[0].id,
           label: "1.17"
         },
-        tags: ["极限"],
+        topics: ["极限"],
+        questionTypes: [],
         reviewStatus: "pending"
       },
       {
@@ -122,7 +127,8 @@ describe("legacy bank migration to v3", () => {
           bookId: result.books[1].id,
           label: "1.1.1.12"
         },
-        tags: ["积分"],
+        topics: ["积分"],
+        questionTypes: [],
         reviewStatus: "approved"
       },
       {
@@ -130,7 +136,8 @@ describe("legacy bank migration to v3", () => {
           bookId: result.books[2].id,
           label: "1.A.4"
         },
-        tags: [],
+        topics: [],
+        questionTypes: [],
         reviewStatus: "approved"
       }
     ]);
@@ -165,7 +172,7 @@ describe("legacy bank migration to v3", () => {
     const result = validateBankPayload(legacy);
     expect(result.ok).toBe(true);
     const bank = result.value;
-    expect(bank?.version).toBe(3);
+    expect(bank?.version).toBe(4);
     expect(bank?.books.map((book) => book.title)).toEqual(["A书"]);
     expect(bank?.items[0].source).toEqual({
       bookId: bank?.books[0].id,
@@ -174,11 +181,70 @@ describe("legacy bank migration to v3", () => {
     expect(bank?.items[0].reviewStatus).toBe("pending");
     expect(bank?.items[0].reviewPriority).toBeNull();
     expect(bank?.items[0].solutionSource).toBeNull();
-    expect(bank?.items[0].tags).toEqual(["x"]);
+    expect(bank?.items[0].topics).toEqual(["x"]);
+    expect(bank?.items[0].questionTypes).toEqual([]);
     expect(bank?.items[0]).not.toHaveProperty("masteryOptionId");
     expect(bank?.items[0]).not.toHaveProperty("errorReasonOptionIds");
   });
 });
+
+describe("v3 bank migration to v4", () => {
+  it("splits prefixed tags into topics and question types and drops 考法 and free tags", () => {
+    const v3 = createV3Bank([
+      "考点·数列极限",
+      "题型·选择",
+      "考法·夹逼准则",
+      "自由标签",
+      " 考点·泰勒公式 ",
+      "考点·数列极限",
+      "题型·",
+      "题型·证明"
+    ]);
+    const result = validateBankPayload(v3);
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.version).toBe(4);
+    const item = result.value?.items[0];
+    expect(item?.topics).toEqual(["数列极限", "泰勒公式"]);
+    expect(item?.questionTypes).toEqual(["选择", "证明"]);
+    expect(item).not.toHaveProperty("tags");
+    // 其余字段原样保留
+    expect(item?.reviewPriority).toBe("recheck");
+    expect(item?.source).toEqual(v3.items[0].source);
+  });
+
+  it("still validates every v3 field through the v4 parser", () => {
+    const v3 = createV3Bank(["考点·极限"]);
+    expect(validateBankPayload({ ...v3, items: [{ ...v3.items[0], tags: "考点·极限" }] }).ok).toBe(false);
+    expect(validateBankPayload({ ...v3, items: [{ ...v3.items[0], tags: undefined }] }).ok).toBe(false);
+    expect(validateBankPayload({ ...v3, items: [{ ...v3.items[0], chapterId: "missing" }] }).ok).toBe(false);
+    expect(validateBankPayload({ ...v3, items: "x" }).ok).toBe(false);
+  });
+
+  it("keeps unprefixed legacy v1/v2 tags as topics but not 考法", () => {
+    expect(splitLegacyTags(["极限", "考法·换元", "题型·解答", "待审阅"], "topics")).toEqual({
+      topics: ["极限"],
+      questionTypes: ["解答"]
+    });
+    expect(splitLegacyTags(["极限", "考点·积分"], "drop")).toEqual({
+      topics: ["积分"],
+      questionTypes: []
+    });
+  });
+});
+
+// v3 与 v4 只差题目上的 tags 字段，用当前示例题库去掉新字段、补上 tags 构造。
+function createV3Bank(tags: string[]) {
+  const bank = createSampleBank();
+  return {
+    ...bank,
+    version: 3,
+    items: bank.items.map(({ topics: _topics, questionTypes: _types, ...item }) => ({
+      ...item,
+      tags
+    }))
+  };
+}
 
 function createLegacyBank(): LegacyBank {
   return {

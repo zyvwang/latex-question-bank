@@ -1,4 +1,8 @@
-import { migrateLegacyBank, migrateV2Bank } from "./bank-migration.js";
+import {
+  migrateLegacyBank,
+  migrateV2Bank,
+  upgradeV3Payload
+} from "./bank-migration.js";
 import { normalizeChapterItemOrders } from "./chapter-order.js";
 import { hasUniqueNormalizedNames } from "./names.js";
 import {
@@ -65,13 +69,14 @@ export function parseStoredBank(value: unknown): Bank {
   if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
   if (value.version === 1) return migrateLegacyBank(parseLegacyBank(value));
   if (value.version === 2) return migrateV2Bank(parseV2Bank(value));
-  if (value.version === 3) return parseV3Bank(value);
-  throw new ValidationError("题库版本必须为 1、2 或 3。");
+  if (value.version === 3) return parseV4Bank(upgradeV3Payload(value));
+  if (value.version === 4) return parseV4Bank(value);
+  throw new ValidationError("题库版本必须为 1、2、3 或 4。");
 }
 
-export function parseV3Bank(value: unknown): Bank {
+export function parseV4Bank(value: unknown): Bank {
   if (!isRecord(value)) throw new ValidationError("题库数据必须是对象。");
-  if (value.version !== 3) throw new ValidationError("保存的题库版本必须为 3。");
+  if (value.version !== 4) throw new ValidationError("保存的题库版本必须为 4。");
   if (!Array.isArray(value.chapters)) {
     throw new ValidationError("题库 chapters 必须是数组。");
   }
@@ -126,7 +131,7 @@ export function parseV3Bank(value: unknown): Bank {
   }
 
   return {
-    version: 3,
+    version: 4,
     settings: parseLatexSettings(value.settings),
     chapters,
     books,
@@ -360,7 +365,8 @@ export function parseQuestionItem(value: unknown): QuestionItem {
     source: parseQuestionSource(value.source),
     chapterId: nullableId(value.chapterId, "chapterId"),
     chapterOrder: requiredPositiveInteger(value, "chapterOrder"),
-    tags: parseTags(value.tags),
+    topics: parseLabelList(value.topics, "topics", "考点"),
+    questionTypes: parseLabelList(value.questionTypes, "questionTypes", "题型"),
     reviewPriority: parseReviewPriority(value.reviewPriority),
     reviewStatus: parseReviewStatus(value.reviewStatus),
     solutionSource: parseSolutionSource(value.solutionSource),
@@ -386,12 +392,19 @@ function parseQuestionSource(value: unknown): QuestionSource | null {
   };
 }
 
-function parseTags(value: unknown): string[] {
-  const tags = parseStringArray(value, "tags");
-  if (tags.some((tag) => isReservedTag(tag))) {
-    throw new ValidationError("「待审阅」是保留标签，请使用题目审阅状态。");
+// 考点/题型：去掉首尾空白并去重；空值和保留值「待审阅」直接拒绝。
+export function parseLabelList(value: unknown, key: string, label: string): string[] {
+  const values: string[] = [];
+  for (const raw of parseStringArray(value, key)) {
+    const entry = raw.trim();
+    if (!entry) throw new ValidationError(`${label}不能为空。`);
+    if (hasControlCharacter(entry)) throw new ValidationError(`${label}不能包含控制字符。`);
+    if (isReservedTag(entry)) {
+      throw new ValidationError(`「待审阅」是保留值，不能作为${label}，请使用题目审阅状态。`);
+    }
+    if (!values.includes(entry)) values.push(entry);
   }
-  return tags;
+  return values;
 }
 
 function parseReviewPriority(value: unknown): ReviewPriority | null {

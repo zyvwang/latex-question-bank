@@ -102,13 +102,13 @@ it("keeps an early pane adjustment while desktop preferences are still loading",
     ));
   });
 
-it("shows chapter headings and keeps review badges and tags on question rows", async () => {
+it("shows chapter headings and keeps review badges and topics on question rows", async () => {
     const statusBank: Bank = {
       ...bank,
       items: bank.items.map((item, index) => index === 0
         ? {
             ...item,
-            tags: ["极限", "含参数的分段函数连续性分类讨论"]
+            topics: ["极限", "含参数的分段函数连续性分类讨论"]
           }
         : {
             ...item,

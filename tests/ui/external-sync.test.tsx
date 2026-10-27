@@ -160,7 +160,7 @@ it("keeps local edits and shows a banner while an input is focused", async () =>
   expect(screen.queryByText("导入题")).not.toBeInTheDocument();
 });
 
-it("reloads an idle app after an agent tag change", async () => {
+it("reloads an idle app after an agent topic change", async () => {
   vi.stubGlobal(
     "EventSource",
     FakeEventSource as unknown as typeof EventSource
@@ -176,16 +176,17 @@ it("reloads an idle app after an agent tag change", async () => {
     workspacePath: "/tmp/latex-bank",
     revision: "revision-tags",
     source: "agent-tags",
+    field: "topics",
     tagCounts: { changed: 1, unchanged: 0, added: 1, removed: 0 }
   });
 
-  expect(await screen.findByText("已更新 1 道题的标签。")).toBeInTheDocument();
+  expect(await screen.findByText("已更新 1 道题的考点。")).toBeInTheDocument();
   expect(
-    await screen.findByRole("button", { name: "删除标签 考点·极限" })
+    await screen.findByRole("button", { name: "删除考点 函数极限" })
   ).toBeInTheDocument();
 });
 
-it("describes a tag change in the banner while an input is focused", async () => {
+it("describes a question type change in the banner while an input is focused", async () => {
   vi.stubGlobal(
     "EventSource",
     FakeEventSource as unknown as typeof EventSource
@@ -203,13 +204,14 @@ it("describes a tag change in the banner while an input is focused", async () =>
     workspacePath: "/tmp/latex-bank",
     revision: "revision-tags",
     source: "agent-tags",
+    field: "questionTypes",
     tagCounts: { changed: 3, unchanged: 0, added: 3, removed: 0 }
   });
 
   expect(await screen.findByText("题库已在外部更新")).toBeInTheDocument();
-  expect(screen.getByText(/Agent 修改了 3 道题的标签。/)).toBeInTheDocument();
+  expect(screen.getByText(/Agent 修改了 3 道题的题型。/)).toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "删除标签 考点·极限" })
+    screen.queryByRole("button", { name: "删除考点 函数极限" })
   ).not.toBeInTheDocument();
 });
 
@@ -218,7 +220,11 @@ function taggedBank(): Bank {
     ...bank,
     items: bank.items.map((item) =>
       item.id === "limit"
-        ? { ...item, tags: [...item.tags, "考点·极限"] }
+        ? {
+            ...item,
+            topics: [...item.topics, "函数极限"],
+            questionTypes: [...item.questionTypes, "证明"]
+          }
         : item
     )
   };
@@ -237,7 +243,8 @@ function importedBank(): Bank {
         source: { bookId: null, label: "导入题" },
         chapterId: null,
         chapterOrder: 1,
-        tags: ["导入"],
+        topics: ["导入"],
+        questionTypes: [],
         reviewPriority: "must",
         reviewStatus: "pending",
         solutionSource: "agent",

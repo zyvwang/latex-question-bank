@@ -13,7 +13,8 @@ function validManifest(): AgentImportManifest {
       {
         source: { bookTitle: "A 书", label: "例 3.58" },
         chapterName: "函数、极限与连续",
-        tags: ["洛必达", "函数极限"],
+        topics: ["函数极限", "洛必达"],
+        questionTypes: ["解答"],
         reviewPriority: "must",
         modules: {
           question: { tex: "求极限 $x$。" },
@@ -37,7 +38,8 @@ describe("agent import manifest validation", () => {
       label: "例 3.58"
     });
     expect(result.value?.questions[0].modules.note).toBeUndefined();
-    expect(result.value?.questions[0].tags).toEqual(["洛必达", "函数极限"]);
+    expect(result.value?.questions[0].topics).toEqual(["函数极限", "洛必达"]);
+    expect(result.value?.questions[0].questionTypes).toEqual(["解答"]);
   });
 
   it("accepts assets with relative file paths", () => {
@@ -115,9 +117,27 @@ describe("agent import manifest validation", () => {
         questions: [
           {
             ...validManifest().questions[0],
-            tags: ["待审阅"]
+            topics: ["待审阅"]
           }
         ]
+      },
+      {
+        ...validManifest(),
+        questions: [
+          {
+            ...validManifest().questions[0],
+            questionTypes: ["待审阅"]
+          }
+        ]
+      },
+      {
+        ...validManifest(),
+        questions: [{ ...validManifest().questions[0], questionTypes: "解答" }]
+      },
+      {
+        // 旧字段 tags 已拆分：直接拒绝，避免 Agent 以为写进去了。
+        ...validManifest(),
+        questions: [{ ...validManifest().questions[0], tags: ["考点·极限"] }]
       },
       {
         ...validManifest(),

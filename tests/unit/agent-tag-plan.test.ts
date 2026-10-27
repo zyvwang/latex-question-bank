@@ -14,18 +14,24 @@ import {
 
 const now = "2026-10-27T00:00:00.000Z";
 
-function bankWithTags(tags: Record<string, string[]>): Bank {
+function bankWithTopics(topics: Record<string, string[]>): Bank {
   const sample = createSampleBank();
   return {
     ...sample,
-    items: sample.items.map((item) => ({ ...item, tags: tags[item.id] ?? item.tags }))
+    items: sample.items.map((item) => ({ ...item, topics: topics[item.id] ?? item.topics }))
   };
 }
 
-function plan(bank: Bank, manifest: Omit<AgentTagManifest, "schemaVersion">) {
+// 默认整理考点；测试题型时显式传 field。
+function plan(
+  bank: Bank,
+  manifest: Omit<AgentTagManifest, "schemaVersion" | "field"> & {
+    field?: AgentTagManifest["field"];
+  }
+) {
   return planTagChanges({
     current: bank,
-    manifest: { schemaVersion: 1, ...manifest },
+    manifest: { schemaVersion: 1, field: "topics", ...manifest },
     now
   });
 }
@@ -37,15 +43,16 @@ function item(bank: Bank, id: string): QuestionItem {
 }
 
 describe("planTagChanges (per-item)", () => {
-  it("adds and removes tags without touching review fields", () => {
+  it("adds and removes topics without touching question types or review fields", () => {
     const current = createSampleBank();
     const result = plan(current, {
       changes: [
-        { id: "sample-limit", add: ["考点·极限"], remove: ["等价无穷小"] }
+        { id: "sample-limit", add: ["函数极限"], remove: ["等价无穷小"] }
       ]
     });
     const changed = item(result.bank, "sample-limit");
-    expect(changed.tags).toEqual(["极限", "考点·极限"]);
+    expect(changed.topics).toEqual(["极限", "函数极限"]);
+    expect(changed.questionTypes).toBe(item(current, "sample-limit").questionTypes);
     expect(changed.updatedAt).toBe(now);
     expect(changed).toMatchObject({
       reviewStatus: "approved",
@@ -63,7 +70,7 @@ describe("planTagChanges (per-item)", () => {
         id: "sample-limit",
         source: "示例题库 示例 1",
         before: ["极限", "等价无穷小"],
-        after: ["极限", "考点·极限"]
+        after: ["极限", "函数极限"]
       }
     ]);
     expect(result.counts).toEqual({
@@ -101,11 +108,11 @@ describe("planTagChanges (per-item)", () => {
   });
 
   it("matches tags ignoring case and full-width forms but keeps untouched spellings", () => {
-    const current = bankWithTags({ "sample-limit": ["Taylor", "ＡＢ", "保留"] });
+    const current = bankWithTopics({ "sample-limit": ["Taylor", "ＡＢ", "保留"] });
     const result = plan(current, {
       changes: [{ id: "sample-limit", remove: ["taylor", "AB"], add: ["保留"] }]
     });
-    expect(item(result.bank, "sample-limit").tags).toEqual(["保留"]);
+    expect(item(result.bank, "sample-limit").topics).toEqual(["保留"]);
     expect(result.counts).toMatchObject({ changed: 1, added: 0, removed: 2 });
   });
 
@@ -113,7 +120,7 @@ describe("planTagChanges (per-item)", () => {
     const result = plan(createSampleBank(), {
       changes: [{ id: "sample-limit", remove: ["极限", "等价无穷小"] }]
     });
-    expect(item(result.bank, "sample-limit").tags).toEqual([]);
+    expect(item(result.bank, "sample-limit").topics).toEqual([]);
   });
 
   it("rejects the whole change set when a question does not exist", () => {
@@ -129,22 +136,22 @@ describe("planTagChanges (per-item)", () => {
 });
 
 describe("planTagChanges (global)", () => {
-  const shared = bankWithTags({
+  const shared = bankWithTopics({
     "sample-limit": ["极限", "等价无穷小"],
-    "sample-linear-algebra": ["矩阵", "极限", "考点·极限"]
+    "sample-linear-algebra": ["矩阵", "极限", "函数极限"]
   });
 
   it("renames a tag and merges it into an existing target on the same question", () => {
     const result = plan(shared, {
-      renames: [{ from: "极限", to: "考点·极限" }]
+      renames: [{ from: "极限", to: "函数极限" }]
     });
-    expect(item(result.bank, "sample-limit").tags).toEqual([
-      "考点·极限",
+    expect(item(result.bank, "sample-limit").topics).toEqual([
+      "函数极限",
       "等价无穷小"
     ]);
-    expect(item(result.bank, "sample-linear-algebra").tags).toEqual([
+    expect(item(result.bank, "sample-linear-algebra").topics).toEqual([
       "矩阵",
-      "考点·极限"
+      "函数极限"
     ]);
     expect(result.counts).toEqual({
       changed: 2,
@@ -161,24 +168,24 @@ describe("planTagChanges (global)", () => {
       "sample-linear-algebra"
     ]);
     expect(item(result.bank, "sample-limit")).toBe(item(shared, "sample-limit"));
-    expect(item(result.bank, "sample-linear-algebra").tags).toEqual([
+    expect(item(result.bank, "sample-linear-algebra").topics).toEqual([
       "极限",
-      "考点·极限"
+      "函数极限"
     ]);
   });
 
   it("applies renames and deletions at the same time", () => {
     const result = plan(shared, {
-      renames: [{ from: "等价无穷小", to: "考法·等价无穷小" }],
+      renames: [{ from: "等价无穷小", to: "无穷小比较" }],
       deletions: ["矩阵"]
     });
-    expect(item(result.bank, "sample-limit").tags).toEqual([
+    expect(item(result.bank, "sample-limit").topics).toEqual([
       "极限",
-      "考法·等价无穷小"
+      "无穷小比较"
     ]);
-    expect(item(result.bank, "sample-linear-algebra").tags).toEqual([
+    expect(item(result.bank, "sample-linear-algebra").topics).toEqual([
       "极限",
-      "考点·极限"
+      "函数极限"
     ]);
   });
 
@@ -190,8 +197,8 @@ describe("planTagChanges (global)", () => {
     expect(result.changes).toEqual([]);
     expect(result.bank.items).toEqual(shared.items);
     expect(result.warnings).toEqual([
-      { code: "TAG_NOT_FOUND", message: "没有题目使用标签「不存在」。" },
-      { code: "TAG_NOT_FOUND", message: "没有题目使用标签「也不存在」。" }
+      { code: "TAG_NOT_FOUND", message: "没有题目使用考点「不存在」。" },
+      { code: "TAG_NOT_FOUND", message: "没有题目使用考点「也不存在」。" }
     ]);
   });
 
@@ -203,10 +210,55 @@ describe("planTagChanges (global)", () => {
         ...template,
         id: `q${index}`,
         source: null,
-        tags: ["批量"]
+        topics: ["批量"]
       }))
     };
     expect(() => plan(big, { deletions: ["批量"] })).toThrow(/最多修改/);
+  });
+});
+
+describe("planTagChanges (question types)", () => {
+  it("changes only questionTypes and reports type warnings", () => {
+    const current = createSampleBank();
+    const result = plan(current, {
+      field: "questionTypes",
+      changes: [{ id: "sample-limit", add: ["证明"], remove: ["解答"] }]
+    });
+    const changed = item(result.bank, "sample-limit");
+    expect(changed.questionTypes).toEqual(["证明"]);
+    expect(changed.topics).toBe(item(current, "sample-limit").topics);
+    expect(result.changes[0]).toMatchObject({ before: ["解答"], after: ["证明"] });
+
+    // 考点里的同名值不受题型整理影响，也不算「有题在用」。
+    const global = plan(current, { field: "questionTypes", deletions: ["极限"] });
+    expect(global.changes).toEqual([]);
+    expect(global.warnings).toEqual([
+      { code: "TAG_NOT_FOUND", message: "没有题目使用题型「极限」。" }
+    ]);
+  });
+
+  it("restores only the journal's field", () => {
+    const current = createSampleBank();
+    const result = plan(current, { field: "questionTypes", renames: [{ from: "填空", to: "选择" }] });
+    const journal = buildTagJournal({
+      field: "questionTypes",
+      workspacePath: "/tmp/bank",
+      note: undefined,
+      now,
+      changes: result.changes
+    });
+    const edited: Bank = {
+      ...result.bank,
+      items: result.bank.items.map((candidate) => ({
+        ...candidate,
+        topics: [...candidate.topics, "后加考点"]
+      }))
+    };
+    const restore = planTagRestore({ current: edited, journal, now });
+    expect(restore.conflicts).toEqual([]);
+    const restored = item(restore.bank, "sample-linear-algebra");
+    expect(restored.questionTypes).toEqual(["填空"]);
+    expect(restored.topics).toEqual(["矩阵", "行列式", "后加考点"]);
   });
 });
 
@@ -215,11 +267,12 @@ describe("planTagRestore", () => {
     const before = createSampleBank();
     const result = plan(before, {
       changes: [
-        { id: "sample-limit", add: ["考点·极限"], remove: ["等价无穷小"] },
-        { id: "sample-linear-algebra", add: ["考点·矩阵"] }
+        { id: "sample-limit", add: ["函数极限"], remove: ["等价无穷小"] },
+        { id: "sample-linear-algebra", add: ["矩阵运算"] }
       ]
     });
     const journal = buildTagJournal({
+      field: "topics",
       workspacePath: "/tmp/bank",
       note: "归类",
       now,
@@ -232,6 +285,7 @@ describe("planTagRestore", () => {
     const { journal } = applied();
     expect(journal).toEqual({
       schemaVersion: 1,
+      field: "topics",
       workspacePath: "/tmp/bank",
       createdAt: now,
       note: "归类",
@@ -239,17 +293,17 @@ describe("planTagRestore", () => {
         {
           id: "sample-limit",
           before: ["极限", "等价无穷小"],
-          after: ["极限", "考点·极限"]
+          after: ["极限", "函数极限"]
         },
         {
           id: "sample-linear-algebra",
           before: ["矩阵", "行列式"],
-          after: ["矩阵", "行列式", "考点·矩阵"]
+          after: ["矩阵", "行列式", "矩阵运算"]
         }
       ]
     });
     expect(
-      buildTagJournal({ workspacePath: "/x", note: undefined, now, changes: [] })
+      buildTagJournal({ field: "topics", workspacePath: "/x", note: undefined, now, changes: [] })
         .note
     ).toBeNull();
   });
@@ -269,7 +323,7 @@ describe("planTagRestore", () => {
     ]);
     for (const original of before.items) {
       const restored = item(restore.bank, original.id);
-      expect(restored.tags).toEqual(original.tags);
+      expect(restored.topics).toEqual(original.topics);
       expect(restored.reviewStatus).toBe(original.reviewStatus);
       expect(restored.updatedAt).toBe("2026-10-28T00:00:00.000Z");
     }
@@ -281,7 +335,7 @@ describe("planTagRestore", () => {
       ...after,
       items: after.items.map((candidate) =>
         candidate.id === "sample-limit"
-          ? { ...candidate, tags: [...candidate.tags, "用户后加"] }
+          ? { ...candidate, topics: [...candidate.topics, "用户后加"] }
           : candidate
       )
     };
@@ -292,9 +346,9 @@ describe("planTagRestore", () => {
     expect(restore.conflicts).toEqual([
       { id: "sample-limit", source: "示例题库 示例 1", reason: "changed" }
     ]);
-    expect(item(restore.bank, "sample-limit").tags).toEqual([
+    expect(item(restore.bank, "sample-limit").topics).toEqual([
       "极限",
-      "考点·极限",
+      "函数极限",
       "用户后加"
     ]);
   });

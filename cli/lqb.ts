@@ -14,8 +14,10 @@ import type {
 } from "../shared/agent-manifest.js";
 import { validateAgentImportManifest } from "../shared/agent-manifest.js";
 import {
+  AGENT_TAG_FIELD_LABELS,
   validateAgentTagJournal,
   validateAgentTagManifest,
+  type AgentTagField,
   type AgentTagJournal,
   type AgentTagManifest,
   type AgentTagSummary,
@@ -74,7 +76,8 @@ const VALUE_FLAGS = new Set([
   "limit",
   "book",
   "chapter",
-  "tag",
+  "topic",
+  "type",
   "priority",
   "status",
   "name",
@@ -121,8 +124,15 @@ async function main(): Promise<void> {
     case "batch":
       if (rest[0] === "list") return batchListCommand(args);
       break;
+    case "topic":
+      return fieldCommand("topics", args, rest);
+    case "type":
+      return fieldCommand("questionTypes", args, rest);
     case "tag":
-      return tagCommand(args, rest);
+      throw new CliError(
+        1,
+        "lqb tag 已拆分：考点用 lqb topic，题型用 lqb type（见 lqb --help）。"
+      );
     case "manifest":
       if (rest[0] === "example") {
         process.stdout.write(`${MANIFEST_EXAMPLE}\n`);
@@ -401,7 +411,11 @@ async function listCommand(args: ParsedArgs): Promise<void> {
   const items = orderItemsByChapter(snapshot.bank.items, snapshot.bank.chapters);
   const bookFilter = stringFlag(args.flags, "book");
   const chapterFilter = stringFlag(args.flags, "chapter");
-  const tagFilter = stringFlag(args.flags, "tag");
+  if (args.flags.has("tag")) {
+    throw new CliError(1, "--tag 已拆分：按考点筛选用 --topic，按题型筛选用 --type。");
+  }
+  const topicFilter = stringFlag(args.flags, "topic");
+  const typeFilter = stringFlag(args.flags, "type");
   const priorityFilter = stringFlag(args.flags, "priority");
   const statusFilter = stringFlag(args.flags, "status");
   const limit = parseLimit(args.flags);
@@ -422,7 +436,8 @@ async function listCommand(args: ParsedArgs): Promise<void> {
       ) {
         return false;
       }
-      if (tagFilter && !item.tags.includes(tagFilter)) return false;
+      if (topicFilter && !item.topics.includes(topicFilter)) return false;
+      if (typeFilter && !item.questionTypes.includes(typeFilter)) return false;
       if (
         priorityFilter &&
         (priorityFilter === "none"
@@ -537,93 +552,136 @@ async function batchListCommand(args: ParsedArgs): Promise<void> {
   }
 }
 
-async function tagCommand(args: ParsedArgs, rest: string[]): Promise<void> {
+// lqb topic 与 lqb type 共用同一套子命令，只是整理的字段不同。
+const FIELD_COMMANDS: Record<AgentTagField, string> = {
+  topics: "topic",
+  questionTypes: "type"
+};
+
+async function fieldCommand(
+  field: AgentTagField,
+  args: ParsedArgs,
+  rest: string[]
+): Promise<void> {
   const [action, ...params] = rest;
   switch (action) {
     case "list":
-      return tagListCommand(args);
+      return fieldListCommand(field, args);
     case "apply":
-      return tagApplyCommand(args);
+      return fieldApplyCommand(field, args);
     case "rename":
-      return tagRenameCommand(args, params);
+      return fieldRenameCommand(field, args, params);
     case "delete":
-      return tagDeleteCommand(args, params);
+      return fieldDeleteCommand(field, args, params);
     case "undo":
-      return tagUndoCommand(args, params);
+      return fieldUndoCommand(field, args, params);
     default:
       throw new CliError(
         1,
-        "用法：lqb tag list | apply | rename | delete | undo（见 lqb --help）。"
+        `用法：lqb ${FIELD_COMMANDS[field]} list | apply | rename | delete | undo（见 lqb --help）。`
       );
   }
 }
 
-async function tagListCommand(args: ParsedArgs): Promise<void> {
+async function fieldListCommand(
+  field: AgentTagField,
+  args: ParsedArgs
+): Promise<void> {
   const snapshot = await readCurrentBank(args);
   const counts = new Map<string, number>();
   for (const item of snapshot.bank.items) {
-    for (const tag of item.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    for (const value of item[field]) counts.set(value, (counts.get(value) ?? 0) + 1);
   }
-  const tags = [...counts]
-    .map(([tag, count]) => ({ tag, count }))
+  const values = [...counts]
+    .map(([value, count]) => ({ value, count }))
     .sort(
       (left, right) =>
-        right.count - left.count || left.tag.localeCompare(right.tag, "zh-Hans-CN")
+        right.count - left.count || left.value.localeCompare(right.value, "zh-Hans-CN")
     );
   if (args.flags.has("json")) {
-    printJson(tags);
+    printJson(values);
     return;
   }
-  for (const { tag, count } of tags) console.log(`${count}\t${tag}`);
-  console.log(`共 ${tags.length} 个标签。`);
+  for (const { value, count } of values) console.log(`${count}\t${value}`);
+  console.log(`共 ${values.length} 个${AGENT_TAG_FIELD_LABELS[field]}。`);
 }
 
-async function tagApplyCommand(args: ParsedArgs): Promise<void> {
+async function fieldApplyCommand(
+  field: AgentTagField,
+  args: ParsedArgs
+): Promise<void> {
+  const command = FIELD_COMMANDS[field];
   const file = stringFlag(args.flags, "file");
-  if (!file) throw new CliError(1, "lqb tag apply 需要 --file <changes.json>。");
-  const manifest = parseTagManifest(await readJsonFile(file, "标签清单"));
+  if (!file) throw new CliError(1, `lqb ${command} apply 需要 --file <changes.json>。`);
+  const raw = await readJsonFile(file, "整理清单");
+  // 清单可以不写 field，由命令决定；写了就必须和命令一致，避免把考点清单误用到题型上。
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && "field" in raw) {
+    if (raw.field !== field) {
+      throw new CliError(
+        2,
+        `清单的 field 是 ${String(raw.field)}，与 lqb ${command}（${field}）不一致。`
+      );
+    }
+  }
+  const manifest = parseTagManifest(
+    raw && typeof raw === "object" && !Array.isArray(raw) ? { ...raw, field } : raw
+  );
   await submitTagManifest(args, manifest);
 }
 
-async function tagRenameCommand(
+async function fieldRenameCommand(
+  field: AgentTagField,
   args: ParsedArgs,
   params: string[]
 ): Promise<void> {
+  const noun = AGENT_TAG_FIELD_LABELS[field];
   if (params.length !== 2) {
-    throw new CliError(1, "lqb tag rename 需要 <旧标签> <新标签>。");
+    throw new CliError(1, `lqb ${FIELD_COMMANDS[field]} rename 需要 <旧${noun}> <新${noun}>。`);
   }
   const [from, to] = params;
   await submitTagManifest(
     args,
-    parseTagManifest({ schemaVersion: 1, renames: [{ from, to }] })
+    parseTagManifest({ schemaVersion: 1, field, renames: [{ from, to }] })
   );
 }
 
-async function tagDeleteCommand(
+async function fieldDeleteCommand(
+  field: AgentTagField,
   args: ParsedArgs,
   params: string[]
 ): Promise<void> {
   if (params.length !== 1) {
-    throw new CliError(1, "lqb tag delete 需要 <标签>。");
+    throw new CliError(
+      1,
+      `lqb ${FIELD_COMMANDS[field]} delete 需要 <${AGENT_TAG_FIELD_LABELS[field]}>。`
+    );
   }
   await submitTagManifest(
     args,
-    parseTagManifest({ schemaVersion: 1, deletions: [params[0]] })
+    parseTagManifest({ schemaVersion: 1, field, deletions: [params[0]] })
   );
 }
 
-async function tagUndoCommand(
+async function fieldUndoCommand(
+  field: AgentTagField,
   args: ParsedArgs,
   params: string[]
 ): Promise<void> {
+  const command = FIELD_COMMANDS[field];
   if (params.length !== 1) {
-    throw new CliError(1, "lqb tag undo 需要撤销文件路径。");
+    throw new CliError(1, `lqb ${command} undo 需要撤销文件路径。`);
   }
   const validation = validateAgentTagJournal(
     await readJsonFile(params[0], "撤销记录")
   );
   if (!validation.ok || !validation.value) {
     throw new CliError(2, validation.error ?? "撤销记录无效。");
+  }
+  if (validation.value.field !== field) {
+    throw new CliError(
+      2,
+      `这份撤销记录整理的是${AGENT_TAG_FIELD_LABELS[validation.value.field]}，请用 lqb ${FIELD_COMMANDS[validation.value.field]} undo。`
+    );
   }
   const summary = await postTagRequest<AgentTagUndoSummary>(
     args,
@@ -643,7 +701,11 @@ async function submitTagManifest(
   manifest: AgentTagManifest
 ): Promise<void> {
   const dryRun = args.flags.has("dry-run");
-  const undoDir = path.join(process.cwd(), ".lqb", "tag-undo");
+  const undoDir = path.join(
+    process.cwd(),
+    ".lqb",
+    `${FIELD_COMMANDS[manifest.field]}-undo`
+  );
   if (!dryRun) {
     // 写入之后才发现撤销文件存不下就晚了，所以先确认目录可写。
     try {
@@ -685,7 +747,7 @@ async function postTagRequest<T>(
     })
   });
   if (response.status === 404) {
-    throw new CliError(1, "当前运行的应用不支持 lqb tag，请更新并重启应用。");
+    throw new CliError(1, "当前运行的应用不支持 lqb topic/type，请更新并重启应用。");
   }
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw apiError(response.status, payload);
@@ -705,9 +767,9 @@ async function writeTagJournal(
     });
     return filePath;
   } catch (error) {
-    // 标签已经改了，撤销记录不能丢：写不进文件就整份打印出来。
+    // 题库已经改了，撤销记录不能丢：写不进文件就整份打印出来。
     console.error(
-      `警告：标签已修改，但撤销文件写入失败（${error instanceof Error ? error.message : "未知错误"}）。请保存下面的撤销记录：`
+      `警告：${AGENT_TAG_FIELD_LABELS[journal.field]}已修改，但撤销文件写入失败（${error instanceof Error ? error.message : "未知错误"}）。请保存下面的撤销记录：`
     );
     console.error(JSON.stringify(journal));
     process.exitCode = 1;
@@ -718,7 +780,7 @@ async function writeTagJournal(
 function parseTagManifest(value: unknown): AgentTagManifest {
   const validation = validateAgentTagManifest(value);
   if (!validation.ok || !validation.value) {
-    throw new CliError(2, validation.error ?? "标签清单无效。");
+    throw new CliError(2, validation.error ?? "整理清单无效。");
   }
   return validation.value;
 }
@@ -734,8 +796,8 @@ async function readJsonFile(file: string, label: string): Promise<unknown> {
   }
 }
 
-function formatTags(tags: string[]): string {
-  return tags.length ? tags.join("、") : "（无标签）";
+function formatValues(values: string[]): string {
+  return values.length ? values.join("、") : "（无）";
 }
 
 function printTagSummary(
@@ -743,40 +805,42 @@ function printTagSummary(
   undoFile: string | null
 ): void {
   const { counts } = summary;
+  const noun = AGENT_TAG_FIELD_LABELS[summary.field];
   const unchanged = counts.unchanged ? ` · 无需修改 ${counts.unchanged} 道` : "";
   console.log(
-    `${summary.dryRun ? "Dry-run 通过（题库未改动）" : "标签已更新"}：修改 ${counts.changed} 道 · 新增 ${counts.added} 个标签 · 移除 ${counts.removed} 个标签${unchanged}`
+    `${summary.dryRun ? "Dry-run 通过（题库未改动）" : `${noun}已更新`}：修改 ${counts.changed} 道 · 新增 ${counts.added} 个${noun} · 移除 ${counts.removed} 个${noun}${unchanged}`
   );
   for (const change of summary.changes) {
     console.log(
-      `  ${change.source}（${change.id}）：${formatTags(change.before)} → ${formatTags(change.after)}`
+      `  ${change.source}（${change.id}）：${formatValues(change.before)} → ${formatValues(change.after)}`
     );
   }
   for (const warning of summary.warnings) console.log(`警告：${warning.message}`);
   if (undoFile) {
     console.log(`撤销文件：${undoFile}`);
-    console.log(`撤销命令：lqb tag undo "${undoFile}"`);
+    console.log(`撤销命令：lqb ${FIELD_COMMANDS[summary.field]} undo "${undoFile}"`);
   }
   if (!summary.dryRun && counts.changed === 0) {
-    console.log("没有需要修改的标签，题库未改动。");
+    console.log(`没有需要修改的${noun}，题库未改动。`);
   }
 }
 
 function printTagUndoSummary(summary: AgentTagUndoSummary): void {
   const { counts } = summary;
+  const noun = AGENT_TAG_FIELD_LABELS[summary.field];
   console.log(
-    `${summary.dryRun ? "Dry-run 通过（题库未改动）" : "标签已恢复"}：恢复 ${counts.restored} 道 · 已是原状 ${counts.unchanged} 道 · 未恢复 ${counts.conflicts} 道`
+    `${summary.dryRun ? "Dry-run 通过（题库未改动）" : `${noun}已恢复`}：恢复 ${counts.restored} 道 · 已是原状 ${counts.unchanged} 道 · 未恢复 ${counts.conflicts} 道`
   );
   for (const change of summary.restored) {
     console.log(
-      `  ${change.source}（${change.id}）：${formatTags(change.before)} → ${formatTags(change.after)}`
+      `  ${change.source}（${change.id}）：${formatValues(change.before)} → ${formatValues(change.after)}`
     );
   }
   for (const conflict of summary.conflicts) {
     console.log(
       conflict.reason === "missing"
         ? `未恢复（题目已删除）：${conflict.id}`
-        : `未恢复（标签之后又被改动）：${conflict.source}（${conflict.id}）`
+        : `未恢复（${noun}之后又被改动）：${conflict.source}（${conflict.id}）`
     );
   }
 }
@@ -1030,7 +1094,8 @@ function summarizeItem(item: QuestionItem, bank: Bank) {
     chapter: chapter
       ? { id: chapter.id, name: chapter.name }
       : null,
-    tags: item.tags,
+    topics: item.topics,
+    questionTypes: item.questionTypes,
     reviewPriority: item.reviewPriority,
     reviewStatus: item.reviewStatus,
     variantOf: item.variantOf,
@@ -1045,7 +1110,8 @@ function searchText(item: QuestionItem, bank: Bank): string {
   return [
     book?.title,
     item.source?.label,
-    item.tags.join(" "),
+    item.topics.join(" "),
+    item.questionTypes.join(" "),
     item.modules.question.tex,
     item.modules.solution.tex,
     item.modules.note.tex
@@ -1129,16 +1195,17 @@ function printHelp(): void {
   lqb import --file <manifest.json> [--dry-run] [--overwrite] [--switch] [--batch-id <id>] [--create-bank] [--json]
   lqb import undo <batchId> [--json]
   lqb bank create --name <name> [--path <path>] [--switch] [--json]
-  lqb list [--book <title>] [--chapter <name>] [--tag <tag>] [--priority <p>] [--status <s>] [--limit <n>] [--json]
+  lqb list [--book <title>] [--chapter <name>] [--topic <考点>] [--type <题型>] [--priority <p>] [--status <s>] [--limit <n>] [--json]
   lqb search <query> [--limit <n>] [--json]
   lqb get <id> [--json]
   lqb book list [--json]
   lqb batch list [--json]
-  lqb tag list [--json]
-  lqb tag apply --file <changes.json> [--dry-run] [--json]
-  lqb tag rename <旧标签> <新标签> [--dry-run] [--json]
-  lqb tag delete <标签> [--dry-run] [--json]
-  lqb tag undo <撤销文件> [--dry-run] [--json]
+  lqb topic list [--json]
+  lqb topic apply --file <changes.json> [--dry-run] [--json]
+  lqb topic rename <旧考点> <新考点> [--dry-run] [--json]
+  lqb topic delete <考点> [--dry-run] [--json]
+  lqb topic undo <撤销文件> [--dry-run] [--json]
+  lqb type list | apply | rename | delete | undo（用法同 lqb topic，整理题型）
   lqb manifest example
 
 导入前请先运行 lqb status 和 lqb link，并保持桌面应用运行。

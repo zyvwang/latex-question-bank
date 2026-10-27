@@ -32,14 +32,14 @@ test("starts in Setup, creates a workspace, and removes only its recent-list ent
     await page.getByRole("button", { name: "新建空白题库" }).click();
     await expect(page.getByText("当前工作区还没有题目")).toBeVisible();
     await expect.poll(async () => readFile(path.join(workspacePath, "bank.json"), "utf8"))
-      .toContain('"version": 3');
+      .toContain('"version": 4');
 
     await page.getByRole("button", { name: "题库设置" }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "从列表移除工作区" }).click();
     await expect(page.getByText("建立你的第一个题库")).toBeVisible();
     await expect(readFile(path.join(workspacePath, "bank.json"), "utf8"))
-      .resolves.toContain('"version": 3');
+      .resolves.toContain('"version": 4');
   } finally {
     await electronApp.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
   }
@@ -112,7 +112,7 @@ test("switches away from a missing current workspace without changing disk data"
   }
 });
 
-test("opens v1, saves the first edit as v3 on close, and restarts from v3", async () => {
+test("opens v1, saves the first edit as v4 on close, and restarts from v4", async () => {
   const workspacePath = path.resolve(".tmp/playwright-v1-workspace");
   const appDataPath = path.resolve(".tmp/playwright-v1-app-data");
   await rm(workspacePath, { recursive: true, force: true });
@@ -156,9 +156,11 @@ test("opens v1, saves the first edit as v3 on close, and restarts from v3", asyn
   const savedBank = JSON.parse(
     await readFile(path.join(workspacePath, "bank.json"), "utf8")
   ) as Bank;
-  expect(savedBank.version).toBe(3);
+  expect(savedBank.version).toBe(4);
   expect(savedBank.items[0]).toMatchObject({
     source: { bookId: expect.any(String), label: "旧题 1(已编辑)" },
+    topics: ["旧标签"],
+    questionTypes: [],
     reviewPriority: null,
     reviewStatus: "approved",
     solutionSource: null

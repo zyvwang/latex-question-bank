@@ -1,5 +1,4 @@
 import { questionSourceSearchText } from "../shared/question-source.js";
-import { tagDimensionOf } from "./tagDimensions.js";
 import type {
   BookRecord,
   Chapter,
@@ -12,7 +11,8 @@ export const UNSET_PRIORITY_FILTER = "__unset__";
 
 export interface QuestionFilters {
   chapterFilters: string[];
-  tagFilters: string[];
+  topicFilters: string[];
+  typeFilters: string[];
   bookFilters: string[];
   reviewPriorityFilters: string[];
   reviewStatusFilters: string[];
@@ -36,7 +36,8 @@ export function buildQuestionSearchText(
   return [
     questionSourceSearchText(item, books),
     chapterName,
-    item.tags.join(" "),
+    item.topics.join(" "),
+    item.questionTypes.join(" "),
     item.modules.question.tex,
     item.modules.solution.tex,
     item.modules.note.tex
@@ -59,9 +60,13 @@ export function matchesQuestionFilters(
         ? item.chapterId === null
         : item.chapterId === filter
     );
-  const matchesTag = tagFilterGroups(filters.tagFilters).every((group) =>
-    group.some((filter) => item.tags.includes(filter))
-  );
+  // 考点、题型各自内部是「或」，两者之间是「且」。
+  const matchesTopic =
+    filters.topicFilters.length === 0 ||
+    filters.topicFilters.some((filter) => item.topics.includes(filter));
+  const matchesType =
+    filters.typeFilters.length === 0 ||
+    filters.typeFilters.some((filter) => item.questionTypes.includes(filter));
   const matchesBook =
     filters.bookFilters.length === 0 ||
     filters.bookFilters.some((filter) =>
@@ -81,7 +86,8 @@ export function matchesQuestionFilters(
     filters.reviewStatusFilters.includes(item.reviewStatus);
   if (
     !matchesChapter ||
-    !matchesTag ||
+    !matchesTopic ||
+    !matchesType ||
     !matchesBook ||
     !matchesPriority ||
     !matchesStatus
@@ -100,21 +106,4 @@ export function matchesQuestionFilters(
     ? runtime.getSearchText(item, chapterName)
     : buildQuestionSearchText(item, chapterName, books);
   return haystack.includes(term);
-}
-
-// 标签筛选：同一维度（考点/考法/题型/其他）内是「或」，不同维度之间是「且」。
-const tagFilterGroupCache = new WeakMap<string[], string[][]>();
-
-function tagFilterGroups(tagFilters: string[]): string[][] {
-  if (tagFilters.length === 0) return [];
-  const cached = tagFilterGroupCache.get(tagFilters);
-  if (cached) return cached;
-  const groups = new Map<string, string[]>();
-  for (const filter of tagFilters) {
-    const key = tagDimensionOf(filter)?.key ?? "other";
-    groups.set(key, [...(groups.get(key) ?? []), filter]);
-  }
-  const result = [...groups.values()];
-  tagFilterGroupCache.set(tagFilters, result);
-  return result;
 }

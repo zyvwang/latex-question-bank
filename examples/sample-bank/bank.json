@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "settings": {
     "pageSize": "a4",
     "spacing": {
@@ -42,9 +42,12 @@
       },
       "chapterId": "chapter-calculus",
       "chapterOrder": 1,
-      "tags": [
+      "topics": [
         "极限",
         "等价无穷小"
+      ],
+      "questionTypes": [
+        "解答"
       ],
       "reviewPriority": "recheck",
       "reviewStatus": "approved",
@@ -76,9 +79,12 @@
       },
       "chapterId": "chapter-linear-algebra",
       "chapterOrder": 1,
-      "tags": [
+      "topics": [
         "矩阵",
         "行列式"
+      ],
+      "questionTypes": [
+        "填空"
       ],
       "reviewPriority": "skip",
       "reviewStatus": "approved",

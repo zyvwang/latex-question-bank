@@ -42,13 +42,13 @@ it("autosaves metadata edits", async () => {
     });
   });
 
-it("commits multiple tags with English and Chinese commas", async () => {
+it("commits multiple topics with English and Chinese commas", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
 
     const metadata = screen.getByRole("region", { name: "题目元数据" });
-    const tagInput = within(metadata).getByLabelText("添加标签");
+    const tagInput = within(metadata).getByLabelText("添加考点");
     await user.type(tagInput, "导数,函数，");
 
     expect(within(metadata).getByText("导数")).toBeInTheDocument();
@@ -431,7 +431,7 @@ it("autosaves module edits in the launch schema", async () => {
       );
       expect(saveCall).toBeTruthy();
       const payload = JSON.parse(String(saveCall?.[1]?.body)) as { bank: Bank };
-      expect(payload.bank.version).toBe(3);
+      expect(payload.bank.version).toBe(4);
       expect(payload.bank.items[0].modules.question.tex).toBe("新版题面");
     });
   });

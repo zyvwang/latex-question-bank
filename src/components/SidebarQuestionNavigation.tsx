@@ -8,6 +8,7 @@ import {
   ListChecks,
   ListFilter,
   Search,
+  Shapes,
   Square,
   Tags
 } from "lucide-react";
@@ -37,12 +38,6 @@ import {
   UNSET_BOOK_FILTER,
   UNSET_PRIORITY_FILTER
 } from "../questionFilters.js";
-import {
-  groupTagsByDimension,
-  stripTagPrefix,
-  TAG_DIMENSIONS,
-  tagDimensionOf
-} from "../tagDimensions.js";
 import metadataStyles from "./MetadataTokens.module.css";
 import styles from "./Sidebar.module.css";
 import { VirtualQuestionList } from "./VirtualQuestionList.js";
@@ -137,7 +132,7 @@ function FilterPanel() {
                 { value: UNCATEGORIZED_FILTER, label: "未分类" }
               ]}
             />
-            <TagFilters />
+            <LabelFilters />
             <MultiSelectFilter
               icon={<BookOpen size={15} />}
               label="书目"
@@ -186,51 +181,28 @@ function FilterPanel() {
   );
 }
 
-// 考点/考法/题型各一个下拉，不同下拉之间是「且」；没有前缀的标签仍放在「标签」里。
-// 题库里没有用到的维度不显示，没有任何前缀标签时和原来的单个标签下拉完全一样。
-function TagFilters() {
+// 考点、题型各一个下拉，两个下拉之间是「且」。
+function LabelFilters() {
   const selection = useSelection();
-  const grouped = useMemo(() => groupTagsByDimension(selection.tags), [selection.tags]);
-  const dimensions = TAG_DIMENSIONS.filter(
-    (dimension) => grouped.byDimension[dimension.key].length > 0
-  );
-  const showOther = grouped.other.length > 0 || dimensions.length === 0;
-
-  function change(key: string | null, next: string[]) {
-    const kept = selection.tagFilters.filter(
-      (tag) => (tagDimensionOf(tag)?.key ?? null) !== key
-    );
-    selection.setTagFilters([...kept, ...next]);
-  }
 
   return (
     <>
-      {dimensions.map((dimension) => (
-        <MultiSelectFilter
-          key={dimension.key}
-          icon={<Tags size={15} />}
-          label={dimension.label}
-          allLabel={`全部${dimension.label}`}
-          selected={selection.tagFilters.filter(
-            (tag) => tagDimensionOf(tag)?.key === dimension.key
-          )}
-          onChange={(next) => change(dimension.key, next)}
-          options={grouped.byDimension[dimension.key].map((tag) => ({
-            value: tag,
-            label: stripTagPrefix(tag)
-          }))}
-        />
-      ))}
-      {showOther ? (
-        <MultiSelectFilter
-          icon={<Tags size={15} />}
-          label="标签"
-          allLabel="全部标签"
-          selected={selection.tagFilters.filter((tag) => tagDimensionOf(tag) === null)}
-          onChange={(next) => change(null, next)}
-          options={grouped.other.map((tag) => ({ value: tag, label: tag }))}
-        />
-      ) : null}
+      <MultiSelectFilter
+        icon={<Tags size={15} />}
+        label="考点"
+        allLabel="全部考点"
+        selected={selection.topicFilters}
+        onChange={selection.setTopicFilters}
+        options={selection.topics.map((topic) => ({ value: topic, label: topic }))}
+      />
+      <MultiSelectFilter
+        icon={<Shapes size={15} />}
+        label="题型"
+        allLabel="全部题型"
+        selected={selection.typeFilters}
+        onChange={selection.setTypeFilters}
+        options={selection.questionTypes.map((type) => ({ value: type, label: type }))}
+      />
     </>
   );
 }
@@ -423,10 +395,7 @@ const QuestionListRow = memo(function QuestionListRow({
     ? (chapterById.get(item.chapterId) ?? "未分类")
     : "未分类";
   const sourceLabel = questionSourceDisplay(item, books);
-  // 行里只列考点和没有前缀的标签；题型缩成角标，考法留到详情区，避免行被标签撑高。
-  const grouped = groupTagsByDimension(item.tags);
-  const typeTags = grouped.byDimension.type;
-  const listedTags = [...grouped.byDimension.topic, ...grouped.other];
+  // 行里列出考点；题型缩成角标，避免行被撑高。
 
   return (
     <div
@@ -477,20 +446,20 @@ const QuestionListRow = memo(function QuestionListRow({
               </span>
             ) : null}
             {item.variantOf ? <span className={styles.variantBadge}>变式</span> : null}
-            {typeTags.map((tag) => (
-              <span className={styles.typeBadge} key={tag} title={tag}>
-                {stripTagPrefix(tag)}
+            {item.questionTypes.map((type) => (
+              <span className={styles.typeBadge} key={type} title={type}>
+                {type}
               </span>
             ))}
           </span>
-          {listedTags.length > 0 ? <span className={metadataStyles.flow}>
-            {listedTags.map((tag) => (
+          {item.topics.length > 0 ? <span className={metadataStyles.flow}>
+            {item.topics.map((topic) => (
               <span
                 className={`${metadataStyles.token} ${metadataStyles.tag}`}
-                key={tag}
-                title={tag}
+                key={topic}
+                title={topic}
               >
-                {stripTagPrefix(tag)}
+                {topic}
               </span>
             ))}
           </span> : null}

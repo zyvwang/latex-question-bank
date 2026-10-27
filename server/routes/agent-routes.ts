@@ -160,7 +160,7 @@ export function createAgentRouter(options: {
         const body = request.body as Record<string, unknown>;
         const validation = validateAgentTagManifest(body.manifest);
         if (!validation.ok || !validation.value) {
-          throw new ValidationError(validation.error ?? "标签清单无效。");
+          throw new ValidationError(validation.error ?? "整理清单无效。");
         }
         const summary = await applyAgentTags({
           workspacePath: requiredString(body, "workspacePath"),

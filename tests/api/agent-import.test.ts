@@ -43,7 +43,7 @@ describe("agent import API", () => {
     expect(after.revision).toBe(before.revision);
   });
 
-  it("imports a pending question with source, chapter, tags, and answer metadata", async () => {
+  it("imports a pending question with source, chapter, topics, types, and answer metadata", async () => {
     const app = await setup();
     const response = await postImport(app, validManifest());
     expect(response.status).toBe(200);
@@ -60,7 +60,8 @@ describe("agent import API", () => {
       reviewPriority: "must",
       solutionSource: "answer-book",
       solutionRef: "A答案册 P88",
-      tags: ["洛必达", "函数极限"]
+      topics: ["洛必达", "函数极限"],
+      questionTypes: ["解答"]
     });
     expect(item?.source?.bookId).toEqual(expect.any(String));
     expect(bank.books.some((book) => book.title === "A 书")).toBe(true);
@@ -114,6 +115,8 @@ describe("agent import API", () => {
 
     const changed = validManifest();
     changed.questions[0].modules.question.tex = "新版题面。";
+    changed.questions[0].topics = ["函数极限", "泰勒公式"];
+    changed.questions[0].questionTypes = ["证明"];
     const skipped = await postImport(app, changed);
     expect(skipped.status).toBe(200);
     expect(skipped.body.status).toBe("partial");
@@ -132,6 +135,9 @@ describe("agent import API", () => {
     expect(updated?.modules.question.tex).toBe("新版题面。");
     expect(updated?.reviewStatus).toBe("pending");
     expect(updated?.reviewPriority).toBe("must");
+    // 覆盖更新时考点、题型各自合并，不会互相串字段。
+    expect(updated?.topics).toEqual(["洛必达", "函数极限", "泰勒公式"]);
+    expect(updated?.questionTypes).toEqual(["解答", "证明"]);
   });
 
   it("rejects manifest validation errors and duplicate source keys", async () => {
@@ -614,7 +620,8 @@ function validManifest(): AgentImportManifest {
       {
         source: { bookTitle: "A 书", label: "例 3.58" },
         chapterName: "微积分/极限",
-        tags: ["洛必达", "函数极限"],
+        topics: ["洛必达", "函数极限"],
+        questionTypes: ["解答"],
         reviewPriority: "must",
         modules: {
           question: { tex: "求极限 $x$。" },
@@ -635,7 +642,7 @@ function manifestWithLabels(labels: string[]): AgentImportManifest {
     questions: labels.map((label) => ({
       source: { bookTitle: "A 书", label },
       chapterName: "微积分/极限",
-      tags: ["极限"],
+      topics: ["极限"],
       modules: {
         question: { tex: `题目 ${label}。` },
         solution: { tex: "参考答案。" }

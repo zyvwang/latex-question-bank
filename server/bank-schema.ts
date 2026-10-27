@@ -20,7 +20,7 @@ export const moduleKinds: ModuleKind[] = ["question", "solution", "note"];
 
 export function createEmptyBank(): Bank {
   return {
-    version: 3,
+    version: 4,
     settings: defaultSettings,
     chapters: [],
     books: [],
@@ -53,7 +53,8 @@ export function createSampleBank(): Bank {
       source: { bookId: "book-sample", label: "示例 1" },
       chapterId: chapters[0].id,
       chapterOrder: 1,
-      tags: ["极限", "等价无穷小"],
+      topics: ["极限", "等价无穷小"],
+      questionTypes: ["解答"],
       reviewPriority: "recheck",
       reviewStatus: "approved",
       solutionSource: "user",
@@ -80,7 +81,8 @@ export function createSampleBank(): Bank {
       source: { bookId: "book-sample", label: "示例 2" },
       chapterId: chapters[1].id,
       chapterOrder: 1,
-      tags: ["矩阵", "行列式"],
+      topics: ["矩阵", "行列式"],
+      questionTypes: ["填空"],
       reviewPriority: "skip",
       reviewStatus: "approved",
       solutionSource: "user",
@@ -105,7 +107,7 @@ export function createSampleBank(): Bank {
   ];
 
   return {
-    version: 3,
+    version: 4,
     settings: defaultSettings,
     chapters,
     books,

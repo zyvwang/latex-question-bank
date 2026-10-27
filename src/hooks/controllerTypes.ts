@@ -1,4 +1,5 @@
 import type { AgentImportCounts } from "../../shared/agent-manifest.js";
+import type { AgentTagField } from "../../shared/agent-tags.js";
 import type {
   BankSnapshot,
   ExportOrderMode,
@@ -30,7 +31,7 @@ export type Notice = {
 export type ExternalBankNotice = {
   revision: string;
   counts?: AgentImportCounts;
-  tagsChanged?: number;
+  labelsChanged?: { field: AgentTagField; count: number };
 };
 export type ReorderMenu = { id: string; x: number; y: number };
 export type AddMenu = { x: number; y: number };

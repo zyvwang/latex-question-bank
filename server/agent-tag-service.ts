@@ -2,13 +2,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   AgentTagCounts,
+  AgentTagField,
   AgentTagJournal,
   AgentTagManifest,
   AgentTagSummary,
   AgentTagUndoSummary
 } from "../shared/agent-tags.js";
-import { parseV3Bank } from "../shared/bank-validation.js";
+import { parseV4Bank } from "../shared/bank-validation.js";
 import type { Bank } from "../shared/types.js";
+import { createHistorySnapshot } from "./bank-storage.js";
 import {
   buildTagJournal,
   planTagChanges,
@@ -39,8 +41,9 @@ export interface AgentTagUndoInput {
   baseRevision?: string;
 }
 
-// 标签整理只改 tags 和 updatedAt，不改审阅状态，也不拍 .history/ 快照
+// 考点/题型整理只改清单指定的字段和 updatedAt，不改审阅状态，也不拍 .history/ 快照
 // （快照只有 10 份，要留给用户的恢复点和导入批次）。撤销靠调用方保存的撤销记录。
+// 唯一例外：磁盘上还是旧版本题库时，写回会顺带完成迁移，所以先留一份迁移前快照。
 export async function applyAgentTags(
   input: AgentTagInput
 ): Promise<AgentTagSummary> {
@@ -52,6 +55,7 @@ export async function applyAgentTags(
       now
     });
     const summary: AgentTagSummary = {
+      field: input.manifest.field,
       dryRun: input.dryRun,
       revision: context.revision,
       counts: plan.counts,
@@ -60,12 +64,13 @@ export async function applyAgentTags(
     };
     if (input.dryRun || plan.changes.length === 0) return summary;
 
-    const revision = await commitBank(context.dirs, plan.bank);
-    broadcastTagChange(context.workspacePath, revision, plan.counts);
+    const revision = await commitBank(context, plan.bank);
+    broadcastTagChange(context.workspacePath, revision, input.manifest.field, plan.counts);
     return {
       ...summary,
       revision,
       journal: buildTagJournal({
+        field: input.manifest.field,
         workspacePath: context.workspacePath,
         note: input.manifest.note,
         now,
@@ -95,6 +100,7 @@ export async function undoAgentTags(
       now: new Date().toISOString()
     });
     const summary: AgentTagUndoSummary = {
+      field: input.journal.field,
       dryRun: input.dryRun,
       revision: context.revision,
       counts: {
@@ -107,8 +113,8 @@ export async function undoAgentTags(
     };
     if (input.dryRun || plan.restored.length === 0) return summary;
 
-    const revision = await commitBank(context.dirs, plan.bank);
-    broadcastTagChange(context.workspacePath, revision, {
+    const revision = await commitBank(context, plan.bank);
+    broadcastTagChange(context.workspacePath, revision, input.journal.field, {
       changed: plan.restored.length,
       unchanged: plan.unchanged,
       added: 0,
@@ -122,6 +128,7 @@ interface CurrentBankContext {
   workspacePath: string;
   dirs: WorkspaceDirs;
   current: Bank;
+  raw: string;
   revision: string;
 }
 
@@ -136,7 +143,7 @@ async function withCurrentBank<T>(
   }
   if (path.resolve(workspacePath) !== path.resolve(input.workspacePath)) {
     throw new StorageError(
-      "标签整理的目标不是当前题库，请先切换工作区。",
+      "考点/题型整理的目标不是当前题库，请先切换工作区。",
       "WORKSPACE_CHANGED",
       409
     );
@@ -156,20 +163,35 @@ async function withCurrentBank<T>(
       workspacePath,
       dirs,
       current: parseStoredBank(raw),
+      raw,
       revision
     });
   });
 }
 
-async function commitBank(dirs: WorkspaceDirs, bank: Bank): Promise<string> {
-  const finalBank = parseV3Bank(bank);
-  await writeJsonFileAtomic(dirs.bankPath, finalBank);
+async function commitBank(
+  context: CurrentBankContext,
+  bank: Bank
+): Promise<string> {
+  const finalBank = parseV4Bank(bank);
+  if (storedVersion(context.raw) !== finalBank.version) {
+    await createHistorySnapshot(context.dirs, context.raw, context.revision);
+  }
+  await writeJsonFileAtomic(context.dirs.bankPath, finalBank);
   return revisionForContent(serializeJson(finalBank));
+}
+
+function storedVersion(raw: string): unknown {
+  const parsed: unknown = JSON.parse(raw);
+  return typeof parsed === "object" && parsed !== null && "version" in parsed
+    ? parsed.version
+    : undefined;
 }
 
 function broadcastTagChange(
   workspacePath: string,
   revision: string,
+  field: AgentTagField,
   tagCounts: AgentTagCounts
 ): void {
   try {
@@ -177,6 +199,7 @@ function broadcastTagChange(
       workspacePath,
       revision,
       source: "agent-tags",
+      field,
       tagCounts
     });
   } catch {

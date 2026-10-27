@@ -70,7 +70,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const filters = useMemo(
     () => ({
       chapterFilters: selection.chapterFilters,
-      tagFilters: selection.tagFilters,
+      topicFilters: selection.topicFilters,
+      typeFilters: selection.typeFilters,
       bookFilters: selection.bookFilters,
       reviewPriorityFilters: selection.reviewPriorityFilters,
       reviewStatusFilters: reviewMode
@@ -85,7 +86,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       selection.reviewPriorityFilters,
       selection.reviewStatusFilters,
       selection.search,
-      selection.tagFilters
+      selection.topicFilters,
+      selection.typeFilters
     ]
   );
   const derived = useQuestionDerivedData(
@@ -473,17 +475,20 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     filteredItems: derived.filteredItems,
     listItems: derived.listItems,
     chapters: derived.chapters,
-    tags: derived.tags,
+    topics: derived.topics,
+    questionTypes: derived.questionTypes,
     selectedIds: selection.selectedIds,
     chapterFilters: selection.chapterFilters,
-    tagFilters: selection.tagFilters,
+    topicFilters: selection.topicFilters,
+    typeFilters: selection.typeFilters,
     bookFilters: selection.bookFilters,
     reviewPriorityFilters: selection.reviewPriorityFilters,
     reviewStatusFilters: selection.reviewStatusFilters,
     search: selection.search,
     listMode: selection.listMode,
     setChapterFilters: selection.setChapterFilters,
-    setTagFilters: selection.setTagFilters,
+    setTopicFilters: selection.setTopicFilters,
+    setTypeFilters: selection.setTypeFilters,
     setBookFilters: selection.setBookFilters,
     setReviewPriorityFilters: selection.setReviewPriorityFilters,
     setReviewStatusFilters: selection.setReviewStatusFilters,

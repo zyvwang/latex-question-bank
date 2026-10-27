@@ -7,7 +7,8 @@ import { useQuestionDerivedData } from "../../src/hooks/useQuestionDerivedData.j
 
 const emptyFilters: QuestionFilters = {
   chapterFilters: [],
-  tagFilters: [],
+  topicFilters: [],
+  typeFilters: [],
   bookFilters: [],
   reviewPriorityFilters: [],
   reviewStatusFilters: [],
@@ -28,7 +29,8 @@ describe("question derived data hot path", () => {
       { initialProps: { currentBank: bank } }
     );
     const firstNumberById = result.current.numberById;
-    const firstTags = result.current.tags;
+    const firstTopics = result.current.topics;
+    const firstTypes = result.current.questionTypes;
     const active = bank.items[0];
     if (!active) throw new Error("测试题库缺少题目");
 
@@ -48,7 +50,8 @@ describe("question derived data hot path", () => {
     });
 
     expect(result.current.numberById).toBe(firstNumberById);
-    expect(result.current.tags).toBe(firstTags);
+    expect(result.current.topics).toBe(firstTopics);
+    expect(result.current.questionTypes).toBe(firstTypes);
   });
 
   it("rebuilds full-text search only for the changed item in a 1000-item bank", () => {
@@ -118,7 +121,8 @@ function countedItem(
     source: { bookId: null, label: `S-${index}` },
     chapterId,
     chapterOrder: index + 1,
-    tags: [index % 2 === 0 ? "偶数" : "奇数"],
+    topics: [index % 2 === 0 ? "偶数" : "奇数"],
+    questionTypes: [index % 3 === 0 ? "选择" : "解答"],
     reviewPriority: null,
     reviewStatus: "approved",
     solutionSource: "none",

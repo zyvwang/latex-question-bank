@@ -66,7 +66,7 @@ lqb import --file manifest.json --json
 
 ## 变式题
 
-变式独立导入，用 \`variantOf\` 指向当前题库已有题目 ID（先 \`lqb get <id>\`）。变式默认待审阅、优先级未标记、\`solutionSource: "agent"\`。同一清单内新题之间不能互相引用；按考点批量生成时可以不设 \`variantOf\`，用标签表达考点/考法。应用侧栏显示「变式」徽标，详情区可跳转原题；原题删除后显示「原题已删除」。
+变式独立导入，用 \`variantOf\` 指向当前题库已有题目 ID（先 \`lqb get <id>\`）。变式默认待审阅、优先级未标记、\`solutionSource: "agent"\`。同一清单内新题之间不能互相引用；按考点批量生成时可以不设 \`variantOf\`，用 \`topics\` 写考点。应用侧栏显示「变式」徽标，详情区可跳转原题；原题删除后显示「原题已删除」。
 
 ## 撤销导入批次
 
@@ -76,26 +76,30 @@ lqb import undo <batchId> --json
 
 只撤销仍为待审阅且未被编辑的题；已批准或已人工编辑的题会保留。撤销依赖导入时的 \`.history/\` 快照，快照被清理后不可撤销。撤销只作用于当前打开的题库；新题库尚未切换时，先在应用中打开它。
 
-## 整理标签
+## 考点与题型
 
-整理考点、考法、题型标签用 \`lqb tag\`。它只改标签，不改审阅状态，用户不需要重新审阅：
+题目的考点写在 \`topics\`，题型写在 \`questionTypes\`（如 选择、填空、解答、证明），都是不带前缀的字符串数组，一题可以有多个。没有 \`tags\` 字段，也没有「考法」。
+
+整理已有题目的考点用 \`lqb topic\`，题型用 \`lqb type\`，两者子命令相同。它们只改对应字段，不改审阅状态，用户不需要重新审阅：
 
 \`\`\`bash
-lqb tag list --json
-lqb tag apply --file tags.json --dry-run --json
-lqb tag apply --file tags.json --json
-lqb tag rename "旧标签" "新标签" --dry-run --json
-lqb tag delete "标签" --dry-run --json
-lqb tag undo .lqb/tag-undo/<文件>.json --json
+lqb topic list --json
+lqb topic apply --file topics.json --dry-run --json
+lqb topic apply --file topics.json --json
+lqb topic rename "旧考点" "新考点" --dry-run --json
+lqb topic delete "考点" --dry-run --json
+lqb topic undo .lqb/topic-undo/<文件>.json --json
+lqb type list --json
+lqb type apply --file types.json --dry-run --json
 \`\`\`
 
-清单二选一，不能混用：逐题 \`{"schemaVersion":1,"changes":[{"id":"题目ID","add":["考点·变限积分"],"remove":["积分综合"]}]}\`；全库 \`{"schemaVersion":1,"renames":[{"from":"旧","to":"新"}],"deletions":["不要的标签"]}\`。全库操作同时生效，不支持链式改名。
+清单二选一，不能混用：逐题 \`{"schemaVersion":1,"changes":[{"id":"题目ID","add":["变限积分"],"remove":["积分综合"]}]}\`；全库 \`{"schemaVersion":1,"renames":[{"from":"旧","to":"新"}],"deletions":["不要的值"]}\`。清单可以写 \`"field": "topics"\` 或 \`"questionTypes"\`，不写时由命令决定，写了必须和命令一致。全库操作同时生效，不支持链式改名。
 
 流程：
 
 1. \`lqb list --json\` 里的题面只有前 300 字；需要全文时用 \`lqb get <id>\`。先归类，把方案给用户确认。
-2. 先 dry-run，检查每道题改前改后的标签和警告。
-3. 确认后正式写入，把撤销文件路径告诉用户。用户想还原时运行 \`lqb tag undo <撤销文件>\`，只会还原标签没有被再改过的题。
+2. 先 dry-run，检查每道题改前改后的值和警告。
+3. 确认后正式写入，把撤销文件路径告诉用户。用户想还原时运行对应的 \`lqb topic undo\` 或 \`lqb type undo\`，只会还原该字段没有被再改过的题。
 
 ## 读取已有题目
 
@@ -164,20 +168,21 @@ Use this skill when the user wants to add questions, wrong-problem notes, whole 
 - Import variants as separate questions. Set \`variantOf\` to an existing question ID from the same bank (\`lqb get <id>\`).
 - Variants default to pending review, no review priority, and \`solutionSource: "agent"\`.
 - A new question cannot reference another new question in the same manifest; split those imports.
-- For topic-based variant sets, omit \`variantOf\` and express the topic with tags.
+- For topic-based variant sets, omit \`variantOf\` and put the topic in \`topics\`.
 
 ## Undo
 
 - \`lqb import undo <batchId> --json\` only removes or restores questions that are still pending and unedited. Approved or edited questions stay.
 - Undo needs the original \`.history/\` snapshot.
 
-## Tags
+## Topics and question types
 
-- Use \`lqb tag\` to organize tags (topic, technique, question type). It changes only \`tags\` and \`updatedAt\`; review status and priority are untouched.
-- \`lqb list --json\` truncates question text to 300 characters; use \`lqb get <id>\` when the full text matters. Show the user the proposed tag plan before writing.
-- Write a manifest with either \`changes\` (per question: \`id\`, \`add\`, \`remove\`) or global \`renames\`/\`deletions\`, never both. Global operations apply simultaneously; chained renames are rejected.
-- Run \`lqb tag apply --file tags.json --dry-run --json\`, check the before/after tags and warnings, then run it without \`--dry-run\`.
-- The CLI saves an undo file under \`.lqb/tag-undo/\`; tell the user its path. \`lqb tag undo <file>\` restores only questions whose tags have not been changed since.
+- Questions have \`topics\` (考点) and \`questionTypes\` (题型, e.g. 选择/填空/解答/证明): plain string arrays without prefixes. There is no \`tags\` field and no 考法 dimension; manifests that send \`tags\` are rejected.
+- Use \`lqb topic\` for topics and \`lqb type\` for question types; both have \`list\`, \`apply\`, \`rename\`, \`delete\` and \`undo\`. They change only that field and \`updatedAt\`; review status and priority are untouched.
+- \`lqb list --json\` truncates question text to 300 characters; use \`lqb get <id>\` when the full text matters. Show the user the proposed plan before writing.
+- Write a manifest with either \`changes\` (per question: \`id\`, \`add\`, \`remove\`) or global \`renames\`/\`deletions\`, never both. An optional \`field\` must match the command. Global operations apply simultaneously; chained renames are rejected.
+- Run \`lqb topic apply --file topics.json --dry-run --json\`, check the before/after values and warnings, then run it without \`--dry-run\`.
+- The CLI saves an undo file under \`.lqb/topic-undo/\` or \`.lqb/type-undo/\`; tell the user its path. \`lqb topic undo <file>\` (or \`lqb type undo\`) restores only questions whose field has not been changed since.
 
 ## Rules
 
@@ -206,7 +211,8 @@ export const MANIFEST_EXAMPLE = `{
         "label": "例 3.58"
       },
       "chapterName": "函数、极限与连续",
-      "tags": ["洛必达", "函数极限"],
+      "topics": ["函数极限", "洛必达"],
+      "questionTypes": ["解答"],
       "reviewPriority": "must",
       "modules": {
         "question": {
@@ -244,9 +250,10 @@ lqb import --file manifest.json --batch-id <id> --json
 lqb import --file book.json --create-bank --switch --batch-id <id> --json
 lqb import undo <id> --json
 lqb bank create --name "书名" --json
-lqb tag list --json
-lqb tag apply --file tags.json --dry-run --json
-lqb tag undo <撤销文件> --json
+lqb topic list --json
+lqb topic apply --file topics.json --dry-run --json
+lqb topic undo <撤销文件> --json
+lqb type list --json
 \`\`\`
 
 导入前运行 \`lqb status --json\`，并确保桌面应用已打开目标题库。整书分块导入时共用一个 \`--batch-id\`，方便整体撤销。

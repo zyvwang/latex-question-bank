@@ -8,24 +8,25 @@ import {
 
 export type QuestionListMode = "current" | "selected";
 
+type LabelField = "topics" | "questionTypes";
+type LabelInputs = Array<{ id: string; values: string[] }>;
+
 export function useSelectionFilters(bank: Bank | null) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [chapterFilters, setChapterFilters] = useState<string[]>([]);
-  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [topicFilters, setTopicFilters] = useState<string[]>([]);
+  const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [bookFilters, setBookFilters] = useState<string[]>([]);
   const [reviewPriorityFilters, setReviewPriorityFilters] = useState<string[]>([]);
   const [reviewStatusFilters, setReviewStatusFilters] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [listMode, setListMode] = useState<QuestionListMode>("current");
   const hasBank = bank !== null;
-  const tagCacheRef = useRef<{
-    inputs: Array<{ id: string; tags: string[] }>;
-    values: Set<string>;
-  } | null>(null);
 
   const clearFilters = useCallback(() => {
     setChapterFilters([]);
-    setTagFilters([]);
+    setTopicFilters([]);
+    setTypeFilters([]);
     setBookFilters([]);
     setReviewPriorityFilters([]);
     setReviewStatusFilters([]);
@@ -46,21 +47,8 @@ export function useSelectionFilters(bank: Bank | null) {
     []
   );
   const validStatuses = useMemo(() => new Set(["pending", "approved"]), []);
-  const validTags = useMemo(() => {
-    const inputs = (bank?.items ?? []).map((item) => ({
-      id: item.id,
-      tags: item.tags
-    }));
-    const cache = tagCacheRef.current;
-    if (cache && sameTagInputs(cache.inputs, inputs)) return cache.values;
-    const values = new Set(
-      (bank?.items ?? [])
-        .flatMap((item) => item.tags.map((tag) => tag.trim()))
-        .filter(Boolean)
-    );
-    tagCacheRef.current = { inputs, values };
-    return values;
-  }, [bank?.items]);
+  const validTopics = useLabelValueSet(bank?.items, "topics");
+  const validTypes = useLabelValueSet(bank?.items, "questionTypes");
 
   useEffect(() => {
     if (!hasBank) return;
@@ -69,8 +57,13 @@ export function useSelectionFilters(bank: Bank | null) {
 
   useEffect(() => {
     if (!hasBank) return;
-    setTagFilters((current) => retainValid(current, validTags));
-  }, [hasBank, validTags]);
+    setTopicFilters((current) => retainValid(current, validTopics));
+  }, [hasBank, validTopics]);
+
+  useEffect(() => {
+    if (!hasBank) return;
+    setTypeFilters((current) => retainValid(current, validTypes));
+  }, [hasBank, validTypes]);
 
   useEffect(() => {
     if (!hasBank) return;
@@ -120,14 +113,16 @@ export function useSelectionFilters(bank: Bank | null) {
     selectedIds,
     setSelectedIds,
     chapterFilters,
-    tagFilters,
+    topicFilters,
+    typeFilters,
     bookFilters,
     reviewPriorityFilters,
     reviewStatusFilters,
     search,
     listMode,
     setChapterFilters,
-    setTagFilters,
+    setTopicFilters,
+    setTypeFilters,
     setBookFilters,
     setReviewPriorityFilters,
     setReviewStatusFilters,
@@ -140,15 +135,28 @@ export function useSelectionFilters(bank: Bank | null) {
   };
 }
 
-function sameTagInputs(
-  previous: Array<{ id: string; tags: string[] }>,
-  next: Array<{ id: string; tags: string[] }>
-): boolean {
+// 编辑正文不会换掉 topics/questionTypes 数组引用，按引用比较可以跳过重算。
+function useLabelValueSet(
+  items: QuestionItem[] | undefined,
+  field: LabelField
+): Set<string> {
+  const cacheRef = useRef<{ inputs: LabelInputs; values: Set<string> } | null>(null);
+  return useMemo(() => {
+    const inputs = (items ?? []).map((item) => ({ id: item.id, values: item[field] }));
+    const cache = cacheRef.current;
+    if (cache && sameLabelInputs(cache.inputs, inputs)) return cache.values;
+    const values = new Set(inputs.flatMap((input) => input.values));
+    cacheRef.current = { inputs, values };
+    return values;
+  }, [items, field]);
+}
+
+function sameLabelInputs(previous: LabelInputs, next: LabelInputs): boolean {
   return previous.length === next.length && previous.every((value, index) => {
     const candidate = next[index];
     return candidate !== undefined &&
       value.id === candidate.id &&
-      value.tags === candidate.tags;
+      value.values === candidate.values;
   });
 }
 

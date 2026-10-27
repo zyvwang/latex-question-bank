@@ -392,7 +392,8 @@ function createQuestion({
     source: { bookId: null, label: `自编 ${chapterIndex + 1}.${itemIndex + 1}` },
     chapterId,
     chapterOrder: itemIndex + 1,
-    tags: [tag],
+    topics: [tag],
+    questionTypes: [(["解答", "选择", "填空", "证明"] as const)[cycle] ?? "解答"],
     reviewPriority: (["must", "recheck", "skip", null] as const)[cycle] ?? null,
     reviewStatus:
       chapterIndex === 0 && itemIndex === 1 ? "pending" : "approved",

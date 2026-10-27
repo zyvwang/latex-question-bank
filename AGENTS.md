@@ -73,7 +73,7 @@ React UI
 - `server/routes/agent-routes.ts`、`server/agent-auth.ts`、`server/agent-discovery.ts`、`server/agent-import-plan.ts`（纯规划，不落盘）、`server/agent-import-service.ts`、`server/agent-workspace-service.ts`、`server/agent-undo-service.ts`：Agent token、发现文件、manifest 导入、新建题库、批次撤销与附件。
 - `server/routes/events-routes.ts`、`server/events.ts`：本地 SSE 广播。
 - `shared/agent-manifest.ts`：Agent 导入清单契约与校验。
-- `shared/agent-tags.ts`、`server/agent-tag-plan.ts`（纯规划，不落盘）、`server/agent-tag-service.ts`：`lqb tag` 标签整理的清单/撤销记录契约与校验、规划、加锁落盘。
+- `shared/agent-tags.ts`、`server/agent-tag-plan.ts`（纯规划，不落盘）、`server/agent-tag-service.ts`：`lqb topic`/`lqb type` 考点/题型整理的清单（带 `field`）/撤销记录契约与校验、规划、加锁落盘。
 - `server/index.ts`：Express 应用装配、路由挂载、前端静态服务和启动入口。
 - `server/routes/`：HTTP adapter，按 workspace、bank/recovery、document/export、agent/events 分组。
 - `server/http/`：共享 middleware 和 API 错误响应。
@@ -93,15 +93,16 @@ React UI
 
 ## 数据模型与安全
 
-当前写入的 workspace schema 是 `version: 3`；`version: 1` 和 `version: 2` 仅作为只读迁移输入。v3 的题目字段包括：
+当前写入的 workspace schema 是 `version: 4`；`version: 1`、`version: 2`、`version: 3` 仅作为只读迁移输入（读取时在内存迁移，首次真实保存才写回 v4）。v4 的题目字段包括：
 
 - `source: { bookId, label } | null`：书目 + 规范化题号，有书目时 `(bookId,label)` 全库唯一；不再有 `sourceNumber`。
+- `topics: string[]`：考点；`questionTypes: string[]`：题型（一题可多个，如 选择/填空/解答/证明）。都不带前缀；不再有 `tags` 字段，「标签」与「考法」维度已删除。
 - `reviewPriority: "skip" | "recheck" | "must" | null`：界面「复习优先级」。
 - `reviewStatus: "pending" | "approved"`：Agent 导入的题默认 pending。
 - `solutionSource: "answer-book" | "agent" | "user" | "none" | null`、`solutionRef`。
 - `variantOf`、`importBatchId`、`importedAt`。
 
-`Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。导入记录最多 50 条；同一 `batch.id` 的分块导入会合并为一条记录，并复用首块 `.history/` 快照作为整批撤销点。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留标签，不能作为普通 `tags` 保存。迁移逻辑在 `shared/bank-migration.ts`，来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`，撤销请求/结果类型在 `shared/agent-undo.ts`。
+`Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。导入记录最多 50 条；同一 `batch.id` 的分块导入会合并为一条记录，并复用首块 `.history/` 快照作为整批撤销点。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留值，不能作为 `topics`/`questionTypes` 保存。迁移逻辑在 `shared/bank-migration.ts`（v3 的 `考点·x` 去前缀进 `topics`、`题型·x` 进 `questionTypes`，`考法·x` 与无前缀标签丢弃；v1/v2 早于前缀约定，无前缀标签按考点保留），来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`，撤销请求/结果类型在 `shared/agent-undo.ts`。
 
 Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-workflow.md`）：
 
@@ -109,8 +110,9 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 - Agent 和 `lqb` 不直接修改 `bank.json`。`server/agent-import-plan.ts` 只做纯规划；`server/agent-import-service.ts` 在 workspace 写锁内校验 revision，dry-run 不写，正式导入先校验清单和全部附件，再写 `.history/` 快照、导入记录和 bank。新增导入规则放 plan，落盘与加锁留在 service。
 - 新建题库（`--create-bank`）不覆盖已有 `bank.json`，不自动切换。撤销只动仍 pending 且未编辑的题；失败返回 `UNDO_*` 错误。
 - 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256。不读取书目的 PDF 路径，只保存路径和哈希。
-- `lqb tag` 只改 `tags` 和 `updatedAt`：不重置 `reviewStatus`（对“Agent 更新已有题回到待审阅”的有意例外，理由见 `docs/agent-workflow.md`），也不拍 `.history/` 快照（只有 10 份，留给用户恢复点和导入批次）。撤销记录由服务端返回、CLI 存到 `.lqb/tag-undo/`，撤销只恢复标签仍等于 `after` 的题。
-- 外部导入、撤销或标签整理成功后通过 `/api/events` 广播；渲染端有草稿时只显示横幅，不静默覆盖。
+- 导入清单的题目用 `topics`/`questionTypes`；带旧字段 `tags` 的清单直接拒绝，不做静默转换。
+- `lqb topic`/`lqb type` 只改对应字段（`topics`/`questionTypes`）和 `updatedAt`：不重置 `reviewStatus`（对“Agent 更新已有题回到待审阅”的有意例外，理由见 `docs/agent-workflow.md`），也不拍 `.history/` 快照（只有 10 份，留给用户恢复点和导入批次）；唯一例外是磁盘上还是旧版本题库时，写回会顺带迁移，先留一份迁移前快照。清单和撤销记录带 `field`，撤销记录由服务端返回、CLI 存到 `.lqb/topic-undo/` 或 `.lqb/type-undo/`，撤销只恢复该字段仍等于 `after` 的题。
+- 外部导入、撤销或考点/题型整理成功后通过 `/api/events` 广播；渲染端有草稿时只显示横幅，不静默覆盖。
 
 每道题的 LaTeX 内容存在：
 
@@ -162,7 +164,7 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
 - 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
-- `main.png`、`review.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题并用“洛必达”“求极限”“泰勒展开”等单个短方法标签保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；设置页展示书目与导入记录。热力图和掌握历史已移除，不再生成对应截图。
+- `main.png`、`review.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；设置页展示书目与导入记录。热力图和掌握历史已移除，不再生成对应截图。
 - 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定

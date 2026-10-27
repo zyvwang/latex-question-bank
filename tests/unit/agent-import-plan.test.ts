@@ -43,7 +43,8 @@ describe("planBank", () => {
     const manifest = {
       questions: [{
         source: { bookId: "book-sample", label: "示例 1" },
-        tags: ["极限", "新标签", "待审阅"],
+        topics: ["极限", "新考点", "待审阅"],
+        questionTypes: ["证明"],
         modules: { question: { tex: "新题干" } }
       }]
     };
@@ -61,7 +62,8 @@ describe("planBank", () => {
     expect(item).toMatchObject({
       reviewStatus: "pending",
       importBatchId: "batch-1",
-      tags: ["极限", "等价无穷小", "新标签"],
+      topics: ["极限", "等价无穷小", "新考点"],
+      questionTypes: ["解答", "证明"],
       modules: { question: { tex: "新题干" } }
     });
     expect(item?.modules.solution.tex).not.toBe("");

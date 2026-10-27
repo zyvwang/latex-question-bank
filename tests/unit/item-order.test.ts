@@ -10,7 +10,8 @@ function makeItem(overrides: Partial<QuestionItem> = {}): QuestionItem {
     source: { bookId: "book-1", label: "42" },
     chapterId: "ch-1",
     chapterOrder: 1,
-    tags: [],
+    topics: [],
+    questionTypes: [],
     reviewPriority: null,
     reviewStatus: "approved",
     solutionSource: "none",
@@ -28,7 +29,7 @@ function makeItem(overrides: Partial<QuestionItem> = {}): QuestionItem {
 
 function makeBank(overrides: Partial<Bank> = {}): Bank {
   return {
-    version: 3,
+    version: 4,
     settings: { preamble: "", pageSize: "a4", spacing: { item: "1em", module: "1em" } },
     chapters: [{ id: "ch-1", name: "章一", order: 1 }],
     books: [

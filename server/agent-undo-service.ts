@@ -5,7 +5,7 @@ import {
   type AgentUndoCounts,
   type AgentUndoSummary
 } from "../shared/agent-undo.js";
-import { parseV3Bank } from "../shared/bank-validation.js";
+import { parseV4Bank } from "../shared/bank-validation.js";
 import type {
   Bank,
   ImportBatchRecord,
@@ -203,7 +203,7 @@ function buildUndoBank(
 
 function validateUndoBank(bank: Bank): Bank {
   try {
-    return parseV3Bank(bank);
+    return parseV4Bank(bank);
   } catch (error) {
     if (error instanceof ValidationError) {
       throw new StorageError(
@@ -290,7 +290,8 @@ function cloneItem(item: QuestionItem): QuestionItem {
   return {
     ...item,
     source: item.source ? { ...item.source } : null,
-    tags: [...item.tags],
+    topics: [...item.topics],
+    questionTypes: [...item.questionTypes],
     assets: item.assets.map((asset) => ({ ...asset })),
     modules: {
       question: { ...item.modules.question },
