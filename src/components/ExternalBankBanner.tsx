@@ -9,11 +9,14 @@ export function ExternalBankBanner() {
   if (!notice) return null;
   const created = notice.counts?.created ?? 0;
   const updated = notice.counts?.updated ?? 0;
+  const tagsChanged = notice.tagsChanged ?? 0;
   const changeText = created
     ? `Agent 导入了 ${created} 道题。`
     : updated
       ? `Agent 更新了 ${updated} 道题。`
-      : "检测到新的导入内容。";
+      : tagsChanged
+        ? `Agent 修改了 ${tagsChanged} 道题的标签。`
+        : "检测到新的导入内容。";
   return (
     <div className={styles.banner} role="alert">
       <AlertTriangle size={18} aria-hidden="true" />

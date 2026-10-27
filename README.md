@@ -131,11 +131,20 @@ lqb import undo whole-book --json
 
 导入的题目默认是「待审阅」。应用顶部会出现待审阅数量；在独立「待审阅」页可以批准、编辑、删除或批量批准。应用空闲时会自动接收导入或撤销结果；如果正在编辑，会显示「题库已在外部更新」横幅，由你决定何时重新加载。
 
+整理标签（加、删、改名、合并）用 `lqb tag`：先 `--dry-run` 预演，写入时只改标签、不改审阅状态，并保存撤销文件，随时可以还原：
+
+```bash
+lqb tag list
+lqb tag rename 数列极限 "考点·数列极限" --dry-run
+lqb tag apply --file tags.json --json
+lqb tag undo .lqb/tag-undo/<文件>.json
+```
+
 ![待审阅页：变式原题链接与截图附件](docs/screenshots/review.png)
 
 ![题库设置中的书目与导入记录](docs/screenshots/settings.png)
 
-当前版本支持指定例题/习题、截图附件、变式题、整书导入、新建题库和按批次撤销。完整命令、清单格式和安全边界见 [docs/agent-workflow.md](docs/agent-workflow.md)。
+当前版本支持指定例题/习题、截图附件、变式题、整书导入、新建题库、按批次撤销和标签整理。完整命令、清单格式和安全边界见 [docs/agent-workflow.md](docs/agent-workflow.md)。
 
 ## 编写 LaTeX
 

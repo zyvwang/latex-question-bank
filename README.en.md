@@ -131,11 +131,20 @@ lqb import undo whole-book --json
 
 Imported items are pending review. The app shows the pending count in the navigation; the 待审阅 page lets you approve, edit, delete, or bulk-approve items. An idle app reloads imports and undos automatically; while you are editing it shows a “题库已在外部更新” banner instead of discarding local work.
 
+Use `lqb tag` to organize tags (add, remove, rename, merge). Preview with `--dry-run` first; a write changes only tags, leaves review status alone, and saves an undo file so it can be reverted:
+
+```bash
+lqb tag list
+lqb tag rename 数列极限 "考点·数列极限" --dry-run
+lqb tag apply --file tags.json --json
+lqb tag undo .lqb/tag-undo/<file>.json
+```
+
 ![Review page with a variant link and screenshot attachment](docs/screenshots/review.png)
 
 ![Books and import history in Bank Settings](docs/screenshots/settings.png)
 
-This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, and batch undo. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, batch undo, and tag organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
 

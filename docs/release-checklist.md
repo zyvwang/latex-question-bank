@@ -66,7 +66,9 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - agent import rejects a stale `baseRevision`, a mismatched workspace, and an invalid manifest without partial writes
    - the Review page approves, advances, bulk-approves, deletes with undo, shows the pending count, and handles empty/filtered-empty states
    - idle external imports and undos auto-refresh; focused drafts, uploads, saves, or workspace transitions show the external-update banner instead of overwriting
-   - `/api/events` sends `bank-changed` after a successful import or undo and cleans up clients when the server closes
+   - `/api/events` sends `bank-changed` after a successful import, undo, or tag change and cleans up clients when the server closes
+   - `lqb tag --dry-run` writes nothing; a real `lqb tag apply/rename/delete` changes only tags and `updatedAt` (approved questions stay approved, no `.history/` snapshot), writes `.lqb/tag-undo/*.json`, and an idle app reloads with a notice while a focused draft shows the banner
+   - `lqb tag undo` restores only questions whose tags are unchanged since, lists the rest, exits 3 when any were skipped, and can be re-run safely
    - workspace create/open/switch/reorder/relocate/reveal/remove-from-list actions on Bank Settings, including staying on that page after a switch
    - removing the final workspace returns to Setup while its directory and `bank.json` remain on disk
    - a bank save beyond 64 MiB shows the persistent size error and leaves disk/revision unchanged; reducing content retries successfully
