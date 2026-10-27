@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link2 } from "lucide-react";
 import {
   questionSourceDisplay,
@@ -19,6 +19,12 @@ import {
 } from "../context/questionBankContexts.js";
 import { ChapterCombobox } from "./ChapterCombobox.js";
 import { QuestionAssets } from "./QuestionAssets.js";
+import {
+  groupTagsByDimension,
+  replaceTagGroup,
+  stripTagPrefix,
+  TAG_DIMENSIONS
+} from "../tagDimensions.js";
 import { TagEditor } from "./TagEditor.js";
 import styles from "./WorkspaceView.module.css";
 
@@ -229,16 +235,47 @@ function TagsField() {
   const questions = useQuestions();
   const selection = useSelection();
   const item = questions.activeItem;
+  const bankTags = useMemo(() => groupTagsByDimension(selection.tags), [selection.tags]);
   if (!item) return null;
+  const own = groupTagsByDimension(item.tags);
+  // 题库里用过的维度才单独成栏，没用过的不占位置。
+  const dimensions = TAG_DIMENSIONS.filter(
+    (dimension) =>
+      bankTags.byDimension[dimension.key].length > 0 ||
+      own.byDimension[dimension.key].length > 0
+  );
   return (
-    <label className={styles.tagsField}>
-      <span>标签</span>
-      <TagEditor
-        tags={item.tags}
-        suggestions={selection.tags}
-        onChange={(tags) => questions.updateItem(item.id, { tags })}
-      />
-    </label>
+    <div className={`${styles.tagsField} ${styles.tagsGroup}`} role="group" aria-label="标签">
+      {dimensions.map((dimension) => (
+        <label key={dimension.key}>
+          <span>{dimension.label}</span>
+          <TagEditor
+            tags={own.byDimension[dimension.key]}
+            suggestions={bankTags.byDimension[dimension.key].map(stripTagPrefix)}
+            prefix={dimension.prefix}
+            inputLabel={`添加${dimension.label}`}
+            listId={`workspace-tag-suggestions-${dimension.key}`}
+            onChange={(next) =>
+              questions.updateItem(item.id, {
+                tags: replaceTagGroup(item.tags, dimension.key, next)
+              })
+            }
+          />
+        </label>
+      ))}
+      <label>
+        <span>标签</span>
+        <TagEditor
+          tags={own.other}
+          suggestions={bankTags.other}
+          onChange={(next) =>
+            questions.updateItem(item.id, {
+              tags: replaceTagGroup(item.tags, null, next)
+            })
+          }
+        />
+      </label>
+    </div>
   );
 }
 

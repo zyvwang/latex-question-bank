@@ -94,6 +94,31 @@ describe("question filters", () => {
     ).toBe(true);
   });
 
+  it("combines tag filters with OR inside a dimension and AND across dimensions", () => {
+    const tagged = (tags: string[]) => item("t", "chapter-a", tags, "must");
+    const match = (candidate: QuestionItem, tagFilters: string[]) =>
+      matchesQuestionFilters(candidate, { ...emptyFilters(), tagFilters }, chapterById, books);
+    const limitChoice = tagged(["考点·数列极限", "题型·选择", "考法·夹逼准则"]);
+    const limitSolve = tagged(["考点·数列极限", "题型·解答"]);
+    const taylorChoice = tagged(["考点·泰勒公式", "题型·选择"]);
+
+    // 同一维度内是「或」
+    expect(match(limitChoice, ["考点·数列极限", "考点·泰勒公式"])).toBe(true);
+    expect(match(taylorChoice, ["考点·数列极限", "考点·泰勒公式"])).toBe(true);
+    // 不同维度之间是「且」
+    expect(match(limitChoice, ["考点·数列极限", "题型·选择"])).toBe(true);
+    expect(match(limitSolve, ["考点·数列极限", "题型·选择"])).toBe(false);
+    expect(match(taylorChoice, ["考点·数列极限", "题型·选择"])).toBe(false);
+    expect(match(limitChoice, ["考点·数列极限", "题型·选择", "考法·夹逼准则"])).toBe(true);
+    expect(match(limitChoice, ["题型·选择", "考法·单调有界准则"])).toBe(false);
+    // 没有前缀的标签自成一组，仍是「或」
+    const plain = tagged(["极限"]);
+    expect(match(plain, ["极限", "矩阵"])).toBe(true);
+    expect(match(plain, ["矩阵"])).toBe(false);
+    expect(match(plain, ["极限", "题型·选择"])).toBe(false);
+    expect(match(plain, [])).toBe(true);
+  });
+
   it("does not read LaTeX modules after a structured filter rejects the item", () => {
     const candidate = item("lazy", "chapter-a", ["极限"], "must");
     makeTexUnreadable(candidate);

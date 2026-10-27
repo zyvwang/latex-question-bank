@@ -89,6 +89,18 @@
 }
 .chapterField { min-width: 0; }
 .tagsField > div { flex: 1; }
+.tagsGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+  border-right: 1px solid var(--hairline);
+}
+.tagsGroup > label > div { flex: 1; }
+.tagsGroup > label { border-right: 0; padding-block: 4px; }
+.tagsGroup > label:nth-child(even) { border-left: 1px solid var(--hairline); }
+.tagsGroup > label:nth-child(n + 3) { border-top: 1px solid var(--hairline); }
+.tagsGroup > label > span { min-width: 2.5em; }
+.tagsGroup > label input { min-width: 64px; flex-basis: 64px; }
 
 .sourceField { min-width: 0; }
 .sourceField select { flex: 0 1 132px; width: auto; }
@@ -363,6 +375,9 @@
   .metaStrip label:last-child,
   .sourceField:last-child { border-bottom: 0; }
   .tagsField { grid-column: auto; border-top: 0; }
+  .tagsGroup { grid-template-columns: 1fr; }
+  .tagsGroup > label:nth-child(even) { border-left: 0; }
+  .tagsGroup > label:nth-child(n + 2) { border-top: 1px solid var(--hairline); }
   .settingsGrid { grid-template-columns: 1fr; }
   .editorSurface { min-height: 680px; margin-inline: 12px; }
   .moduleTabs { min-width: 0; flex: 1; }
