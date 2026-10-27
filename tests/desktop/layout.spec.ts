@@ -90,6 +90,8 @@ test("sidebar chapter headings stick, hand off, and preserve keyboard and drag t
   });
   try {
     const page = await app.firstWindow();
+    // 最小侧栏宽度下题目行会换行变高；窗口过矮时拖拽落点会落到窗口外。
+    await page.setViewportSize({ width: 1470, height: 891 });
     const list = page.getByLabel("题目列表", { exact: true });
     const headings = list.getByRole("heading");
     await expect(headings).toHaveCount(3);
