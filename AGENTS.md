@@ -86,8 +86,7 @@ React UI
 - `electron/`：主进程和 preload。只暴露窄能力，保持 IPC 输入校验。
 - `tests/`：Vitest、Testing Library、Supertest 和 Playwright 测试。
 - `docs/architecture.md`、`docs/design-system.md`、`docs/release-checklist.md`：架构、视觉、发布约定。改相关领域时同步更新。
-- `docs/agent-workflow.md`：Agent 安装、`lqb` 命令、清单、审阅和安全边界。
-- `docs/agent-workflow-plan.md`：外部 Agent 导入与审阅优先级的完整设计/实施计划。Phase A+B+C+D 已实施（2026-10-26）。
+- `docs/agent-workflow.md`：Agent 安装、`lqb` 命令与退出码、清单、审阅、设计决策和安全边界。
 
 避免手动编辑或提交生成目录：`node_modules/`、`build/`、`dist/`、`coverage/`、`release/`、`.tmp/`、`.app-data/`、`test-results/`、`public/vendor/`。`public/vendor/mathjax/` 由 `scripts/copy-mathjax.mjs` 在安装后复制生成。
 
@@ -103,16 +102,13 @@ React UI
 
 `Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。导入记录最多 50 条；同一 `batch.id` 的分块导入会合并为一条记录，并复用首块 `.history/` 快照作为整批撤销点。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留标签，不能作为普通 `tags` 保存。迁移逻辑在 `shared/bank-migration.ts`，来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`，撤销请求/结果类型在 `shared/agent-undo.ts`。
 
-Agent 导入边界：
+Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-workflow.md`）：
 
-- 应用运行时把端口、随机 token 和当前工作区写入 `~/.lqb/agent.json`（目录 0700、文件 0600）；`LQB_AGENT_DISCOVERY_FILE` 可覆盖。
-- 所有 `/api/agent/*` 写接口要求 `Authorization: Bearer <token>`；Host/Origin 检查不放松。
-- Agent 导入通过 `server/agent-import-service.ts` 在 workspace 写锁内原子提交：dry-run 不写；正式导入先校验清单和附件，再写 `.history/` 快照、导入记录和 bank。
-- `--create-bank` 由 `server/agent-workspace-service.ts` 编排：从清单读取 `bank`/`chapters`，复制当前 settings，默认落到 `~/Documents/LaTeX Question Bank/<书名>`，不自动切换，只有显式 `--switch` 才切换。目标已有 `bank.json` 时拒绝创建。
-- `--batch-id` 可在后续分块中复用，合并到同一条导入记录；撤销使用首块快照。`lqb import undo` 只删除/恢复仍 pending 且未被编辑的题，保留已批准/已编辑题，并尽力清理无引用附件；快照缺失或批次已撤销返回 `UNDO_*` 错误。
-- 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256；TeX 中的 `{{asset:key}}` 由服务端替换为最终 `assets/...` 路径。
-- 不读取书目的 PDF 路径，只保存路径和哈希；Agent 不直接修改 `bank.json`。
-- 外部导入或撤销成功后通过 `/api/events` 广播；渲染端空闲时自动重载，有草稿时显示横幅，不静默覆盖。
+- 应用运行时把端口、随机 token 和当前工作区写入 `~/.lqb/agent.json`（目录 0700、文件 0600）；`LQB_AGENT_DISCOVERY_FILE` 可覆盖。所有 `/api/agent/*` 写接口要求 `Authorization: Bearer <token>`；Host/Origin 检查不放松。
+- Agent 和 `lqb` 不直接修改 `bank.json`。`server/agent-import-plan.ts` 只做纯规划；`server/agent-import-service.ts` 在 workspace 写锁内校验 revision，dry-run 不写，正式导入先校验清单和全部附件，再写 `.history/` 快照、导入记录和 bank。新增导入规则放 plan，落盘与加锁留在 service。
+- 新建题库（`--create-bank`）不覆盖已有 `bank.json`，不自动切换。撤销只动仍 pending 且未编辑的题；失败返回 `UNDO_*` 错误。
+- 附件必须走 `server/asset-service.ts` 的扩展名、MIME、签名、尺寸校验，并写 SHA-256。不读取书目的 PDF 路径，只保存路径和哈希。
+- 外部导入或撤销成功后通过 `/api/events` 广播；渲染端有草稿时只显示横幅，不静默覆盖。
 
 每道题的 LaTeX 内容存在：
 
@@ -217,7 +213,7 @@ Agent 导入边界：
 
 开始前：
 
-- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/agent-workflow-plan.md` 片段。
+- 阅读与改动相关的 `docs/architecture.md`、`docs/design-system.md` 或 `docs/agent-workflow.md` 片段。
 - 确认是否涉及 workspace 持久化、schema、Electron IPC、TeX 执行或文件路径安全。
 - 检查工作区是否已有用户改动，不要回退无关变更。
 
