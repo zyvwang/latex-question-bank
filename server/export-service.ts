@@ -71,10 +71,10 @@ async function exportBankExclusive(
   const sourcesMd = path.join(stagingDir, "sources.md");
   await writeFile(
     questionsTex,
-    buildQuestionOnlyLatex(items, bank.settings, bank.books),
+    buildQuestionOnlyLatex(items, bank.settings),
     "utf8"
   );
-  await writeFile(fullTex, buildFullLatex(items, bank.settings, bank.books), "utf8");
+  await writeFile(fullTex, buildFullLatex(items, bank.settings), "utf8");
   await writeFile(sourcesMd, buildSourcesMarkdown(items, bank.books), "utf8");
 
   const questionsResult = await compileLatex(questionsTex, stagingDir, 60_000, session);

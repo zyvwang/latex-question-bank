@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createSampleBank } from "../../server/bank-schema.js";
 import type { Bank } from "../../shared/types.js";
+import { validateBankPayload } from "../../shared/bank-validation.js";
 import {
-  isRecord,
-  validateBankPayload,
   validateCompileItemRequest,
   validateExportRequest,
   validateRecoverBankRequest,
@@ -11,7 +10,8 @@ import {
   validateTexPathRequest,
   validateWorkspaceMoveRequest,
   validateWorkspacePathRequest
-} from "../../shared/validation.js";
+} from "../../shared/request-validation.js";
+import { isRecord } from "../../shared/validation-primitives.js";
 import { validateBankPayload as validateBankPayloadDirect } from "../../shared/bank-validation.js";
 import { isRecord as isRecordDirect } from "../../shared/validation-primitives.js";
 

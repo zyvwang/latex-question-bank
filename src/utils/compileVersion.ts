@@ -1,13 +1,8 @@
-import type {
-  BookRecord,
-  LatexSettings,
-  QuestionItem
-} from "../../shared/types.js";
+import type { LatexSettings, QuestionItem } from "../../shared/types.js";
 
 export function compileContentVersion(
   item: QuestionItem,
-  settings: LatexSettings,
-  _books: BookRecord[] = []
+  settings: LatexSettings
 ): string {
   const content = JSON.stringify({
     modules: {

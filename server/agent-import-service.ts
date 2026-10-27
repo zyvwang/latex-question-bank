@@ -10,12 +10,12 @@ import type {
   AgentManifestSource
 } from "../shared/agent-manifest.js";
 import { parseV3Bank } from "../shared/bank-validation.js";
-import { normalizeUniqueName } from "../shared/names.js";
+import { nextChapterOrder } from "../shared/chapter-order.js";
+import { mergeTags, normalizeUniqueName } from "../shared/names.js";
 import {
   normalizeSourceLabel,
   sourceKey
 } from "../shared/question-source.js";
-import { isReservedTag } from "../shared/review-fields.js";
 import type {
   Bank,
   BookRecord,
@@ -652,7 +652,7 @@ function planBank(input: PlanInput): PlanResult {
         chapterOrder: moving
           ? nextChapterOrder(items, chapter.chapterId)
           : target.chapterOrder,
-        tags: unionTags(target.tags, question.tags ?? []),
+        tags: mergeTags(target.tags, question.tags ?? []),
         reviewPriority: target.reviewPriority,
         reviewStatus: "pending",
         solutionSource: question.solutionSource ?? target.solutionSource,
@@ -1015,22 +1015,6 @@ function substituteAssets(
   );
 }
 
-function unionTags(existing: string[], added: string[]): string[] {
-  const values = [...existing];
-  const seen = new Set(
-    existing.map((tag) => tag.trim().normalize("NFKC").toLocaleLowerCase("en-US"))
-  );
-  for (const tag of added) {
-    const normalized = tag.trim().normalize("NFKC");
-    if (!normalized || isReservedTag(normalized)) continue;
-    const key = normalized.toLocaleLowerCase("en-US");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    values.push(normalized);
-  }
-  return values;
-}
-
 function mergeAssets(
   existing: QuestionAsset[],
   added: QuestionAsset[]
@@ -1059,16 +1043,6 @@ function dedupeAssets(assets: QuestionAsset[]): QuestionAsset[] {
 function replaceItem(items: QuestionItem[], next: QuestionItem): void {
   const index = items.findIndex((item) => item.id === next.id);
   if (index >= 0) items[index] = next;
-}
-
-function nextChapterOrder(
-  items: QuestionItem[],
-  chapterId: string | null
-): number {
-  const orders = items
-    .filter((item) => item.chapterId === chapterId)
-    .map((item) => item.chapterOrder);
-  return (orders.length ? Math.max(...orders) : 0) + 1;
 }
 
 function validateVariant(

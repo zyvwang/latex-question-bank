@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { createHash } from "node:crypto";
 import { access } from "node:fs/promises";
 import type { Bank } from "../shared/types.js";
-import { validateBankPayload } from "../shared/validation.js";
+import { validateBankPayload } from "../shared/bank-validation.js";
 import { StorageError } from "./storage-types.js";
 
 /**

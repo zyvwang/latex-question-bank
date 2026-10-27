@@ -16,7 +16,7 @@ import type {
 } from "../../shared/types.js";
 import {
   findSourceConflict,
-  itemsInChapter,
+  nextChapterOrder,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
 import type { QuestionBankContextValues } from "../context/questionBankContextTypes.js";
@@ -129,7 +129,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     if (!bank) return false;
     const item = bank.items.find((candidate) => candidate.id === id);
     if (!item || item.chapterId === chapterId) return Boolean(item);
-    const nextOrder = itemsInChapter(bank.items, chapterId).length + 1;
+    const nextOrder = nextChapterOrder(bank.items, chapterId);
     const now = new Date().toISOString();
     updateBank((current) => ({
       ...current,

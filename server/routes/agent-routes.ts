@@ -3,7 +3,7 @@ import multer from "multer";
 import {
   validateAgentImportManifest
 } from "../../shared/agent-manifest.js";
-import { validateWorkspacePathRequest } from "../../shared/validation.js";
+import { validateWorkspacePathRequest } from "../../shared/request-validation.js";
 import { ValidationError } from "../../shared/validation-primitives.js";
 import { applyAgentImport } from "../agent-import-service.js";
 import { undoAgentImport } from "../agent-undo-service.js";

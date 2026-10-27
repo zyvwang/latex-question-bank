@@ -174,14 +174,13 @@ describe("domain helpers", () => {
           }
         }
       ],
-      bank.settings,
-      bank.books
+      bank.settings
     );
     ok(latex.includes("\\noindent\\textbf{1.}\\hspace{0.4em}Body $x^2$"));
     ok(!latex.includes("source_1"));
     ok(!latex.includes("\\documentclass{article}"));
     ok(latex.includes("\\documentclass[UTF8,zihao=5]{ctexart}"));
-    ok(buildFullLatex([], bank.settings, bank.books).includes("暂无选中题目"));
+    ok(buildFullLatex([], bank.settings).includes("暂无选中题目"));
 
     const fullWithEmptyNote = buildFullLatex(
       [
@@ -194,8 +193,7 @@ describe("domain helpers", () => {
           }
         }
       ],
-      bank.settings,
-      bank.books
+      bank.settings
     );
     ok(fullWithEmptyNote.includes("\\noindent\\textbf{1.}\\hspace{0.4em}求极限。"));
     ok(fullWithEmptyNote.includes("\\noindent\\textbf{【解析】}直接计算得 1。"));
@@ -213,8 +211,7 @@ describe("domain helpers", () => {
           }
         }
       ],
-      bank.settings,
-      bank.books
+      bank.settings
     );
     ok(choiceShort.includes("\\parbox[t]{0.235\\linewidth}{A. $0$}\\hfill\\parbox[t]{0.235\\linewidth}{B. $1$}"));
 
@@ -236,8 +233,7 @@ describe("domain helpers", () => {
           }
         }
       ],
-      bank.settings,
-      bank.books
+      bank.settings
     );
     ok(choiceMedium.includes("\\parbox[t]{0.485\\linewidth}{A. 数列 $\\{a_n\\}$ 单调增加且收敛于 $e$}"));
 
@@ -302,7 +298,7 @@ describe("domain helpers", () => {
   it("versions only inputs that affect current-item compilation", () => {
     const bank = createSampleBank();
     const item = bank.items[0];
-    const initial = compileContentVersion(item, bank.settings, bank.books);
+    const initial = compileContentVersion(item, bank.settings);
 
     equal(
       compileContentVersion({
@@ -311,7 +307,7 @@ describe("domain helpers", () => {
         chapterId: null,
         chapterOrder: 9,
         tags: ["changed"]
-      }, bank.settings, bank.books),
+      }, bank.settings),
       initial
     );
     expect(
@@ -321,7 +317,7 @@ describe("domain helpers", () => {
           ...item.modules,
           question: { tex: `${item.modules.question.tex} changed` }
         }
-      }, bank.settings, bank.books)
+      }, bank.settings)
     ).not.toBe(initial);
     expect(
       compileContentVersion({
@@ -335,13 +331,13 @@ describe("domain helpers", () => {
           size: 1,
           uploadedAt: fixedNow
         }]
-      }, bank.settings, bank.books)
+      }, bank.settings)
     ).not.toBe(initial);
     expect(
       compileContentVersion(item, {
         ...bank.settings,
         preamble: `${bank.settings.preamble}\n\\usepackage{booktabs}`
-      }, bank.books)
+      })
     ).not.toBe(initial);
   });
 
