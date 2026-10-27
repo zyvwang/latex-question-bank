@@ -16,11 +16,16 @@ const securityGatedJobs = new Map([
 const immutableActionReference = /uses:\s+[^\s#]+@[0-9a-f]{40}(?:\s+#.*)?$/gm;
 const anyActionReference = /uses:\s+[^\s#]+@[^\s#]+(?:\s+#.*)?$/gm;
 
+// Windows 上 git 默认以 CRLF 检出，下面按 "\n" 写的多行正则会全部失配。
+async function readWorkflow(workflowPath: string): Promise<string> {
+  return (await readFile(path.resolve(workflowPath), "utf8")).replace(/\r\n/g, "\n");
+}
+
 describe("real LaTeX export workflows", () => {
   it.each(realLatexWorkflowPaths)(
     "%s installs the TeX Live package that provides extarrows.sty",
     async (workflowPath) => {
-      const workflow = await readFile(path.resolve(workflowPath), "utf8");
+      const workflow = await readWorkflow(workflowPath);
       expect(workflow).toContain("texlive-science");
     }
   );
@@ -30,7 +35,7 @@ describe("GitHub Actions supply-chain boundaries", () => {
   it.each(realLatexWorkflowPaths)(
     "%s pins every third-party action to an immutable commit",
     async (workflowPath) => {
-      const workflow = await readFile(path.resolve(workflowPath), "utf8");
+      const workflow = await readWorkflow(workflowPath);
       expect(workflow.match(immutableActionReference)).toEqual(
         workflow.match(anyActionReference)
       );
@@ -40,7 +45,7 @@ describe("GitHub Actions supply-chain boundaries", () => {
   it.each(realLatexWorkflowPaths)(
     "%s prevents checkout from persisting credentials",
     async (workflowPath) => {
-      const workflow = await readFile(path.resolve(workflowPath), "utf8");
+      const workflow = await readWorkflow(workflowPath);
       const checkoutCount = workflow.match(/uses:\s+actions\/checkout@/g)?.length ?? 0;
       const hardenedCheckoutCount = workflow.match(/persist-credentials:\s+false/g)?.length ?? 0;
 
@@ -50,10 +55,7 @@ describe("GitHub Actions supply-chain boundaries", () => {
   );
 
   it("grants release write access only to the publishing job", async () => {
-    const workflow = await readFile(
-      path.resolve(".github/workflows/release.yml"),
-      "utf8"
-    );
+    const workflow = await readWorkflow(".github/workflows/release.yml");
 
     expect(workflow).toMatch(/^permissions:\n {2}contents: read$/m);
     expect(workflow.match(/contents:\s+write/g)).toHaveLength(1);
@@ -65,7 +67,7 @@ describe("GitHub Actions supply-chain boundaries", () => {
   it.each(realLatexWorkflowPaths)(
     "%s audits dependencies before installation jobs",
     async (workflowPath) => {
-      const workflow = await readFile(path.resolve(workflowPath), "utf8");
+      const workflow = await readWorkflow(workflowPath);
       const auditJobStart = workflow.indexOf("  security-audit:");
       const firstInstall = workflow.indexOf("npm ci");
 
