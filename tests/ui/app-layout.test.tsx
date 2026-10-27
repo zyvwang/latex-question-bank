@@ -57,12 +57,12 @@ it("restores, adjusts, and collapses editor panes with the keyboard", async () =
     await user.keyboard("{Home}");
     expect(moduleSeparator).toHaveAttribute("aria-valuenow", "35");
 
-    await waitFor(() => expect(saveUiLayoutPreferences).toHaveBeenCalled());
-    expect(saveUiLayoutPreferences).toHaveBeenLastCalledWith(expect.objectContaining({
+    // 侧栏调整会先触发一次仍带旧比例的保存，必须等到最后一次保存带上新比例。
+    await waitFor(() => expect(saveUiLayoutPreferences).toHaveBeenLastCalledWith(expect.objectContaining({
       questionSidebarWidth: 328,
       questionSidebarCollapsed: false,
       moduleEditorPercent: 35
-    }));
+    })));
   });
 
 it("keeps an early pane adjustment while desktop preferences are still loading", async () => {
