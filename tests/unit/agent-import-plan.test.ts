@@ -134,7 +134,9 @@ describe("buildAssetPlan", () => {
     bank.items[0]!.assets = [existing];
     const prepared = (id: string, sha: string): PreparedQuestionAsset => ({
       asset: asset(id, sha),
-      buffer: Buffer.from(id)
+      buffer: Buffer.from(id),
+      width: 1,
+      height: 1
     });
     const result = buildAssetPlan(
       bank,

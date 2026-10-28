@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { StreamLanguage } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
@@ -17,7 +17,15 @@ const editorScrollPadding = EditorView.theme({
   }
 });
 
-export default function LatexEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export default function LatexEditor({
+  value,
+  onChange,
+  viewRef
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  viewRef?: MutableRefObject<EditorView | null>;
+}) {
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -25,6 +33,13 @@ export default function LatexEditor({ value, onChange }: { value: string; onChan
     if (!root) return undefined;
     return bindWheelScroller(root, () => root.querySelector<HTMLElement>(".cm-scroller"));
   }, []);
+
+  useEffect(() => {
+    if (!viewRef) return undefined;
+    return () => {
+      viewRef.current = null;
+    };
+  }, [viewRef]);
 
   return (
     <div className={styles.editorPane} ref={editorPaneRef}>
@@ -34,6 +49,9 @@ export default function LatexEditor({ value, onChange }: { value: string; onChan
         basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
         extensions={[latexExtension, EditorView.lineWrapping, editorScrollPadding]}
         onChange={onChange}
+        onCreateEditor={(view) => {
+          if (viewRef) viewRef.current = view;
+        }}
       />
     </div>
   );

@@ -213,7 +213,8 @@ describe("domain helpers", () => {
       ],
       bank.settings
     );
-    ok(choiceShort.includes("\\parbox[t]{0.235\\linewidth}{A. $0$}\\hfill\\parbox[t]{0.235\\linewidth}{B. $1$}"));
+    ok(choiceShort.includes("下列极限值为（ ）\n\\choices{$0$}{$1$}{$2$}{$3$}"));
+    ok(choiceShort.includes("\\newcommand{\\choices}[4]"));
 
     const choiceMedium = buildQuestionOnlyLatex(
       [
@@ -235,7 +236,7 @@ describe("domain helpers", () => {
       ],
       bank.settings
     );
-    ok(choiceMedium.includes("\\parbox[t]{0.485\\linewidth}{A. 数列 $\\{a_n\\}$ 单调增加且收敛于 $e$}"));
+    ok(choiceMedium.includes("\\choices{数列 $\\{a_n\\}$ 单调增加且收敛于 $e$}{数列 $\\{a_n\\}$ 单调减少且收敛于 $e$}"));
 
     const sourcesMd = buildSourcesMarkdown(
       [

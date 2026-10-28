@@ -283,7 +283,7 @@ function createReviewBank(asset: QuestionAsset): Bank {
           modules: {
             ...item.modules,
             question: {
-              tex: "根据截图，求极限。\n\\begin{center}\n\\includegraphics[width=0.75\\linewidth]{assets/screenshot-demo.png}\n\\end{center}"
+              tex: "根据截图，求极限。\n\\qimg[m]{assets/screenshot-demo.png}"
             }
           },
           assets: [asset]

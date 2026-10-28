@@ -6,7 +6,8 @@ import {
   useState,
   type CSSProperties
 } from "react";
-import { ImagePlus } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
+import { ImagePlus, ListOrdered, Parentheses, Underline } from "lucide-react";
 import { moduleLabels } from "../constants.js";
 import { SOLUTION_SOURCE_LABELS } from "../../shared/review-fields.js";
 import type {
@@ -17,12 +18,20 @@ import type {
 import { UI_LAYOUT_LIMITS } from "../../shared/ui-layout-preferences.js";
 import { useLayoutPreferences } from "../context/layoutPreferences.js";
 import { useQuestions } from "../context/questionBankContexts.js";
+import { appendTex } from "../utils/form.js";
 import { LatexPreview } from "./LatexPreview.js";
 import { PaneResizeHandle } from "./PaneResizeHandle.js";
 import controls from "../styles/controls.module.css";
 import styles from "./ModuleEditor.module.css";
 
 const LatexEditor = lazy(() => import("./LatexEditor.js"));
+
+// cursorOffset 是插入后光标相对插入点的位置；\choices 的光标落在第一个选项的花括号内。
+const QUESTION_SNIPPETS = [
+  { label: "插入选项", text: "\\choices{}{}{}{}", cursorOffset: 9, Icon: ListOrdered },
+  { label: "插入选择括号", text: "\\paren", cursorOffset: 6, Icon: Parentheses },
+  { label: "插入填空横线", text: "\\blank", cursorOffset: 6, Icon: Underline }
+] as const;
 
 interface ModuleEditorProps {
   kind: ModuleKind;
@@ -36,6 +45,7 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
   const questions = useQuestions();
   const fileInput = useRef<HTMLInputElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { preferences, updatePreferences } = useLayoutPreferences();
 
@@ -48,6 +58,21 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
       setIsUploading(false);
       if (fileInput.current) fileInput.current.value = "";
     }
+  }
+
+  function insertSnippet(text: string, cursorOffset: number) {
+    const view = editorViewRef.current;
+    if (!view) {
+      handleChange(appendTex(value, text));
+      return;
+    }
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + cursorOffset },
+      scrollIntoView: true
+    });
+    view.focus();
   }
 
   function handleChange(nextValue: string) {
@@ -74,6 +99,18 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
             <span>当前模块</span>
             <h2>{moduleLabels[kind]}</h2>
           </div>
+          {kind === "question" &&
+            QUESTION_SNIPPETS.map(({ label, text, cursorOffset, Icon }) => (
+              <button
+                key={label}
+                className={controls.iconButton}
+                onClick={() => insertSnippet(text, cursorOffset)}
+                aria-label={label}
+                title={`${label}（${text}）`}
+              >
+                <Icon size={17} />
+              </button>
+            ))}
           <button
             className={controls.iconButton}
             onClick={() => fileInput.current?.click()}
@@ -102,7 +139,7 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
       >
         <div className={styles.editorRegion} id={`module-editor-${kind}`}>
           <Suspense fallback={<div className={`${styles.editorPane} ${styles.editorFallback}`}>编辑器加载中</div>}>
-            <LatexEditor value={value} onChange={handleChange} />
+            <LatexEditor value={value} onChange={handleChange} viewRef={editorViewRef} />
           </Suspense>
         </div>
         <PaneResizeHandle

@@ -23,6 +23,7 @@ import {
   type AgentTagSummary,
   type AgentTagUndoSummary
 } from "../shared/agent-tags.js";
+import type { AgentImageNormalizeSummary } from "../shared/agent-images.js";
 import type { AgentUndoSummary } from "../shared/agent-undo.js";
 import { orderItemsByChapter } from "../shared/chapter-order.js";
 import type { Bank, QuestionItem } from "../shared/types.js";
@@ -128,6 +129,9 @@ async function main(): Promise<void> {
       return fieldCommand("topics", args, rest);
     case "type":
       return fieldCommand("questionTypes", args, rest);
+    case "image":
+      if (rest[0] === "normalize") return imageNormalizeCommand(args);
+      break;
     case "tag":
       throw new CliError(
         1,
@@ -733,6 +737,15 @@ async function postTagRequest<T>(
   pathname: string,
   body: Record<string, unknown>
 ): Promise<T> {
+  return postAgentWrite(args, pathname, body, "lqb topic/type");
+}
+
+async function postAgentWrite<T>(
+  args: ParsedArgs,
+  pathname: string,
+  body: Record<string, unknown>,
+  commandName: string
+): Promise<T> {
   const discovery = await readDiscovery();
   const status = await agentStatus(discovery);
   const target = await resolveTarget(discovery, status, args, false);
@@ -747,11 +760,37 @@ async function postTagRequest<T>(
     })
   });
   if (response.status === 404) {
-    throw new CliError(1, "当前运行的应用不支持 lqb topic/type，请更新并重启应用。");
+    throw new CliError(1, `当前运行的应用不支持 ${commandName}，请更新并重启应用。`);
   }
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw apiError(response.status, payload);
   return payload as T;
+}
+
+async function imageNormalizeCommand(args: ParsedArgs): Promise<void> {
+  const summary = await postAgentWrite<AgentImageNormalizeSummary>(
+    args,
+    "/api/agent/images/normalize",
+    {},
+    "lqb image normalize"
+  );
+  if (args.flags.has("json")) {
+    printJson(summary);
+    return;
+  }
+  const verb = summary.dryRun ? "将改写" : "已改写";
+  console.log(
+    `${verb} ${summary.counts.items} 道题中的 ${summary.counts.images} 张旧图片为 \\qimg。`
+  );
+  for (const change of summary.changes) {
+    console.log(`- ${change.source}（${change.module}）${change.path} → \\qimg[${change.size}]`);
+  }
+  for (const warning of summary.warnings) {
+    console.log(`! ${warning.source}：读不到 ${warning.path} 的尺寸，保持原样。`);
+  }
+  if (!summary.dryRun && summary.counts.images > 0) {
+    console.log("改写前已在 .history/ 留快照，可在应用的恢复入口回到改写前。");
+  }
 }
 
 async function writeTagJournal(
@@ -1206,6 +1245,7 @@ function printHelp(): void {
   lqb topic delete <考点> [--dry-run] [--json]
   lqb topic undo <撤销文件> [--dry-run] [--json]
   lqb type list | apply | rename | delete | undo（用法同 lqb topic，整理题型）
+  lqb image normalize [--dry-run] [--json]   把旧的固定 0.75 栏宽图片按尺寸改写为 \\qimg
   lqb manifest example
 
 导入前请先运行 lqb status 和 lqb link，并保持桌面应用运行。

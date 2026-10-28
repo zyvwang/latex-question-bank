@@ -74,6 +74,14 @@ export function LatexPreview({
   );
 }
 
+const CHOICE_LETTERS = ["A", "B", "C", "D"] as const;
+
+const imageSizeClass = {
+  s: styles.imageSmall,
+  m: styles.imageMedium,
+  l: styles.imageLarge
+} as const;
+
 function renderPreviewParts(root: HTMLElement, parts: LatexPreviewPart[]): void {
   const fragment = document.createDocumentFragment();
   if (parts.length === 0) {
@@ -85,12 +93,27 @@ function renderPreviewParts(root: HTMLElement, parts: LatexPreviewPart[]): void 
     parts.forEach((part) => {
       if (part.type === "image") {
         const figure = document.createElement("figure");
-        figure.className = styles.previewImage;
+        figure.className = part.size
+          ? `${styles.previewImage} ${imageSizeClass[part.size]}`
+          : styles.previewImage;
         const image = document.createElement("img");
         image.src = part.src;
         image.alt = part.alt;
         figure.appendChild(image);
         fragment.appendChild(figure);
+        return;
+      }
+      if (part.type === "choices") {
+        const grid = document.createElement("div");
+        grid.className = styles.choices;
+        grid.dataset.columns = String(part.columns);
+        part.options.forEach((option, index) => {
+          const cell = document.createElement("div");
+          cell.className = styles.latexText;
+          cell.textContent = `${CHOICE_LETTERS[index]}. ${option}`;
+          grid.appendChild(cell);
+        });
+        fragment.appendChild(grid);
         return;
       }
       const text = document.createElement("div");
