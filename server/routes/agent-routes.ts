@@ -11,6 +11,7 @@ import { validateWorkspacePathRequest } from "../../shared/request-validation.js
 import { ValidationError } from "../../shared/validation-primitives.js";
 import { applyAgentImport } from "../agent-import-service.js";
 import { applyAgentTags, undoAgentTags } from "../agent-tag-service.js";
+import { normalizeAgentImages } from "../agent-image-service.js";
 import { undoAgentImport } from "../agent-undo-service.js";
 import { requireAgentToken } from "../agent-auth.js";
 import {
@@ -199,6 +200,28 @@ export function createAgentRouter(options: {
       } catch (error) {
         if (error instanceof ValidationError) {
           sendApiError(response, 400, error.message, "AGENT_TAGS_INVALID");
+          return;
+        }
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    "/agent/images/normalize",
+    json({ limit: options.jsonBodyLimitBytes }),
+    async (request, response, next) => {
+      try {
+        const body = request.body as Record<string, unknown>;
+        const summary = await normalizeAgentImages({
+          workspacePath: requiredString(body, "workspacePath"),
+          dryRun: optionalBoolean(body, "dryRun"),
+          baseRevision: optionalString(body, "baseRevision")
+        });
+        response.json(summary);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          sendApiError(response, 400, error.message, "AGENT_IMAGES_INVALID");
           return;
         }
         next(error);

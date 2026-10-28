@@ -31,6 +31,18 @@
   outline: 1px solid rgb(0 0 0 / 0.1);
   outline-offset: -1px;
 }
+/* 与导出 \qimg 的 0.3 / 0.45 / 0.7\linewidth 档位对应。 */
+.imageSmall img { width: 30%; }
+.imageMedium img { width: 45%; }
+.imageLarge img { width: 70%; }
+.choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1em;
+  margin: 2px 0;
+}
+.choices[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.choices[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
 .emptyPreview { color: oklch(0.68 0.01 155); }
 .tikzNotice {
   margin-top: 10px;

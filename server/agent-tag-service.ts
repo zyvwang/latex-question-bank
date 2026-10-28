@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   AgentTagCounts,
@@ -8,24 +7,16 @@ import type {
   AgentTagSummary,
   AgentTagUndoSummary
 } from "../shared/agent-tags.js";
-import { parseV4Bank } from "../shared/bank-validation.js";
-import type { Bank } from "../shared/types.js";
-import { createHistorySnapshot } from "./bank-storage.js";
+import { commitBank, withCurrentBank } from "./agent-bank-write.js";
 import {
   buildTagJournal,
   planTagChanges,
   planTagRestore
 } from "./agent-tag-plan.js";
 import { broadcastBankChanged } from "./events.js";
-import { writeJsonFileAtomic } from "./json-file.js";
-import { withWorkspaceWriteLock } from "./storage-lock.js";
-import { StorageError, type WorkspaceDirs } from "./storage-types.js";
-import {
-  parseStoredBank,
-  revisionForContent,
-  serializeJson
-} from "./storage-utils.js";
-import { getWorkspaceDirs, readAppState } from "./workspace-storage.js";
+import { StorageError } from "./storage-types.js";
+
+const TAG_TARGET_MISMATCH = "考点/题型整理的目标不是当前题库，请先切换工作区。";
 
 export interface AgentTagInput {
   workspacePath: string;
@@ -47,7 +38,7 @@ export interface AgentTagUndoInput {
 export async function applyAgentTags(
   input: AgentTagInput
 ): Promise<AgentTagSummary> {
-  return withCurrentBank(input, async (context) => {
+  return withCurrentBank(input, TAG_TARGET_MISMATCH, async (context) => {
     const now = new Date().toISOString();
     const plan = planTagChanges({
       current: context.current,
@@ -83,7 +74,7 @@ export async function applyAgentTags(
 export async function undoAgentTags(
   input: AgentTagUndoInput
 ): Promise<AgentTagUndoSummary> {
-  return withCurrentBank(input, async (context) => {
+  return withCurrentBank(input, TAG_TARGET_MISMATCH, async (context) => {
     if (
       path.resolve(input.journal.workspacePath) !==
       path.resolve(context.workspacePath)
@@ -122,70 +113,6 @@ export async function undoAgentTags(
     });
     return { ...summary, revision };
   });
-}
-
-interface CurrentBankContext {
-  workspacePath: string;
-  dirs: WorkspaceDirs;
-  current: Bank;
-  raw: string;
-  revision: string;
-}
-
-async function withCurrentBank<T>(
-  input: { workspacePath: string; baseRevision?: string },
-  operation: (context: CurrentBankContext) => Promise<T>
-): Promise<T> {
-  const state = await readAppState();
-  const workspacePath = state.currentWorkspacePath;
-  if (!workspacePath) {
-    throw new StorageError("还没有打开题库。", "WORKSPACE_NOT_SELECTED", 400);
-  }
-  if (path.resolve(workspacePath) !== path.resolve(input.workspacePath)) {
-    throw new StorageError(
-      "考点/题型整理的目标不是当前题库，请先切换工作区。",
-      "WORKSPACE_CHANGED",
-      409
-    );
-  }
-  return withWorkspaceWriteLock(workspacePath, async () => {
-    const dirs = getWorkspaceDirs(workspacePath);
-    const raw = await readFile(dirs.bankPath, "utf8");
-    const revision = revisionForContent(raw);
-    if (input.baseRevision && input.baseRevision !== revision) {
-      throw new StorageError(
-        "题库在 Agent 读取后被其他程序修改，请重试。",
-        "BANK_CONFLICT",
-        409
-      );
-    }
-    return operation({
-      workspacePath,
-      dirs,
-      current: parseStoredBank(raw),
-      raw,
-      revision
-    });
-  });
-}
-
-async function commitBank(
-  context: CurrentBankContext,
-  bank: Bank
-): Promise<string> {
-  const finalBank = parseV4Bank(bank);
-  if (storedVersion(context.raw) !== finalBank.version) {
-    await createHistorySnapshot(context.dirs, context.raw, context.revision);
-  }
-  await writeJsonFileAtomic(context.dirs.bankPath, finalBank);
-  return revisionForContent(serializeJson(finalBank));
-}
-
-function storedVersion(raw: string): unknown {
-  const parsed: unknown = JSON.parse(raw);
-  return typeof parsed === "object" && parsed !== null && "version" in parsed
-    ? parsed.version
-    : undefined;
 }
 
 function broadcastTagChange(

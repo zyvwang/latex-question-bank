@@ -40,7 +40,7 @@ const items: QuestionItem[] = [
     chapterId: chapters[0].id,
     chapterOrder: 1,
     topics: ["极限", "等价无穷小"],
-    questionTypes: [],
+    questionTypes: ["选择"],
     reviewPriority: "recheck",
     reviewStatus: "approved",
     solutionSource: "user",
@@ -49,7 +49,23 @@ const items: QuestionItem[] = [
     importBatchId: null,
     importedAt: null,
     modules: {
-      question: { tex: "求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$。" },
+      question: {
+        // 覆盖 \choices 的 4/2/1 列分支、旧 A–D 行写法、自动补括号和 \blank。
+        tex: [
+          "求极限 $\\lim_{x\\to 0}\\frac{\\sin x}{x}$ 的值",
+          "A. $0$",
+          "B. $1$",
+          "C. $\\dfrac{1}{2}$",
+          "D. $\\infty$",
+          "",
+          "下列说法正确的是\\paren",
+          "\\choices{数列 $\\{a_n\\}$ 单调增加且收敛于 $e$}{数列 $\\{a_n\\}$ 单调减少且收敛于 $e$}{数列 $\\{a_n\\}$ 单调增加且收敛于 $\\mathrm{e}^{\\cos 1}$}{数列 $\\{a_n\\}$ 单调减少}",
+          "",
+          "\\choices{若 $f(x)$ 在 $x_0$ 处可导，则 $f(x)$ 在 $x_0$ 的某邻域内连续且导函数在该邻域内有界}{$f(x)$ 在 $x_0$ 处连续}{$f$ 可积}{$f$ 有界}",
+          "",
+          "填空：该极限等于 \\blank[5em]，$\\blank$ 也可用于公式中。"
+        ].join("\n")
+      },
       solution: { tex: "由基本极限可得 $\\lim_{x\\to 0}\\frac{\\sin x}{x}=1$。" },
       note: { tex: "这个基本极限可用于检查中文排版与公式渲染。" }
     },
@@ -74,7 +90,7 @@ const items: QuestionItem[] = [
     modules: {
       question: {
         tex:
-          "观察下图并判断矩阵秩。\n\n\\begin{center}\\includegraphics[width=0.15\\linewidth]{assets/verify-sample.png}\\end{center}"
+          "观察下图并判断矩阵秩。\n\n\\qimg[s]{assets/verify-sample.png}\n\n\\qimg{assets/verify-sample.png}"
       },
       solution: { tex: "图片引用用于验证素材复制和 graphicx 编译。" },
       note: { tex: "实际使用中可上传题目截图或辅助图。" }

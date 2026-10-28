@@ -19,7 +19,7 @@ lqb link
    - \`source.bookTitle\` + \`source.label\` 表示来源；
    - \`reviewPriority\` 使用 \`skip\` / \`recheck\` / \`must\`，用户说“做错了”时用 \`must\`；
    - 有解答时必须设置 \`solutionSource\`：\`answer-book\` / \`agent\` / \`user\` / \`none\`；
-   - 截图或图片用 \`assets\` 声明 key，并在 TeX 中使用 \`{{asset:key}}\`；
+   - 截图或图片用 \`assets\` 声明 key，并在 TeX 中使用 \`{{asset:key}}\`；选项、括号、横线和图片按下方「题面排版与图片标准」书写；
    - 章节不确定就省略 \`chapterId/chapterName\`，题目会进入未分类并保持待审阅。
 4. 先 dry-run：
 
@@ -63,6 +63,17 @@ lqb import --file manifest.json --json
 ## 截图导入
 
 截图用顶层 \`assets\` 声明 key、\`originalName\` 和 \`filePath\`，题目用 \`assets: ["key"]\` 关联。需要显示在题面时，在 TeX 中使用 \`{{asset:key}}\`；只作为来源记录时可以只在 \`assets\` 中关联。图片支持 PNG/JPEG，详情区会显示可放大的缩略图。没有可见题号时用「截图 + 日期」作为 \`source.label\`。
+
+## 题面排版与图片标准
+
+- 选择题：\`questionTypes\` 含「选择」；选项写 \`\\choices{…}{…}{…}{…}\`，只写内容、不写 A./B. 前缀，导出时按实测宽度自动排成一行 4 个、2 个或 1 个；题干末尾写 \`\\paren\`（用了 \`\\choices\` 时漏写会自动补），不要手打空括号。
+- 填空题：空位写 \`\\blank\`，答案较长时 \`\\blank[6em]\`，不要手打下划线。
+- 题面图片一律用 \`\\qimg[s|m|l]{{{asset:key}}}\`，不要写 \`\\includegraphics[width=…]\`，也不要再套 center。s/m/l 为 0.3/0.45/0.7 栏宽，高度上限 0.28 页高：小示意图用 s，一般函数图、几何图用 m，数轴、宽幅图用 l。
+- 不要把整道题的截图放进题面：题干和选项必须转写成 LaTeX，原截图只挂在 \`assets\` 里作为来源证据。
+- **需要的图要重绘，优先内置 TikZ**：函数图像、几何图、坐标系、数轴、Venn 图、流程示意等，直接在题目 TeX 里写 \`tikzpicture\`/\`axis\`（导出已加载 tikz、pgfplots），外层用 \`\\begin{center}…\\end{center}\`。线条黑色、\`line width=0.6pt\`，标注 \`\\small\`；坐标轴带箭头、原点标 $O$；不加阴影、渐变或彩色填充；整体宽度不超过 0.45 栏宽（约 7.8cm，用 \`scale\` 或 \`x=…,y=…\` 控制）。
+- 只有照片、复杂统计图等 TikZ 难以忠实还原的图才用外置 PNG：裁掉白边，白底，不含题号和题干文字；按目标档位 300 DPI 导出，s/m/l 宽度约 600/900/1400px；用 \`\\qimg\` 引用。
+- 应用预览不渲染 TikZ。本机有 xelatex 时，把图形单独放进最小 ctexart + tikz/pgfplots 文档编译自检；没有时在汇报中提醒用户用「当前题编译」检查图形。
+- 旧题整理：旧的固定 0.75 栏宽图片用 \`lqb image normalize --dry-run\` 预览、\`lqb image normalize\` 改写；手写的旧选项（表格、enumerate、一行 A.…B.…）由你逐题改写为 \`\\choices\` + \`\\paren\`，只改题目模块，用原题 \`source\` 和同一个 \`--batch-id\` 先 dry-run 再 \`--overwrite\` 导入，交给用户在审阅页确认。
 
 ## 变式题
 
@@ -163,6 +174,17 @@ Use this skill when the user wants to add questions, wrong-problem notes, whole 
 3. Use a visible number for \`source.label\`, or a date-based label such as \`截图 2026-10-26\`.
 4. Screenshots are stored under \`assets/\` and shown as expandable thumbnails in the app.
 
+## Layout and figure standard
+
+- Choice questions: include 选择 in \`questionTypes\`, write options as \`\\choices{…}{…}{…}{…}\` (content only, no A./B. prefixes; export measures widths and picks 4, 2 or 1 per row), and end the stem with \`\\paren\` (export adds it before \`\\choices\` if missing). Do not type empty brackets by hand.
+- Fill-in-the-blank: use \`\\blank\`, or \`\\blank[6em]\` for longer answers.
+- Images in the question use \`\\qimg[s|m|l]{{{asset:key}}}\` (0.3/0.45/0.7 of the line width, height capped at 0.28 of the page). Never hard-code \`\\includegraphics[width=…]\` or wrap \`\\qimg\` in center.
+- Never put a screenshot of the whole problem into the question text: transcribe the stem and options to LaTeX and attach the screenshot only as source evidence.
+- **Redraw figures, preferring inline TikZ**: function graphs, geometry, axes, number lines, Venn diagrams and simple schematics go directly into the question TeX as \`tikzpicture\`/\`axis\` inside \`center\`. Black lines, \`line width=0.6pt\`, \`\\small\` labels, arrowed axes with origin $O$, no shading or colour fills, at most 0.45 of the line width wide.
+- Use an external PNG only for photos or charts TikZ cannot reproduce faithfully: cropped, white background, no problem number or stem text, 300 DPI at the target size (about 600/900/1400 px wide for s/m/l), referenced with \`\\qimg\`.
+- The app preview does not render TikZ. When xelatex is available, compile the figure alone in a minimal ctexart + tikz/pgfplots document; otherwise tell the user to check the figure with 当前题编译.
+- Existing banks: rewrite legacy fixed-width (0.75) images with \`lqb image normalize --dry-run\`, then \`lqb image normalize\`. Hand-written legacy options (tabular, enumerate, one-line A.…B.…) are yours to rewrite into \`\\choices\` + \`\\paren\`: change only the question module, keep the original \`source\`, dry-run, then import with \`--overwrite\` and one \`--batch-id\` so the user reviews them in the review page.
+
 ## Variants
 
 - Import variants as separate questions. Set \`variantOf\` to an existing question ID from the same bank (\`lqb get <id>\`).
@@ -188,7 +210,7 @@ Use this skill when the user wants to add questions, wrong-problem notes, whole 
 
 - Never approve or delete questions from the agent side.
 - Do not overwrite approved questions unless the user explicitly agrees; use \`--overwrite\`.
-- For screenshots, attach the image with \`assets\` and \`{{asset:key}}\`.
+- For screenshots, attach the image with \`assets\` and \`{{asset:key}}\`; follow the layout and figure standard above.
 - If the target bank is not the current app workspace, ask the user to switch or use \`--switch\` explicitly.
 - Do not split one logical import into different batch IDs when the user may want to undo it as one batch.
 `;

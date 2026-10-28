@@ -66,6 +66,7 @@ lqb topic rename <旧考点> <新考点> [--dry-run] [--json]
 lqb topic delete <考点> [--dry-run] [--json]
 lqb topic undo <撤销文件> [--dry-run] [--json]
 lqb type list | apply | rename | delete | undo   # 同 lqb topic，整理题型
+lqb image normalize [--dry-run] [--json]
 lqb manifest example
 ```
 
@@ -188,7 +189,7 @@ lqb import --file book-2.json --batch-id whole-book --json
       "reviewPriority": "must",
       "modules": {
         "question": {
-          "tex": "根据截图求极限。\n\\begin{center}\n\\includegraphics[width=0.75\\linewidth]{{{asset:stem}}}\n\\end{center}"
+          "tex": "根据截图求极限。\n\\qimg[m]{{{asset:stem}}}"
         },
         "solution": { "tex": "" }
       },
@@ -204,7 +205,56 @@ lqb import --file book-2.json --batch-id whole-book --json
 - 图片支持 PNG/JPEG，必须通过扩展名、MIME、文件签名和尺寸校验；单图 15 MiB、25 MP，单次最多 40 个附件。
 - 有可见题号时用 `source.label`；没有时使用「截图 + 日期」或简短摘要。
 - Agent 从截图读取答案时用 `solutionSource: "answer-book"`；模型生成用 `"agent"`；没有答案用 `"none"`。
-- 详情区的附件缩略图可以放大查看；缩略图不替代题面中的 `\includegraphics`。
+- 详情区的附件缩略图可以放大查看；缩略图不替代题面中的 `\qimg`。
+
+## 题面排版与图片标准
+
+导出 preamble 内置四个保留宏，Agent 写清单时必须使用它们，不要手写替代排版：
+
+| 宏 | 用途 | 说明 |
+| --- | --- | --- |
+| `\choices{…}{…}{…}{…}` | 选择题四个选项 | 只写内容，不写 `A.` 前缀；导出时由 TeX 实测宽度，自动排成一行 4/2/1 个。旧的 `A. …` 四行写法仍会被转换。 |
+| `\paren` | 选择题答题括号 | 写在题干末尾，右对齐。`questionTypes` 含「选择」、选项用 `\choices` 写且题干没有括号时（`（$\quad$）`、`( \qquad )` 等手写括号都算已有），导出会在选项块前自动补上；其他手写选项格式不自动补。 |
+| `\blank[长度]` | 填空横线 | 默认 4em，长答案用 `\blank[6em]`。 |
+| `\qimg[s\|m\|l]{路径}` | 题面图片 | 宽度为 0.3/0.45/0.7 栏宽，高度上限 0.28 页高，自动居中；默认 m。 |
+
+这些宏名是保留的：在「全局 LaTeX」里用 `\newcommand` 重新定义它们会导致编译失败。
+
+### 图片标准
+
+- 题面图片一律用 `\qimg[s|m|l]{{{asset:key}}}`，不写 `\includegraphics[width=…]`，也不套 `center`。小示意图用 s，一般函数图、几何图用 m，数轴、宽幅图用 l。
+- 不把整道题的截图放进题面：题干和选项必须转写成 LaTeX，原截图只挂在 `assets` 里作为来源证据。
+- 外置 PNG 要裁掉白边，白底，不含题号和题干文字，按目标档位 300 DPI 导出：A4、1.8cm 页边距时栏宽约 17.4cm，s/m/l 宽度约 600/900/1400px。
+- 应用内上传图片时，会按像素尺寸给出默认档位：宽度小于 700px 用 s，宽高比 ≥ 2.2 用 l，其余用 m。插入后可以手动改。
+
+### 重绘：优先内置 TikZ
+
+处理带图题目时，Agent 应重绘图形，不能直接把原书截图当作题面图：
+
+- **函数图像、几何图、坐标系、数轴、Venn 图、简单示意图**：用 TikZ/pgfplots 重绘，直接写在题目 TeX 里（内置），外层用 `\begin{center}…\end{center}`。线条黑色、`line width=0.6pt`，标注 `\small`；坐标轴带箭头、原点标 $O$；不加阴影、渐变或彩色填充；整体宽度不超过 0.45 栏宽（约 7.8cm）。
+- **照片、复杂统计图等 TikZ 难以忠实还原的图**：才用外置 PNG，并满足上面的图片标准。
+
+推荐内置的原因：TikZ 是矢量，字体、字号和线宽与正文一致，导出清晰；源码随 `bank.json` 一起保存、可以直接修改，变式题改个参数就能重画；不需要附件，也就没有尺寸、分辨率和裁剪问题。代价是应用内 MathJax 预览不渲染 TikZ（只显示「以真实编译为准」提示），需要用「当前题编译」查看。Agent 在本机有 xelatex 时，应把图形单独放进最小 ctexart + tikz/pgfplots 文档编译自检；没有时在汇报中提醒用户编译检查。
+
+### 整理旧题
+
+旧版上传按钮插入的图片写死为 `\includegraphics[width=0.75\linewidth]`，小图被放大、长图占满整页。先预览再改写：
+
+```bash
+lqb image normalize --dry-run
+lqb image normalize --json
+```
+
+- 只改旧的默认写法（固定 0.75 栏宽，可带 `center`），用户手调过宽度的图片不动；按 `assets/` 里图片的像素尺寸选 s/m/l，规则与上传相同。
+- 读不到尺寸的图片（缺失、符号链接、非 PNG/JPEG）保持原样并列为警告。
+- 改的是题目内容，所以写入前总会拍一份 `.history/` 快照，可在应用的恢复入口回到改写前；只做机械替换，审阅状态不变。同一题库重复执行是安全的。
+
+题库里手写的旧选项（`tabular`、`enumerate`、`A. … \qquad B. …` 写在一行等）不由程序转换，写法太多样，硬解析容易误伤。需要统一时由 Agent 逐题改写：
+
+1. `lqb list --type 选择 --json` 列出选择题，再用 `lqb get <id>` 读全文。
+2. 只改 `modules.question.tex`：选项换成 `\choices{…}{…}{…}{…}`，题干末尾换成 `\paren`，删除手写的 `（$\quad$）`；其余文字、公式、图片原样保留，不传 `solution`/`note`。
+3. 清单里的 `source` 用原题的书目和题号，这样会更新原题而不是新建；没有来源的题无法定位，列给用户手工处理。
+4. 用同一个 `--batch-id`（如 `options-cleanup`）先 `--dry-run`，再 `--overwrite` 导入。改过的题回到待审阅，用户在审阅页逐题确认；整批可用 `lqb import undo <batchId>` 撤销。
 
 ## 变式题
 

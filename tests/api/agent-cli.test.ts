@@ -6,6 +6,7 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import sharp from "sharp";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import type {
   AgentTagJournal,
@@ -403,6 +404,31 @@ it("reports topic/type command usage errors with exit code 1", async () => {
   expect(removed.stderr).toContain("lqb topic");
   const same = await runCliExpectingFailure(["type", "rename", "A", "A"]);
   expect(same.code).toBe(2);
+});
+
+it("previews and rewrites legacy fixed-width images from the CLI", async () => {
+  await mkdir(path.join(workspacePath, "assets"), { recursive: true });
+  await writeFile(
+    path.join(workspacePath, "assets", "wide.png"),
+    await sharp({ create: { width: 1800, height: 600, channels: 3, background: "white" } }).png().toBuffer()
+  );
+  const bankPath = path.join(workspacePath, "bank.json");
+  const bank = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
+  bank.items[0]!.modules.question.tex =
+    "看图。\n\\begin{center}\n\\includegraphics[width=0.75\\linewidth]{assets/wide.png}\n\\end{center}";
+  await writeFile(bankPath, JSON.stringify(bank, null, 2));
+
+  const preview = await runCli(["image", "normalize", "--dry-run"]);
+  expect(preview).toContain("将改写 1 道题中的 1 张旧图片为 \\qimg。");
+  expect(preview).toContain("assets/wide.png → \\qimg[l]");
+
+  const applied = JSON.parse(await runCli(["image", "normalize", "--json"])) as {
+    dryRun: boolean;
+    counts: { images: number };
+  };
+  expect(applied).toMatchObject({ dryRun: false, counts: { images: 1 } });
+  const after = JSON.parse(await readFile(bankPath, "utf8")) as Bank;
+  expect(after.items[0]!.modules.question.tex).toBe("看图。\n\\qimg[l]{assets/wide.png}");
 });
 
 const INITIAL_LABELS = [

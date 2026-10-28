@@ -5,6 +5,7 @@ import {
   type AgentTagCounts,
   type AgentTagField
 } from "../../shared/agent-tags.js";
+import type { ImageNormalizeCounts } from "../../shared/agent-images.js";
 import type { AgentUndoCounts } from "../../shared/agent-undo.js";
 import type { BankSnapshot } from "../../shared/types.js";
 import { fetchBank } from "../api/client.js";
@@ -29,11 +30,12 @@ interface ExternalBankSyncOptions {
 interface BankChangedEvent {
   workspacePath: string;
   revision: string;
-  source?: "agent-import" | "agent-undo" | "agent-tags";
+  source?: "agent-import" | "agent-undo" | "agent-tags" | "agent-images";
   counts?: AgentImportCounts;
   undoCounts?: AgentUndoCounts;
   field?: AgentTagField;
   tagCounts?: AgentTagCounts;
+  imageCounts?: ImageNormalizeCounts;
 }
 
 export function useExternalBankSync(options: ExternalBankSyncOptions): void {
@@ -123,6 +125,9 @@ function externalUpdateText(payload: BankChangedEvent): string {
   }
   if (payload.source === "agent-tags" && payload.tagCounts && payload.field) {
     return `已更新 ${payload.tagCounts.changed} 道题的${AGENT_TAG_FIELD_LABELS[payload.field]}。`;
+  }
+  if (payload.source === "agent-images" && payload.imageCounts) {
+    return `已规范化 ${payload.imageCounts.items} 道题中的 ${payload.imageCounts.images} 张图片。`;
   }
   if (payload.counts?.created) return `已导入 ${payload.counts.created} 道题。`;
   if (payload.counts?.updated) return `已更新 ${payload.counts.updated} 道题。`;

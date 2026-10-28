@@ -435,3 +435,16 @@ it("autosaves module edits in the launch schema", async () => {
       expect(payload.bank.items[0].modules.question.tex).toBe("新版题面");
     });
   });
+
+it("inserts choice, paren and blank snippets into the question module", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("2024-1");
+
+    const editor = screen.getByLabelText("latex-editor") as HTMLTextAreaElement;
+    await user.click(screen.getByRole("button", { name: "插入选择括号" }));
+    await user.click(screen.getByRole("button", { name: "插入选项" }));
+    await user.click(screen.getByRole("button", { name: "插入填空横线" }));
+
+    expect(editor.value).toMatch(/\\paren\n\n\\choices\{\}\{\}\{\}\{\}\n\n\\blank$/);
+  });

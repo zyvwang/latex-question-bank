@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { suggestImageSize, type ImageDimensions } from "../shared/image-size.js";
 import type { AssetUploadResponse, QuestionAsset } from "../shared/types.js";
-import { assertRealWorkspaceSubdir } from "./workspace-paths.js";
+import {
+  assertRealWorkspaceSubdir,
+  resolveRealWorkspaceFile
+} from "./workspace-paths.js";
 
 const MAX_IMAGE_PIXELS = 25_000_000;
 
@@ -14,7 +18,7 @@ export interface UploadedFile {
   size: number;
 }
 
-export interface PreparedQuestionAsset {
+export interface PreparedQuestionAsset extends ImageDimensions {
   asset: QuestionAsset;
   buffer: Buffer;
 }
@@ -44,7 +48,7 @@ export async function prepareQuestionAsset(
     throw new AssetUploadError("图片扩展名与文件内容不匹配。", "IMAGE_EXTENSION_MISMATCH");
   }
 
-  await validateImageContent(file.buffer);
+  const { width, height } = await validateImageContent(file.buffer);
   const fileName = `${crypto.randomUUID()}${imageType.safeExtension}`;
   const asset: QuestionAsset = {
     id: crypto.randomUUID(),
@@ -56,7 +60,7 @@ export async function prepareQuestionAsset(
     uploadedAt: new Date().toISOString(),
     sha256: createHash("sha256").update(file.buffer).digest("hex")
   };
-  return { asset, buffer: file.buffer };
+  return { asset, buffer: file.buffer, width, height };
 }
 
 export async function writePreparedAsset(
@@ -78,8 +82,31 @@ export async function saveQuestionAsset(
   return {
     asset,
     url: `/assets/${asset.fileName}`,
-    insertText: `\\begin{center}\n\\includegraphics[width=0.75\\linewidth]{assets/${asset.fileName}}\n\\end{center}`
+    insertText: `\\qimg[${suggestImageSize(prepared)}]{assets/${asset.fileName}}`
   };
+}
+
+/**
+ * Reads the pixel size of an existing workspace image from its header only.
+ * Returns null for files that are missing, escape the workspace, or are not
+ * PNG/JPEG, so callers can skip them instead of failing a whole batch.
+ */
+export async function readAssetDimensions(
+  assetDir: string,
+  relativePath: string
+): Promise<ImageDimensions | null> {
+  const prefix = "assets/";
+  if (!relativePath.startsWith(prefix)) return null;
+  try {
+    const filePath = await resolveRealWorkspaceFile(assetDir, relativePath.slice(prefix.length));
+    const buffer = await readFile(filePath);
+    if (!detectImageType(buffer)) return null;
+    const metadata = await sharp(buffer, { limitInputPixels: false }).metadata();
+    if (!metadata.width || !metadata.height) return null;
+    return { width: metadata.width, height: metadata.height };
+  } catch {
+    return null;
+  }
 }
 
 function detectImageType(buffer: Buffer): {
@@ -100,7 +127,7 @@ function detectImageType(buffer: Buffer): {
   return null;
 }
 
-async function validateImageContent(buffer: Buffer): Promise<void> {
+async function validateImageContent(buffer: Buffer): Promise<ImageDimensions> {
   try {
     // Metadata inspection allocates no pixel raster; reject oversized images before decoding.
     const metadata = await sharp(buffer, { limitInputPixels: false, failOn: "warning" }).metadata();
@@ -110,6 +137,7 @@ async function validateImageContent(buffer: Buffer): Promise<void> {
     }
     // Force pixel decoding: valid headers alone do not establish image integrity.
     await sharp(buffer, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: "warning" }).stats();
+    return { width: metadata.width, height: metadata.height };
   } catch (error) {
     if (error instanceof AssetUploadError) throw error;
     throw new AssetUploadError("图片内容损坏或不完整，请重新选择 PNG 或 JPEG 图片。", "IMAGE_CONTENT_INVALID");

@@ -73,3 +73,17 @@ it("rejects over 25 million pixels and preserves the 15 MiB upload limit", async
     .expect(({ body }) => expect(body.code).toBe("UPLOAD_INVALID"));
   expect(await readdir(path.join(workspacePath, "assets"))).toEqual([]);
 });
+
+it("suggests a \\qimg size from the uploaded image dimensions", async () => {
+  const app = await setup();
+  for (const [width, height, size] of [
+    [320, 240, "s"],
+    [900, 700, "m"],
+    [1600, 500, "l"]
+  ] as const) {
+    const png = await sharp({ create: { width, height, channels: 3, background: "white" } }).png().toBuffer();
+    const response = await request(app).post("/api/assets").field("workspacePath", workspacePath)
+      .attach("file", png, { filename: `${size}.png`, contentType: "image/png" }).expect(200);
+    expect(response.body.insertText).toBe(`\\qimg[${size}]{${response.body.asset.relativePath}}`);
+  }
+});

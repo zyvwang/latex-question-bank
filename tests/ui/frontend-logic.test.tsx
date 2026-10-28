@@ -149,13 +149,22 @@ describe("frontend logic boundaries", () => {
       [asset]
     )).toEqual([
       { type: "text", text: "before" },
-      { type: "image", src: "/assets/safe.png", alt: "figure.png" },
+      { type: "image", src: "/assets/safe.png", alt: "figure.png", size: null },
       { type: "text", text: "after" },
       {
         type: "image",
         src: "/assets/missing.png",
-        alt: "assets/missing.png"
+        alt: "assets/missing.png",
+        size: null
       }
+    ]);
+    expect(splitLatexImages(
+      "已知\\blank[3em]，则\\paren\n\\choices{$\\frac{1}{2}$}{$1$}{$2$}{$3$}\n\\qimg[s]{assets/safe.png}",
+      [asset]
+    )).toEqual([
+      { type: "text", text: "已知______，则（\u3000\u3000）" },
+      { type: "choices", options: ["$\\frac{1}{2}$", "$1$", "$2$", "$3$"], columns: 4 },
+      { type: "image", src: "/assets/safe.png", alt: "figure.png", size: "s" }
     ]);
   });
 });

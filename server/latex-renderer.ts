@@ -8,11 +8,10 @@ import type {
 } from "../shared/types.js";
 import { orderItemsByChapter } from "../shared/chapter-order.js";
 import { questionSourceDisplay } from "../shared/question-source.js";
+import { findMacros } from "../shared/latex-macros.js";
 import { defaultSettings } from "./bank-schema.js";
 
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
-const FOUR_COLUMN_MAX_EM = 10.5;
-const TWO_COLUMN_MAX_EM = 21.5;
 
 export function sanitizeFileName(input: string): string {
   const cleaned = input
@@ -164,7 +163,44 @@ function basePreamble(): string {
   \setlength{\belowdisplayskip}{0.45em plus 0.15em minus 0.15em}%
   \setlength{\abovedisplayshortskip}{0.2em plus 0.15em}%
   \setlength{\belowdisplayshortskip}{0.3em plus 0.15em minus 0.15em}%
-}`;
+}
+${questionMacros()}`;
+}
+
+// 保留宏名：\choices、\paren、\blank、\qimg。选项列数由 TeX 实测宽度决定，不在 JS 里估算。
+// \paren 用 fill 级的 \hfill，压过 \parfillskip 的 fil 级，段末括号才能贴右。
+function questionMacros(): string {
+  return String.raw`\newlength{\lqbchoicewidth}
+\newlength{\lqbchoicemax}
+\newcommand{\lqbmeasurechoice}[1]{%
+  \settowidth{\lqbchoicewidth}{#1}%
+  \ifdim\lqbchoicewidth>\lqbchoicemax\setlength{\lqbchoicemax}{\lqbchoicewidth}\fi}
+\newcommand{\lqbchoicebox}[2]{\parbox[t]{#1\linewidth}{#2}}
+\newcommand{\choices}[4]{%
+  \par\setlength{\lqbchoicemax}{0pt}%
+  \lqbmeasurechoice{A.~#1}\lqbmeasurechoice{B.~#2}%
+  \lqbmeasurechoice{C.~#3}\lqbmeasurechoice{D.~#4}%
+  \noindent
+  \ifdim\lqbchoicemax<0.225\linewidth
+    \lqbchoicebox{0.235}{A.~#1}\hfill\lqbchoicebox{0.235}{B.~#2}\hfill
+    \lqbchoicebox{0.235}{C.~#3}\hfill\lqbchoicebox{0.235}{D.~#4}%
+  \else\ifdim\lqbchoicemax<0.475\linewidth
+    \lqbchoicebox{0.485}{A.~#1}\hfill\lqbchoicebox{0.485}{B.~#2}%
+    \par\vspace{0.15em}\noindent
+    \lqbchoicebox{0.485}{C.~#3}\hfill\lqbchoicebox{0.485}{D.~#4}%
+  \else
+    A.~#1\par\noindent B.~#2\par\noindent C.~#3\par\noindent D.~#4%
+  \fi\fi
+  \par}
+\newcommand{\paren}{\unskip\nobreak\hfill（\makebox[3em]{}）}
+\newcommand{\blank}[1][4em]{\underline{\hspace{#1}}}
+\newcommand{\lqbimgwidths}{0.3}
+\newcommand{\lqbimgwidthm}{0.45}
+\newcommand{\lqbimgwidthl}{0.7}
+\newcommand{\qimg}[2][m]{%
+  \par\begin{center}%
+  \includegraphics[width=\csname lqbimgwidth#1\endcsname\linewidth,height=0.28\textheight,keepaspectratio]{#2}%
+  \end{center}}`;
 }
 
 function resolveSpacing(
@@ -187,7 +223,7 @@ function renderQuestionOnlyItem(
   settings: LatexSettings
 ): string {
   const spacing = resolveSpacing(settings.spacing);
-  const questionTex = formatQuestionTex(item.modules.question.tex);
+  const questionTex = formatQuestionTex(item);
   return String.raw`\noindent\textbf{${number}.}\hspace{0.4em}${questionTex}
 \par\vspace{${spacing.item}}`;
 }
@@ -198,7 +234,7 @@ function renderFullItem(
   settings: LatexSettings
 ): string {
   const spacing = resolveSpacing(settings.spacing);
-  const questionTex = formatQuestionTex(item.modules.question.tex);
+  const questionTex = formatQuestionTex(item);
   const solutionTex = stripDocumentCommands(item.modules.solution.tex);
   const noteTex = stripDocumentCommands(item.modules.note.tex);
 
@@ -221,8 +257,29 @@ function renderFullItem(
   return blocks.join("\n");
 }
 
-function formatQuestionTex(input: string): string {
-  return formatCompactChoices(stripDocumentCommands(input));
+function formatQuestionTex(item: QuestionItem): string {
+  const tex = formatCompactChoices(stripDocumentCommands(item.modules.question.tex));
+  return isChoiceQuestion(item) ? ensureChoiceParen(tex) : tex;
+}
+
+function isChoiceQuestion(item: QuestionItem): boolean {
+  return item.questionTypes.some((type) => type.includes("选择"));
+}
+
+// 手写答题括号里常见的是空白或 $\quad$、\qquad、\hspace{…}、~ 这类占位。
+const BRACKET_FILLER = String.raw`(?:\s|\u3000|\$|~|\\q?quad(?![A-Za-z])|\\hspace\*?\{[^{}]*\}|\\[ ,;:!])*`;
+const EXISTING_PAREN_PATTERN = new RegExp(
+  String.raw`\\paren(?![A-Za-z@])|[（(]${BRACKET_FILLER}[）)]`
+);
+
+// 只在识别出 \choices 选项块时补括号：表格、enumerate、单行等手写选项无法可靠定位题干末尾，
+// 盲目追加到题末会把括号放到选项后面。
+export function ensureChoiceParen(tex: string): string {
+  if (EXISTING_PAREN_PATTERN.test(tex)) return tex;
+  const firstChoices = findMacros(tex, "choices", 4)[0];
+  if (!firstChoices) return tex;
+  const stem = tex.slice(0, firstChoices.start).trimEnd();
+  return `${stem}\\paren\n${tex.slice(firstChoices.start)}`;
 }
 
 function formatCompactChoices(input: string): string {
@@ -280,72 +337,11 @@ function parseOptionLine(
   const letter = match[1] ?? match[2];
   const body = match[3]?.trim();
   if (letter !== expectedLetter || !body) return null;
-  const prefix = match[1] ? `${expectedLetter}.` : `(${expectedLetter})`;
-  return `${prefix} ${body}`;
+  return body;
 }
 
 function renderChoiceBlock(options: string[]): string {
-  const maxWidth = Math.max(...options.map(estimateLatexVisualEm));
-  if (maxWidth <= FOUR_COLUMN_MAX_EM) {
-    return `\\par\\noindent${options
-      .map((option) => `\\parbox[t]{0.235\\linewidth}{${option}}`)
-      .join("\\hfill")}`;
-  }
-  if (maxWidth <= TWO_COLUMN_MAX_EM) {
-    return [
-      `\\par\\noindent\\parbox[t]{0.485\\linewidth}{${options[0]}}\\hfill\\parbox[t]{0.485\\linewidth}{${options[1]}}`,
-      `\\par\\vspace{0.15em}\\noindent\\parbox[t]{0.485\\linewidth}{${options[2]}}\\hfill\\parbox[t]{0.485\\linewidth}{${options[3]}}`
-    ].join("\n");
-  }
-  return options.map((option) => `\\par\\noindent ${option}`).join("\n");
-}
-
-function estimateLatexVisualEm(input: string): number {
-  let s = input.replace(
-    /\\(?:left|right|big|Big|bigg|Bigg|displaystyle|textstyle|scriptstyle|limits|nolimits|mathrm|mathbf|mathit|mathbb|mathcal|text|textbf|textit|textrm)\b/g,
-    ""
-  );
-  for (let pass = 0; pass < 3; pass += 1) {
-    s = s.replace(
-      /\\(?:d|t)?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,
-      (_match, num: string, den: string) =>
-        num.length >= den.length ? `(${num})` : `(${den})`
-    );
-    s = s.replace(/\\sqrt\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}/g, "√($1)");
-  }
-  s = s
-    .replace(/\\qquad\b/g, "    ")
-    .replace(/\\quad\b/g, "  ")
-    .replace(/\\(?:,|;|!|:|\s)/g, " ")
-    .replace(/\\(?:int|oint|iint|sum|prod|lim)\b/g, "MM")
-    .replace(
-      /\\(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|ln|log|exp|max|min|sup|inf|det|dim|rank)\b/g,
-      "mmm"
-    )
-    .replace(
-      /\\(?:to|rightarrow|leftarrow|Rightarrow|Leftarrow|iff|Leftrightarrow|mapsto|infty|partial|nabla|forall|exists|in|notin|subset|subseteq|cup|cap|cdot|cdots|ldots|dots|times|div|pm|mp|le|leq|ge|geq|ne|neq|approx|equiv|sim|simeq|propto)\b/g,
-      "M"
-    )
-    .replace(/\\[a-zA-Z]+/g, "M")
-    .replace(/[$^{}_\\]/g, "");
-
-  let width = 0;
-  for (const ch of s) {
-    const code = ch.codePointAt(0) ?? 0;
-    if (code <= 0x20) {
-      width += 0.3;
-    } else if (
-      (code >= 0x2e80 && code <= 0x9fff) ||
-      (code >= 0xf900 && code <= 0xfaff) ||
-      (code >= 0xff00 && code <= 0xffef) ||
-      (code >= 0x3000 && code <= 0x303f)
-    ) {
-      width += 1.0;
-    } else {
-      width += 0.55;
-    }
-  }
-  return width;
+  return `\\choices${options.map((option) => `{${option}}`).join("")}`;
 }
 
 function stripDocumentCommands(input: string): string {

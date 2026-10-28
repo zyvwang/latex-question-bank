@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AgentImportCounts } from "../shared/agent-manifest.js";
 import type { AgentTagCounts, AgentTagField } from "../shared/agent-tags.js";
 import type { AgentUndoCounts } from "../shared/agent-undo.js";
+import type { ImageNormalizeCounts } from "../shared/agent-images.js";
 
 export type BankChangedEvent = {
   workspacePath: string;
@@ -15,6 +16,7 @@ export type BankChangedEvent = {
       undoCounts: AgentUndoCounts;
     }
   | { source: "agent-tags"; field: AgentTagField; tagCounts: AgentTagCounts }
+  | { source: "agent-images"; imageCounts: ImageNormalizeCounts }
 );
 
 const clients = new Set<ServerResponse>();
