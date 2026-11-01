@@ -1,3 +1,4 @@
+import type { SkinList } from "../../shared/skins.js";
 import type {
   AppInfo,
   AssetUploadResponse,
@@ -279,4 +280,8 @@ export class ApiRequestError extends Error {
   ) {
     super(message);
   }
+}
+
+export async function fetchSkins(): Promise<SkinList> {
+  return fetchJson<SkinList>("/api/skins");
 }

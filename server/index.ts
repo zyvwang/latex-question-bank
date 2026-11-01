@@ -1,4 +1,5 @@
 import express from "express";
+import { createSkinRouter } from "./routes/skin-routes.js";
 import type { Server } from "node:http";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -67,6 +68,7 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
     createBankRouter({ bankBodyLimitBytes, jsonBodyLimitBytes })
   );
   app.use("/api", createDocumentRouter({ jsonBodyLimitBytes }));
+  app.use("/api", createSkinRouter());
   app.use("/api", createAgentRouter({ jsonBodyLimitBytes }));
   app.use("/api", createEventsRouter());
   installFrontend(app);
