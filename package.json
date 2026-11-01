@@ -132,5 +132,9 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "overrides": {
+    "minimatch": "^11.0.1",
+    "joi": "^18.3.1"
   }
 }
