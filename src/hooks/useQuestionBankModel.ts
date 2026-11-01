@@ -1,5 +1,5 @@
 import { useLatestCallback } from "./useLatestCallback.js";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchAppInfo,
   fetchBank,
@@ -9,49 +9,28 @@ import {
 import type {
   AppInfo,
   Bank,
-  BankSnapshot,
-  BookRecord,
   ModuleKind,
-  QuestionItem,
-  WorkspaceTransitionResponse
+  QuestionItem
 } from "../../shared/types.js";
 import {
   findSourceConflict,
   nextChapterOrder,
   normalizeChapterItemOrders
 } from "../../shared/chapter-order.js";
-import type {
-  AppViewContextValue,
-  BankSettingsContextValue,
-  CompileExportContextValue,
-  LifecycleContextValue,
-  QuestionBankContextValues,
-  QuestionContextValue,
-  SelectionContextValue,
-  WorkspaceContextValue,
-  WorkspaceUiContextValue
-} from "../context/questionBankContextTypes.js";
+import type { QuestionBankContextValues } from "../context/questionBankContextTypes.js";
 import { useAutosave } from "./useAutosave.js";
-import { useAppView, type AppView } from "./useAppView.js";
+import { useAppView } from "./useAppView.js";
 import { useBankSettingsActions } from "./useBankSettingsActions.js";
 import { useCompileExportActions } from "./useCompileExportActions.js";
-import { useQuestionDerivedData } from "./useQuestionDerivedData.js";
 import { useQuestionReorder } from "./useQuestionReorder.js";
-import { useSelectionFilters } from "./useSelectionFilters.js";
-import { useStableSlice } from "./useStableSlice.js";
+import { useQuestionBankLists } from "./useQuestionBankLists.js";
+import { useQuestionBankContextSlices } from "./useQuestionBankContextSlices.js";
+import { useBankSnapshotActions } from "./useBankSnapshotActions.js";
 import { useWorkspaceActions } from "./useWorkspaceActions.js";
 import { useSaveConflictActions } from "./useSaveConflictActions.js";
 import { usePendingChanges } from "./usePendingChanges.js";
 import { useExternalBankSync } from "./useExternalBankSync.js";
 import type { ExternalBankNotice } from "./controllerTypes.js";
-import {
-  distributionStatus,
-  distributionStatusFilter,
-  type DistributionStatus
-} from "../reviewDistribution.js";
-
-// 空题库时保持同一引用，避免 bankSettings 每次渲染都变成新对象。
-const NO_BOOKS: BookRecord[] = [];
 
 export function useQuestionBankModel(): QuestionBankContextValues {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
@@ -70,37 +49,8 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     useState<ExternalBankNotice | null>(null);
   const appView = useAppView();
   const { resetAppView } = appView;
-  const reviewMode = appView.activeView === "review";
-  const selection = useSelectionFilters(bank);
-  const filters = useMemo(
-    () => ({
-      chapterFilters: selection.chapterFilters,
-      topicFilters: selection.topicFilters,
-      typeFilters: selection.typeFilters,
-      bookFilters: selection.bookFilters,
-      reviewPriorityFilters: selection.reviewPriorityFilters,
-      reviewStatusFilters: reviewMode
-        ? ["pending"]
-        : selection.reviewStatusFilters,
-      search: selection.search
-    }),
-    [
-      reviewMode,
-      selection.bookFilters,
-      selection.chapterFilters,
-      selection.reviewPriorityFilters,
-      selection.reviewStatusFilters,
-      selection.search,
-      selection.topicFilters,
-      selection.typeFilters
-    ]
-  );
-  const derived = useQuestionDerivedData(
-    bank,
-    activeId,
-    filters,
-    selection.selectedIds,
-    reviewMode ? "current" : selection.listMode
+  const { selection, derived } = useQuestionBankLists(
+    bank, activeId, appView.activeView === "review"
   );
   const autosave = useAutosave(bank, setNotice);
   const {
@@ -108,7 +58,6 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     persistBank,
     refreshConflict,
     resetAutosave,
-    retrySave,
     saveIssue,
     saveState
   } = autosave;
@@ -187,109 +136,13 @@ export function useQuestionBankModel(): QuestionBankContextValues {
   const { clearFilters, selectAllItems } = selection;
   const { resetCompileState } = compileExport;
 
-  const applyBankSnapshot = useCallback(
-    (
-      nextAppInfo: AppInfo,
-      snapshot: BankSnapshot,
-      nextActiveView: AppView = "editor"
-    ) => {
-      resetAutosave(snapshot);
-      setAppInfo(nextAppInfo);
-      setBank(snapshot.bank);
-      setActiveId(snapshot.bank.items[0]?.id ?? null);
-      selectAllItems(snapshot.bank.items);
-      clearFilters();
-      resetCompileState();
-      setLoadError(null);
-      setRecoveryCandidates([]);
-      setActiveModule("question");
-      resetAppView(nextActiveView);
-      setExternalBankNotice(null);
-      setNotice(null);
-    },
-    [
-      clearFilters,
-      resetAppView,
-      resetAutosave,
-      resetCompileState,
-      selectAllItems,
-      setNotice
-    ]
-  );
-  const applySetupState = useCallback(
-    (nextAppInfo: AppInfo) => {
-      resetAutosave(null);
-      setAppInfo(nextAppInfo);
-      setBank(null);
-      setActiveId(null);
-      selectAllItems([]);
-      clearFilters();
-      resetCompileState();
-      setLoadError(null);
-      setRecoveryCandidates([]);
-      setActiveModule("question");
-      resetAppView("editor");
-      setExternalBankNotice(null);
-      setNotice(null);
-    },
-    [
-      clearFilters,
-      resetAppView,
-      resetAutosave,
-      resetCompileState,
-      selectAllItems,
-      setNotice
-    ]
-  );
-  const applyWorkspaceTransition = useCallback(
-    (response: WorkspaceTransitionResponse) => {
-      if (response.appInfo.setupRequired) {
-        applySetupState(response.appInfo);
-        return;
-      }
-      if (!response.snapshot) {
-        if (
-          response.appInfo.currentWorkspacePath ===
-          appInfo?.currentWorkspacePath
-        ) {
-          setAppInfo(response.appInfo);
-          return;
-        }
-        throw new Error("工作区响应缺少题库快照，请重试。");
-      }
-      const nextActiveView =
-        appView.activeView === "settings" ? "settings" : "editor";
-      applyBankSnapshot(response.appInfo, response.snapshot, nextActiveView);
-    },
-    [
-      appInfo?.currentWorkspacePath,
-      appView.activeView,
-      applyBankSnapshot,
-      applySetupState
-    ]
-  );
-
-  const setSelectedIds = selection.setSelectedIds;
-  const applyExternalSnapshot = useCallback(
-    (snapshot: BankSnapshot) => {
-      resetAutosave(snapshot);
-      setBank(snapshot.bank);
-      setActiveId((current) =>
-        current && snapshot.bank.items.some((item) => item.id === current)
-          ? current
-          : snapshot.bank.items[0]?.id ?? null
-      );
-      setSelectedIds((current) => {
-        const next = new Set(
-          [...current].filter((id) =>
-            snapshot.bank.items.some((item) => item.id === id)
-          )
-        );
-        return next;
-      });
-    },
-    [resetAutosave, setSelectedIds]
-  );
+  const { applyBankSnapshot, applySetupState, applyWorkspaceTransition, applyExternalSnapshot } =
+    useBankSnapshotActions({
+      appInfo, activeView: appView.activeView, resetAutosave, selectAllItems,
+      clearFilters, setSelectedIds: selection.setSelectedIds, resetCompileState,
+      resetAppView, setAppInfo, setBank, setActiveId, setLoadError,
+      setRecoveryCandidates, setActiveModule, setExternalBankNotice, setNotice
+    });
   const reloadExternalBank = async () => {
     if (!appInfo?.currentWorkspacePath) return;
     if (
@@ -416,184 +269,12 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     flushCurrentChanges
   });
 
-  const lifecycleValue = useStableSlice<LifecycleContextValue>({
-    saveState,
-    saveIssue,
-    isConflictDialogOpen: conflicts.isConflictDialogOpen,
-    isSavingConflictAs: conflicts.isSavingConflictAs,
-    isSaveAsUncertain: conflicts.isSaveAsUncertain,
-    notice,
-    externalBankNotice,
-    loadError,
-    recoveryCandidates,
-    setNotice,
-    reloadExternalBank,
-    dismissExternalBankNotice,
-    retrySave,
-    refreshSaveConflict: refreshConflict,
-    useDiskVersion: conflicts.useDiskVersion,
-    overwriteDiskVersion: conflicts.overwriteDiskVersion,
-    saveConflictAs: conflicts.saveConflictAs,
-    openConflictDialog: conflicts.openConflictDialog,
-    closeConflictDialog: conflicts.closeConflictDialog,
-    retryInitialLoad: loadAppAndBank,
-    recoverFromCandidate,
-    flushPendingChanges,
-    beginDraftCommit,
-    takeDraftCommitRejection
+  return useQuestionBankContextSlices({
+    appInfo, bank, activeId, setActiveId, activeModule, setActiveModule,
+    autosave, conflicts, workspace, derived, selection, compileExport, reorder,
+    appView, bankSettings, notice, externalBankNotice, loadError, recoveryCandidates,
+    setNotice, reloadExternalBank, dismissExternalBankNotice, loadAppAndBank,
+    recoverFromCandidate, flushPendingChanges, beginDraftCommit,
+    takeDraftCommitRejection, updateBank, updateItem, commitSource, moveItemToChapter
   });
-  const workspaceValue = useStableSlice<WorkspaceContextValue>({
-    appInfo,
-    isChangingWorkspace: workspace.isChangingWorkspace,
-    isWorkspaceUncertain: workspace.isWorkspaceUncertain,
-    texPathDraft: workspace.texPathDraft,
-    setTexPathDraft: workspace.setTexPathDraft,
-    createSampleWorkspace: workspace.createSampleWorkspace,
-    createNewWorkspace: workspace.createNewWorkspace,
-    openWorkspace: workspace.openWorkspace,
-    switchToWorkspace: workspace.switchToWorkspace,
-    relocateWorkspace: workspace.relocateWorkspace,
-    moveWorkspaceInList: workspace.moveWorkspaceInList,
-    removeWorkspaceFromList: workspace.removeWorkspaceFromList,
-    saveTexPathOverride: workspace.saveTexPathOverride,
-    openCurrentWorkspaceFolder: workspace.openCurrentWorkspaceFolder
-  });
-  const questionsValue = useStableSlice<QuestionContextValue>({
-    bank,
-    activeId,
-    activeItem: derived.activeItem,
-    orderedItems: derived.orderedItems,
-    numberById: derived.numberById,
-    setActiveId,
-    updateBank,
-    updateItem,
-    commitSource,
-    moveItemToChapter,
-    addItem: reorder.addItem,
-    deleteItem: reorder.deleteItem,
-    deleteActiveItem: reorder.deleteActiveItem,
-    undoDelete: reorder.undoDelete,
-    moveActive: reorder.moveActive,
-    canUndoDelete: reorder.canUndoDelete
-  });
-  const selectionValue = useStableSlice<SelectionContextValue>({
-    filteredItems: derived.filteredItems,
-    listItems: derived.listItems,
-    chapters: derived.chapters,
-    topics: derived.topics,
-    questionTypes: derived.questionTypes,
-    selectedIds: selection.selectedIds,
-    chapterFilters: selection.chapterFilters,
-    topicFilters: selection.topicFilters,
-    typeFilters: selection.typeFilters,
-    bookFilters: selection.bookFilters,
-    reviewPriorityFilters: selection.reviewPriorityFilters,
-    reviewStatusFilters: selection.reviewStatusFilters,
-    search: selection.search,
-    listMode: selection.listMode,
-    setChapterFilters: selection.setChapterFilters,
-    setTopicFilters: selection.setTopicFilters,
-    setTypeFilters: selection.setTypeFilters,
-    setBookFilters: selection.setBookFilters,
-    setReviewPriorityFilters: selection.setReviewPriorityFilters,
-    setReviewStatusFilters: selection.setReviewStatusFilters,
-    setSearch: selection.setSearch,
-    setListMode: selection.setListMode,
-    clearFilters: selection.clearFilters,
-    toggleSelected: selection.toggleSelected,
-    toggleAllVisible: () => selection.toggleAllVisible(derived.listItems)
-  });
-  const compileExportValue = useStableSlice<CompileExportContextValue>({
-    exportName: compileExport.exportName,
-    exportOrderMode: compileExport.exportOrderMode,
-    randomSeed: compileExport.randomSeed,
-    isExporting: compileExport.isExporting,
-    isCompiling: compileExport.isCompiling,
-    compileResult: compileExport.compileResult,
-    exportFailureResult: compileExport.exportFailureResult,
-    compileStatus: compileExport.compileStatus,
-    setExportName: compileExport.setExportName,
-    setExportOrderMode: compileExport.setExportOrderMode,
-    setRandomSeed: compileExport.setRandomSeed,
-    uploadAsset: compileExport.uploadAsset,
-    compileCurrentItem: compileExport.compileCurrentItem,
-    exportSelected: compileExport.exportSelected
-  });
-  const workspaceUiValue = useStableSlice<WorkspaceUiContextValue>({
-    activeModule,
-    setActiveModule,
-    draggingId: reorder.draggingId,
-    dropTarget: reorder.dropTarget,
-    reorderMenu: reorder.reorderMenu,
-    addMenu: reorder.addMenu,
-    reorderDialogItem: reorder.reorderDialogItem,
-    reorderTarget: reorder.reorderTarget,
-    reorderError: reorder.reorderError,
-    reorderInputRef: reorder.reorderInputRef,
-    setReorderTarget: reorder.setReorderTarget,
-    setReorderError: reorder.setReorderError,
-    openReorderDialog: reorder.openReorderDialog,
-    closeReorderDialog: reorder.closeReorderDialog,
-    submitReorder: reorder.submitReorder,
-    openReorderMenu: reorder.openReorderMenu,
-    openAddMenu: reorder.openAddMenu,
-    startPointerDrag: reorder.startPointerDrag,
-    startMouseDrag: reorder.startMouseDrag
-  });
-  const openQuestionFromDistribution = (id: string) => {
-    // 当前列表看不到这道题时先清筛选，否则编辑页侧栏里找不到正在编辑的题。
-    if (!derived.listItems.some((item) => item.id === id)) {
-      selection.clearFilters();
-    }
-    setActiveId(id);
-    setActiveModule("question");
-    appView.setActiveView("editor");
-  };
-  const showDistributionStatusInEditor = (status: DistributionStatus) => {
-    const first = derived.orderedItems.find(
-      (item) => distributionStatus(item.reviewPriority) === status
-    );
-    if (!first) return;
-    selection.clearFilters();
-    selection.setReviewPriorityFilters([distributionStatusFilter(status)]);
-    setActiveId(first.id);
-    setActiveModule("question");
-    appView.setActiveView("editor");
-  };
-  const appViewValue = useStableSlice<AppViewContextValue>({
-    activeView: appView.activeView,
-    setActiveView: appView.setActiveView,
-    distributionHighlight: appView.distributionHighlight,
-    setDistributionHighlight: appView.setDistributionHighlight,
-    distributionFocusedId: appView.distributionFocusedId,
-    setDistributionFocusedId: appView.setDistributionFocusedId,
-    distributionScrollTop: appView.distributionScrollTop,
-    setDistributionScrollTop: appView.setDistributionScrollTop,
-    openQuestionFromDistribution,
-    showDistributionStatusInEditor
-  });
-  const bankSettingsValue = useStableSlice<BankSettingsContextValue>({
-    chapters: derived.chapters,
-    books: bank?.books ?? NO_BOOKS,
-    createChapter: bankSettings.createChapter,
-    renameChapter: bankSettings.renameChapter,
-    moveChapter: bankSettings.moveChapter,
-    moveChapterToIndex: bankSettings.moveChapterToIndex,
-    deleteChapter: bankSettings.deleteChapter,
-    createBook: bankSettings.createBook,
-    renameBook: bankSettings.renameBook,
-    setBookPaths: bankSettings.setBookPaths,
-    deleteBook: bankSettings.deleteBook
-  });
-
-  return {
-    lifecycle: lifecycleValue,
-    workspace: workspaceValue,
-    questions: questionsValue,
-    selection: selectionValue,
-    compileExport: compileExportValue,
-    workspaceUi: workspaceUiValue,
-    appView: appViewValue,
-    bankSettings: bankSettingsValue
-  };
 }
