@@ -20,14 +20,14 @@
   align-items: center;
   gap: 10px;
   padding: 18px 22px;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 18px;
 }
 
 .loadingMark img,
 .setupBrand img {
   border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.12);
+  box-shadow: var(--seg-shadow);
 }
 
 .setupPanel {
@@ -47,7 +47,7 @@
 }
 .setupCopy h1 {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 28px;
   line-height: 1.18;
   letter-spacing: -0.012em;
@@ -60,8 +60,8 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
 }
-.ok { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
-.error { color: var(--coral); border-color: oklch(0.79 0.08 35); }
+.ok { color: var(--teal-strong); border-color: var(--success); }
+.error { color: var(--coral); border-color: var(--danger); }
 .info { color: var(--blue); }
 .recoveryPanel { width: min(680px, 100%); }
 .recoveryList { display: grid; gap: 8px; }

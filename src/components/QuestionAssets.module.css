@@ -47,7 +47,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(23 33 29 / 0.34);
+  background: var(--scrim);
   overscroll-behavior: contain;
 }
 .dialog {
@@ -60,7 +60,7 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--panel);
-  box-shadow: 0 22px 54px rgb(23 33 29 / 0.22);
+  box-shadow: var(--shadow-pop);
 }
 .dialog header {
   display: flex;
@@ -71,7 +71,7 @@
 .dialog h2 {
   margin: 0;
   overflow-wrap: anywhere;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 19px;
 }
 .dialog header span {

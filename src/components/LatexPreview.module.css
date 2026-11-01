@@ -5,8 +5,8 @@
   padding: 28px 28px 72px;
   overflow: auto;
   overscroll-behavior: contain;
-  background: oklch(0.993 0.008 90);
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  background: var(--preview-bg);
+  font-family: var(--font-book);
   font-size: 17px;
   line-height: 1.82;
 }
@@ -15,7 +15,7 @@
 .previewPane::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 999px;
-  background: rgb(108 117 111 / 0.44);
+  background: var(--border-strong);
   background-clip: content-box;
 }
 .previewContent { min-width: 0; }
@@ -28,7 +28,7 @@
   max-width: 82%;
   max-height: 320px;
   object-fit: contain;
-  outline: 1px solid rgb(0 0 0 / 0.1);
+  outline: 1px solid var(--border);
   outline-offset: -1px;
 }
 /* 与导出 \qimg 的 0.3 / 0.45 / 0.7\linewidth 档位对应。 */
@@ -43,7 +43,7 @@
 }
 .choices[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .choices[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
-.emptyPreview { color: oklch(0.68 0.01 155); }
+.emptyPreview { color: var(--dim); }
 .tikzNotice {
   margin-top: 10px;
   display: inline-flex;
@@ -52,7 +52,7 @@
   padding: 5px 8px;
   border-radius: var(--radius-md);
   color: var(--amber);
-  background: oklch(0.95 0.05 86);
+  background: var(--well);
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
 }

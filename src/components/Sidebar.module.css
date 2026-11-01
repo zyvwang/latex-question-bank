@@ -47,12 +47,12 @@
 .brandIdentity img {
   flex: 0 0 auto;
   border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.12);
+  box-shadow: var(--seg-shadow);
 }
 
 .brandBar h2 {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 20px;
   line-height: 1.2;
   letter-spacing: -0.012em;
@@ -111,10 +111,10 @@
   display: grid;
   gap: 3px;
   padding: 7px;
-  border: 1px solid oklch(0.82 0.025 160);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--panel);
-  box-shadow: 0 8px 24px rgb(23 33 29 / 0.16);
+  box-shadow: var(--shadow-pop);
 }
 .filterMenu:nth-child(even) .filterOptions { right: 0; left: auto; }
 .filterOptionsHeader {
@@ -150,7 +150,7 @@
   height: 10px;
   flex: 0 0 auto;
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .filterOptions p { margin: 7px; color: var(--muted); font-size: 12px; }
 .listActions {
@@ -162,7 +162,7 @@
 .bulkSelectButton {
   min-height: 40px;
   border-radius: var(--radius-md);
-  background: oklch(0.9 0.028 170);
+  background: var(--well);
   color: var(--teal-strong);
   transition: transform 140ms var(--ease-out), background-color 140ms ease;
 }
@@ -177,7 +177,7 @@
 .listModeToggle span { font-weight: 700; }
 .listModeToggle small {
   margin-left: auto;
-  color: oklch(0.5 0.045 175);
+  color: var(--dim);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
@@ -191,10 +191,10 @@
   display: flex;
   align-items: center;
   padding: 0 10px;
-  border: 1px dashed oklch(0.8 0.025 160);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--muted);
-  background: rgb(255 255 255 / 0.38);
+  background: transparent;
   font-size: 12px;
 }
 
@@ -233,13 +233,13 @@
   margin-bottom: 2px;
   padding: 7px 6px;
   border: 1px solid transparent;
-  border-bottom-color: rgb(43 61 54 / 0.09);
+  border-bottom-color: var(--border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   transition: transform 140ms var(--ease-out), background-color 140ms ease, border-color 140ms ease;
 }
 .activeQuestion {
-  border-color: oklch(0.72 0.055 175);
+  border-color: var(--border-strong);
   background: var(--teal-soft);
 }
 .dragging { opacity: 0.55; }
@@ -258,14 +258,14 @@
 .checkHit, .dragHandle { min-width: 40px; min-height: 40px; display: grid; place-items: center; }
 .checkHit { margin-left: -6px; }
 .checkHit input { width: 17px; height: 17px; accent-color: var(--teal); }
-.dragHandle { margin-left: -8px; color: oklch(0.64 0.035 165); cursor: grab; touch-action: none; }
+.dragHandle { margin-left: -8px; color: var(--dim); cursor: grab; touch-action: none; }
 .questionIndex {
   align-self: center;
   height: 32px;
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
-  background: oklch(0.91 0.025 165);
+  background: var(--well);
   color: var(--teal-strong);
   font-variant-numeric: tabular-nums;
 }
@@ -324,11 +324,11 @@
 }
 
 @media (hover: hover) {
-  .questionListItem:not(.activeQuestion):hover { background: rgb(255 255 255 / 0.42); }
+  .questionListItem:not(.activeQuestion):hover { background: transparent; }
   .collapseButton:hover { color: var(--teal-strong); background: var(--teal-soft); }
   .filterMenu > summary:hover,
   .listModeToggle:hover,
-  .bulkSelectButton:hover { background: oklch(0.87 0.035 170); }
+  .bulkSelectButton:hover { background: var(--well); }
   .filterOptions > label:hover { background: var(--teal-soft); }
 }
 
@@ -356,7 +356,7 @@
     position: static;
     width: 100%;
     margin-top: 5px;
-    box-shadow: 0 2px 8px rgb(23 33 29 / 0.11);
+    box-shadow: var(--shadow-pop);
   }
   .questionList { display: grid; overflow-x: visible; }
   .questionListItem { min-width: 0; width: 100%; }

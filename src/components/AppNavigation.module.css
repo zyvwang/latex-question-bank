@@ -12,7 +12,7 @@
 .identity { min-width: 0; display: flex; align-items: center; gap: 9px; }
 .identity img { border-radius: var(--radius-sm); }
 .identity div { min-width: 0; display: grid; }
-.identity strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; }
+.identity strong { font-family: var(--font-book); }
 .identity span,
 .notice { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -52,7 +52,7 @@
 .navigation nav .active {
   background: var(--panel);
   color: var(--teal-strong);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.1);
+  box-shadow: var(--seg-shadow);
 }
 
 .status { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
@@ -76,12 +76,12 @@
 .saved { color: var(--teal-strong); }
 .conflict {
   color: var(--coral);
-  border-color: oklch(0.79 0.08 35);
+  border-color: var(--danger);
   cursor: pointer;
 }
 
 @media (hover: hover) {
-  .conflict:hover { background: oklch(0.95 0.035 30); }
+  .conflict:hover { background: var(--well); }
 }
 
 @media (max-width: 760px) {

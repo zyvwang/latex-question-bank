@@ -8,7 +8,7 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
   background: var(--panel);
-  box-shadow: 0 14px 34px rgb(23 33 29 / 0.18);
+  box-shadow: var(--shadow-pop);
 }
 .contextMenu button {
   width: 100%;
@@ -30,7 +30,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgb(23 33 29 / 0.28);
+  background: var(--scrim);
   overscroll-behavior: contain;
 }
 .reorderDialog {
@@ -41,11 +41,11 @@
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--panel);
-  box-shadow: 0 22px 54px rgb(23 33 29 / 0.2);
+  box-shadow: var(--shadow-pop);
 }
 .reorderDialog header,
 .reorderDialog footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.reorderDialog h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 20px; }
+.reorderDialog h2 { margin: 0; font-family: var(--font-book); font-size: 20px; }
 .reorderDialog header span,
 .reorderDialog label span { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .reorderDialog label {
@@ -129,7 +129,7 @@
 
 @media (hover: hover) {
   .contextMenu button:hover { color: var(--teal-strong); background: var(--teal-soft); }
-  .contextMenu button.danger:hover { background: oklch(0.95 0.035 30); }
+  .contextMenu button.danger:hover { background: var(--well); }
 }
 
 @media (max-width: 520px) {

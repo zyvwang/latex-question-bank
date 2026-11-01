@@ -16,7 +16,7 @@
 }
 .emptyCard h1 {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 24px;
 }
 .emptyCard p {

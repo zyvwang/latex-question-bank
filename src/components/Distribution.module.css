@@ -14,7 +14,7 @@
 }
 
 .titleRow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
-.titleRow h1 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 22px; }
+.titleRow h1 { margin: 0; font-family: var(--font-book); font-size: 22px; }
 .titleRow p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .statusRow { min-height: 58px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
@@ -41,7 +41,7 @@
 
 .statusName { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .statusValue { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-.statusValue strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 22px; line-height: 1.2; }
+.statusValue strong { font-family: var(--font-book); font-size: 22px; line-height: 1.2; }
 .statusValue small { color: var(--muted); font-size: 12px; }
 
 /* 色值：图案（ReviewPattern）是叠在 background-color 上的白色纹理。 */
@@ -75,7 +75,7 @@
 .chapterRow:last-child { border-bottom: 0; }
 
 .rowLabel { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: 2px 8px; }
-.rowLabel strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; color: var(--teal-strong); }
+.rowLabel strong { font-family: var(--font-book); color: var(--teal-strong); }
 .rowLabel h2 { margin: 0; grid-column: 2; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .rowLabel span { grid-column: 2; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 
@@ -123,13 +123,13 @@
 .preview { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid var(--hairline); background: var(--panel); }
 .previewHeader { display: grid; gap: 2px; padding: 14px 16px 12px; border-bottom: 1px solid var(--hairline); }
 .previewHeader span { color: var(--muted); font-size: 12px; }
-.previewHeader h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 17px; overflow-wrap: anywhere; }
+.previewHeader h2 { margin: 0; font-family: var(--font-book); font-size: 17px; overflow-wrap: anywhere; }
 .previewHeader p { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .previewBody { min-height: 0; overflow: auto; padding: 12px 16px; }
 .previewFooter { padding: 10px 16px; border-top: 1px solid var(--hairline); }
 
 .empty { min-height: 0; height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 32px; text-align: center; }
-.empty h1 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 24px; }
+.empty h1 { margin: 0; font-family: var(--font-book); font-size: 24px; }
 .empty p { max-width: 420px; margin: 0 0 10px; color: var(--muted); line-height: 1.7; }
 
 @media (max-width: 1080px) {

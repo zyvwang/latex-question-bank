@@ -15,7 +15,7 @@
 }
 
 .pageHeader span { color: var(--teal-strong); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
-.pageHeader h1 { margin: 4px 0 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 30px; }
+.pageHeader h1 { margin: 4px 0 0; font-family: var(--font-book); font-size: 30px; }
 .pageHeader p,
 .section header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 
@@ -34,7 +34,7 @@
   margin-bottom: 14px;
 }
 
-.section h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 21px; }
+.section h2 { margin: 0; font-family: var(--font-book); font-size: 21px; }
 .createRow { display: flex; align-items: center; gap: 7px; }
 .createRow input {
   min-height: 40px;
@@ -94,7 +94,7 @@
   border: 1px dashed var(--hairline);
   border-radius: var(--radius-md);
   color: var(--muted);
-  background: rgb(255 255 255 / 0.35);
+  background: transparent;
 }
 .bookRow {
   grid-template-columns:
@@ -159,8 +159,8 @@
   background: var(--panel);
   color: var(--muted);
 }
-.texAvailable { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
-.texMissing { color: var(--coral); border-color: oklch(0.79 0.08 35); }
+.texAvailable { color: var(--teal-strong); border-color: var(--success); }
+.texMissing { color: var(--coral); border-color: var(--danger); }
 .latexGrid label {
   min-height: 44px;
   display: flex;

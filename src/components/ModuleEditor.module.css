@@ -15,7 +15,7 @@
 .panelHead header span { color: var(--muted); font-size: 11px; }
 .modulePanel h2 {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 19px;
   line-height: 1.1;
 }
@@ -64,7 +64,7 @@
 .editorPane :global(.cm-scroller::-webkit-scrollbar-thumb) {
   border: 3px solid transparent;
   border-radius: 999px;
-  background: rgb(108 117 111 / 0.44);
+  background: var(--border-strong);
   background-clip: content-box;
 }
 
