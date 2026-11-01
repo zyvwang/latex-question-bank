@@ -1,0 +1,148 @@
+.screen {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--paper);
+}
+
+.summary {
+  display: grid;
+  gap: 12px;
+  padding: 16px 24px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.titleRow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.titleRow h1 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 22px; }
+.titleRow p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.statusRow { min-height: 58px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.statusGroup { display: flex; flex-wrap: wrap; }
+
+.statusButton {
+  min-width: 124px;
+  min-height: 58px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 4px 16px;
+  border-right: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: transform 140ms var(--ease-out);
+}
+.statusButton:first-child { padding-left: 8px; }
+.statusButton:last-child { border-right: 0; }
+.statusButton:active { transform: scale(0.96); }
+.statusButton[aria-pressed="true"] { background: var(--teal-soft); }
+
+.statusName { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.statusValue { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.statusValue strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 22px; line-height: 1.2; }
+.statusValue small { color: var(--muted); font-size: 12px; }
+
+/* 色值：图案（ReviewPattern）是叠在 background-color 上的白色纹理。 */
+.swatch,
+.barSegment { background-color: var(--status-color); }
+[data-status="must"] { --status-color: var(--coral); }
+[data-status="recheck"] { --status-color: var(--amber); }
+[data-status="skip"] { --status-color: var(--muted); }
+[data-status="unset"] { --status-color: transparent; }
+
+.swatch { width: 11px; height: 11px; flex: none; display: inline-block; border-radius: 50%; }
+.swatch[data-status="unset"] { box-shadow: inset 0 0 0 1.5px var(--muted); }
+
+.bar,
+.miniBar { display: flex; gap: 2px; overflow: hidden; border-radius: var(--radius-sm); }
+.bar { height: 12px; }
+.miniBar { width: min(220px, 100%); height: 8px; flex: none; }
+.barSegment { min-width: 2px; flex-basis: 0; }
+.barSegment[data-status="unset"] { box-shadow: inset 0 0 0 1px var(--hairline); background-color: var(--panel); }
+
+.content { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
+.gridPane { min-height: 0; overflow-y: auto; padding: 0 24px 24px; }
+
+.chapterRow {
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.chapterRow:last-child { border-bottom: 0; }
+
+.rowLabel { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: 2px 8px; }
+.rowLabel strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; color: var(--teal-strong); }
+.rowLabel h2 { margin: 0; grid-column: 2; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.rowLabel span { grid-column: 2; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.rowBody { min-width: 0; display: grid; gap: 8px; }
+.rowStats { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.rowStats ul { margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; list-style: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.rowStats li { display: inline-flex; align-items: center; gap: 4px; }
+
+.cells { display: flex; flex-wrap: wrap; }
+
+.cell {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+}
+.cellFace {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+.cell:active .cellFace { transform: scale(0.96); }
+
+/* 格内要放序号：浅底配 ink 保证对比度，只有最需要注意的必须看用实色。 */
+.cell[data-status="must"] .cellFace { background-color: var(--coral); color: oklch(1 0 0); font-weight: 600; }
+.cell[data-status="recheck"] .cellFace { background-color: color-mix(in oklch, var(--amber) 30%, var(--panel)); box-shadow: inset 0 0 0 1.5px var(--amber); }
+.cell[data-status="skip"] .cellFace { background-color: color-mix(in oklch, var(--muted) 22%, var(--panel)); }
+.cell[data-status="unset"] .cellFace { background-color: var(--panel); box-shadow: inset 0 0 0 1px var(--muted); }
+.cell[data-previewed] .cellFace { outline: 2px solid var(--teal-strong); outline-offset: 1px; }
+
+.grid[data-highlight="must"] .cell:not([data-status="must"]) .cellFace,
+.grid[data-highlight="recheck"] .cell:not([data-status="recheck"]) .cellFace,
+.grid[data-highlight="skip"] .cell:not([data-status="skip"]) .cellFace,
+.grid[data-highlight="unset"] .cell:not([data-status="unset"]) .cellFace { opacity: 0.22; }
+
+.preview { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-left: 1px solid var(--hairline); background: var(--panel); }
+.previewHeader { display: grid; gap: 2px; padding: 14px 16px 12px; border-bottom: 1px solid var(--hairline); }
+.previewHeader span { color: var(--muted); font-size: 12px; }
+.previewHeader h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 17px; overflow-wrap: anywhere; }
+.previewHeader p { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.previewBody { min-height: 0; overflow: auto; padding: 12px 16px; }
+.previewFooter { padding: 10px 16px; border-top: 1px solid var(--hairline); }
+
+.empty { min-height: 0; height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 32px; text-align: center; }
+.empty h1 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 24px; }
+.empty p { max-width: 420px; margin: 0 0 10px; color: var(--muted); line-height: 1.7; }
+
+@media (max-width: 1080px) {
+  .content { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+
+@media (max-width: 760px) {
+  .screen { height: auto; display: block; }
+  .summary { padding: 14px 16px; }
+  .statusGroup { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }
+  .statusButton, .statusButton:first-child { min-width: 0; padding: 4px 8px; border-right: 0; }
+  .content { display: block; }
+  .gridPane { overflow: visible; padding: 0 16px 24px; }
+  .chapterRow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .preview { display: none; }
+}

@@ -28,7 +28,7 @@ No remote font dependency is required.
 
 ## Layout
 
-- A persistent top navigation owns page switching and the global save state. Layout write failures show a separate “布局未保存 · 重试” action, leaving the bank save state visible and accurate. The status area can wrap at narrow widths; retry controls have a minimum 40px hit target. Editor, Review, and Bank Settings are peer pages rather than drawers or modals. The Review nav item carries the pending count.
+- A persistent top navigation owns page switching and the global save state. Layout write failures show a separate “布局未保存 · 重试” action, leaving the bank save state visible and accurate. The status area can wrap at narrow widths; retry controls have a minimum 40px hit target. Editor, Review, Review Distribution, and Bank Settings are peer pages rather than drawers or modals. The Review nav item carries the pending count.
 - Wide desktop: the question navigation defaults to 288px, can be resized from 240px to 360px, and can collapse to a 48px rail. Workspace lifecycle controls live on the Bank Settings page rather than in the editor sidebar.
 - The active module gives source code about 55% of the editor width and preview about 45%. The separator keeps both panes usable, with a 35% to 65% source-width range and pixel minimums before the layout stacks.
 - The metadata panel keeps source (book + label), chapter, topics (考点), question types (题型), review priority, pending status, and answer source visible without a collapsible “题目属性” drawer. Book and path management lives in Bank Settings; the read-only import log sits below it.
@@ -37,6 +37,7 @@ No remote font dependency is required.
 - Below 760px: navigation and workspace become a single column with a horizontal question strip.
 - The workspace uses focused editing with one active module at a time. Question, solution, and note switch through tabs, and the preview follows the active module.
 - The Review page reuses the editor sidebar and workspace. A toolbar above the editor shows “待审阅 N 道”, the current source, and primary/secondary actions: approve and next, next without approval, delete, and approve the current filtered set. The export dock is hidden in Review. When no pending items remain, a centered empty state offers “返回编辑”; if filters hide pending items, it offers “清除筛选” instead.
+- The Review Distribution page (复习分布) is read-only. A summary strip above a full-width proportion bar shows the total, marked share, and each status's count and percentage in the order 必须看, 再看看, 不用看, 未标记. Below it, chapter rows hold a mini bar, per-status counts, and one numbered 40px cell per question; a 380px preview column shows the question module. Chapters follow saved order, empty chapters are omitted, and 未分类 comes last. Counts include pending questions. At 760px and below the page is a single column without the preview.
 
 ## Interaction
 
@@ -52,6 +53,7 @@ No remote font dependency is required.
 - Editor and question-navigation separators are draggable and keyboard adjustable. Arrow keys move by one step, Home and End move to the limits, and every separator exposes its controlled panes and current range through ARIA.
 - Editor LaTeX previews own their horizontal and vertical scrolling. Trackpad and horizontal-wheel deltas scroll directly, Shift plus a vertical wheel scrolls horizontally, and overflowing content exposes a horizontal scrollbar.
 - Review priority is never encoded by color alone: each segment has a text label and a dot, with 必须看 in coral, 再看看 in amber, 不用看 in muted ink, and 未标记 as an outlined dot. Pending review is always written as「待审阅」.
+- Distribution cells never rely on color alone: 必须看 is solid coral, 再看看 an amber tint with diagonal texture, 不用看 a gray tint with dots, and 未标记 outlined, and every cell's accessible name states its chapter, order, source, and status. Selecting a status dims other cells in place, without moving them, and offers “在编辑页查看 N 道”, which replaces the sidebar filters with that status. Opening a cell clears filters only when they would hide that question. Preview updates after a 200ms hover or focus dwell, cells use roving tabindex (arrows, Home, End, Enter), and returning from the editor restores the highlight, scroll position, and focused cell.
 - Approving the current filtered set requires a confirmation with the count. Deleting an item keeps the existing ten-second undo. The review page selects the next pending item after approval or deletion and does not alter editor filters.
 - External Agent imports use a fixed banner above the bottom edge when local drafts would be lost. It names the import count, offers “重新加载” and “稍后”, and never silently replaces local edits. Idle apps refresh automatically and show a transient success notice instead; batch undos use the same path and report deleted/restored counts.
 - Interactive targets are at least 40px or use an expanded hit area.

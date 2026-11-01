@@ -20,6 +20,7 @@ import {
 } from "react";
 import {
   REVIEW_PRIORITY_LABELS,
+  UNSET_PRIORITY_LABEL,
   REVIEW_PRIORITY_ORDER,
   REVIEW_STATUS_LABELS
 } from "../../shared/review-fields.js";
@@ -158,7 +159,7 @@ function FilterPanel() {
                   value: priority,
                   label: REVIEW_PRIORITY_LABELS[priority]
                 })),
-                { value: UNSET_PRIORITY_FILTER, label: "未标记" }
+                { value: UNSET_PRIORITY_FILTER, label: UNSET_PRIORITY_LABEL }
               ]}
             />
             {!reviewMode && (

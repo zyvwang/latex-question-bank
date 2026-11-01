@@ -35,7 +35,7 @@ The application interface currently uses Simplified Chinese. This README provide
 - Preview formulas with MathJax and insert PNG or JPEG images.
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, books, source labels, topics (考点), and question types (题型); an item can have several of each.
-- Mark each item with a review priority (skip / review again / must review).
+- Mark each item with a review priority (skip / review again / must review), and see the count and per-chapter spread of all four states on the Review Distribution page.
 - Let an external agent import selected examples, exercises, screenshots, or variants through the local `lqb` CLI, or import a whole book into a new bank; imported items enter pending review automatically.
 - Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
 - Undo an agent import batch; approved or manually edited items are kept.
@@ -144,6 +144,10 @@ lqb topic undo .lqb/topic-undo/<file>.json
 
 ![Books and import history in Bank Settings](docs/screenshots/settings.png)
 
+The Review Distribution page (复习分布) shows how many questions are marked 必须看, 再看看, 不用看, or unmarked, with their share and position in each chapter. Select a status to highlight it and jump to that list in the editor; hover a cell to preview the question, or click it to open the question.
+
+![Review Distribution: counts and per-chapter layout of the four review priorities](docs/screenshots/distribution.png)
+
 This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, batch undo, and topic/question-type organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
 
 ## Write LaTeX
@@ -208,7 +212,7 @@ workspace/
 - `assets/` stores inserted images.
 - `exports/` stores completed exports.
 - `.tmp/` stores temporary files from current-item checks and export work. The app limits how many it keeps during a session and removes entries older than seven days at startup.
-- `bank.json.bak` and `.history/` provide disk disaster-recovery points. Mastery history and the heatmap are no longer part of the product.
+- `bank.json.bak` and `.history/` provide disk disaster-recovery points. They do not keep a history of review priorities; the Review Distribution page shows the current state only.
 
 Save requests carry a content revision. If another program changes the file, the app rejects the overwrite and reports a conflict. You can load the disk version, refresh its revision and overwrite it with your local version, or save the local content as an independent workspace. Writes use a temporary file and atomic replacement. The first change in an app session also creates a history snapshot.
 

@@ -16,6 +16,12 @@ export const REVIEW_PRIORITY_ORDER: ReviewPriority[] = [
   "skip"
 ];
 
+export const UNSET_PRIORITY_LABEL = "未标记";
+
+export function reviewPriorityLabel(priority: ReviewPriority | null): string {
+  return priority ? REVIEW_PRIORITY_LABELS[priority] : UNSET_PRIORITY_LABEL;
+}
+
 export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
   pending: "待审阅",
   approved: "已审阅"
