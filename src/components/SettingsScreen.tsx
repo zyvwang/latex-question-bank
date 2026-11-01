@@ -7,6 +7,7 @@ import {
 import { BooksSettings } from "./BooksSettings.js";
 import { ChapterSettings } from "./ChapterSettings.js";
 import { ImportLogSettings } from "./ImportLogSettings.js";
+import { SkinSettings } from "./SkinSettings.js";
 import { WorkspaceSettings } from "./WorkspaceSettings.js";
 import styles from "./SettingsScreen.module.css";
 
@@ -14,12 +15,10 @@ export function SettingsScreen() {
   return (
     <main className={styles.screen} id="main-workspace">
       <header className={styles.pageHeader}>
-        <div>
-          <span>当前工作区</span>
-          <h1>题库设置</h1>
-        </div>
-        <p>有效变更会自动保存。名称和颜色在按 Enter 或离开输入框后提交。</p>
+        <h1>题库设置</h1>
+        <p>有效变更会自动保存。名称在按 Enter 或离开输入框后提交。</p>
       </header>
+      <SkinSettings />
       <WorkspaceSettings />
       <ChapterSettings />
       <BooksSettings />

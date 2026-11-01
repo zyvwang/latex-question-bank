@@ -493,6 +493,9 @@ describe("storage", () => {
     }));
 
     expect(await readUiLayoutPreferences()).toEqual({
+      skinMode: "light",
+      lightSkinId: "sheet",
+      darkSkinId: "darkroom",
       questionSidebarWidth: 360,
       questionSidebarCollapsed: true,
       moduleEditorPercent: 35

@@ -62,3 +62,10 @@ export function closeEventClients(): void {
   heartbeatTimers.clear();
   clients.clear();
 }
+
+export function broadcastSkinsChanged(event: { id: string }): void {
+  const payload = `event: skins-changed\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const client of clients) {
+    if (!client.writableEnded) client.write(payload);
+  }
+}

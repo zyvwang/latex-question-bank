@@ -2,7 +2,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--question-sidebar-width) 12px minmax(0, 1fr);
+  grid-template-columns: var(--question-sidebar-width) 1px minmax(0, 1fr);
 }
 
 .collapsed {

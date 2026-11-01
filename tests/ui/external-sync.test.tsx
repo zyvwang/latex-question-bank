@@ -107,7 +107,7 @@ it("stays on the distribution page and updates counts after an agent import", as
       { name: "复习分布" }
     )
   );
-  expect(await screen.findByText(/^共 2 道/)).toBeInTheDocument();
+  expect(await screen.findByText(/^共 2 题/)).toBeInTheDocument();
 
   setFixtureBank(importedBank());
   FakeEventSource.instances.at(-1)!.emit("bank-changed", {
@@ -122,7 +122,7 @@ it("stays on the distribution page and updates counts after an agent import", as
     }
   });
 
-  expect(await screen.findByText(/^共 3 道/)).toBeInTheDocument();
+  expect(await screen.findByText(/^共 3 题/)).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "复习分布" })
   ).toBeInTheDocument();

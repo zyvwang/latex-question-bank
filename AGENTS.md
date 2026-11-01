@@ -61,11 +61,15 @@ React UI
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
 - `src/hooks/useAppView.ts`：顶层 editor、review、distribution、settings 视图、复习分布页的会话状态及页面重置。
+- `src/hooks/useBankSnapshotActions.ts`、`useQuestionBankLists.ts`、`useQuestionBankContextSlices.ts`：题库快照应用、列表派生和 context 切片组装。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
 - `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
-- `src/components/DistributionScreen.tsx`、`DistributionSummary.tsx`、`DistributionGrid.tsx`、`DistributionPreview.tsx`、`src/reviewDistribution.ts`：只读的「复习分布」页和纯统计逻辑；不新增 API、不写题库，格子保持 memo 且只收标量 props。
+- `src/utils/latexText.ts`：预览专用的文本命令翻译，只处理公式以外的内容，不影响导出。TikZ 不编译，原位显示提示。
+- `src/components/DistributionScreen.tsx`、`src/reviewDistribution.ts`：只读的「复习分布」页和纯统计逻辑；不新增 API、不写题库。
+- `src/context/SkinProvider.tsx`、`src/components/SkinSettings.tsx`、`src/components/CommandPalette.tsx`：皮肤运行时、皮肤设置和 `⌘K` 命令面板。
+- `shared/skins.ts`、`shared/builtin-skins.ts`、`server/skin-storage.ts`、`server/routes/skin-routes.ts`、`docs/skin-authoring.md`、`docs/skin.schema.json`：皮肤约定、校验、存储和 Agent 文档。皮肤只含 token 与枚举选项，不含 CSS、脚本或 URL；token 是带版本的公开约定，改名属于破坏性变更。
 - `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览；变式原题链接在 `WorkspaceDetails.tsx` 的上下文行。
 - `src/hooks/useExternalBankSync.ts`：SSE 外部导入/撤销同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
@@ -162,13 +166,13 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 - CodeMirror 的全局选择器应限制在 module editor 容器内使用 `:global(...)`。
 - 保持可访问性：键盘 focus ring 可见，交互目标至少 40px 或提供扩展 hit area，支持 reduced motion。
 
-设计系统基调见 `docs/design-system.md`：桌面优先的纸面编辑台、暖纸色表面、克制青绿色行动色、数学内容偏宋体。避免装饰性渐变、玻璃拟态、混乱圆角体系，以及给每个区域套泛用卡片。
+设计系统基调见 `docs/design-system.md`：克制、有质感的桌面编辑工具，靠字体、留白、层次和精度，不用主题道具。默认皮肤是精修（`sheet`）。颜色只来自 `foundation.css` 的 token，`tests/unit/style-tokens.test.ts` 会拦截硬编码颜色和未定义 token。避免装饰性渐变、玻璃拟态、混乱圆角体系，以及给每个区域套泛用卡片。
 
 ### README 截图约定
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
 - 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
-- `main.png`、`review.png`、`distribution.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；复习分布页使用同一批 48 道题，但优先级改为偏态分布（大量未标记、少量必须看）；设置页展示书目与导入记录。掌握历史已移除，不再生成对应截图。
+- `main.png`、`review.png`、`distribution.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；复习分布页使用同一批 48 道题，但优先级改为偏态分布；设置页展示书目与导入记录。掌握历史已移除，不再生成对应截图。
 - 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定

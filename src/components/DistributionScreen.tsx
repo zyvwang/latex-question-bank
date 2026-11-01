@@ -1,129 +1,55 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import { ChevronRight } from "lucide-react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { questionSourceDisplay } from "../../shared/question-source.js";
+import type { QuestionItem } from "../../shared/types.js";
 import {
   useAppView,
   useBankSettings,
   useQuestions
 } from "../context/questionBankContexts.js";
 import {
+  DISTRIBUTION_STATUSES,
   buildDistributionGroups,
   countByPriority,
-  distributionCellId,
-  isDistributionNavigationKey,
-  nextDistributionItemId
+  distributionStatus,
+  distributionStatusLabel,
+  percentOf,
+  type DistributionCounts,
+  type DistributionGroup
 } from "../reviewDistribution.js";
 import controls from "../styles/controls.module.css";
-import { DistributionGrid } from "./DistributionGrid.js";
-import { DistributionPreview } from "./DistributionPreview.js";
-import { DistributionSummary } from "./DistributionSummary.js";
 import styles from "./Distribution.module.css";
-
-type PreviewSource = "focus" | "hover";
-
-// 快速划过格子时不反复排版 MathJax，只有停留下来才切换预览。
-const PREVIEW_DELAY_MS = 200;
 
 export function DistributionScreen() {
   const appView = useAppView();
-  const { orderedItems, bank } = useQuestions();
+  const { orderedItems } = useQuestions();
   const { chapters, books } = useBankSettings();
-  const {
-    distributionFocusedId: focusedId,
-    distributionHighlight: highlight,
-    distributionScrollTop,
-    openQuestionFromDistribution,
-    setDistributionFocusedId,
-    setDistributionHighlight,
-    setDistributionScrollTop,
-    showDistributionStatusInEditor
-  } = appView;
-
+  const { distributionScrollTop, setDistributionScrollTop } = appView;
   const groups = useMemo(
     () => buildDistributionGroups(orderedItems, chapters),
     [chapters, orderedItems]
   );
   const counts = useMemo(() => countByPriority(orderedItems), [orderedItems]);
-  const firstId = orderedItems[0]?.id ?? null;
-  const currentId =
-    focusedId && orderedItems.some((item) => item.id === focusedId)
-      ? focusedId
-      : firstId;
-
-  const [previewId, setPreviewId] = useState<string | null>(currentId);
-  const previewItem =
-    orderedItems.find((item) => item.id === previewId) ??
-    orderedItems.find((item) => item.id === currentId) ??
-    null;
-  const previewGroup = previewItem
-    ? groups.find((group) => group.items.some((item) => item.id === previewItem.id)) ?? null
-    : null;
-
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const previewTimer = useRef<{ source: PreviewSource | null; timer: number | null }>({
-    source: null,
-    timer: null
-  });
-  const restore = useRef({ scrollTop: distributionScrollTop, focusId: focusedId });
+  const mustItems = useMemo(
+    () => orderedItems.filter((item) => item.reviewPriority === "must"),
+    [orderedItems]
+  );
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const restoreTop = useRef(distributionScrollTop);
 
   useLayoutEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = restore.current.scrollTop;
-    if (!restore.current.focusId) return;
-    document
-      .getElementById(distributionCellId(restore.current.focusId))
-      ?.focus({ preventScroll: true });
+    if (scrollRef.current) scrollRef.current.scrollTop = restoreTop.current;
   }, []);
-
   useEffect(() => {
-    const pending = previewTimer.current;
     const scroller = scrollRef.current;
-    return () => {
-      if (pending.timer !== null) window.clearTimeout(pending.timer);
-      setDistributionScrollTop(scroller?.scrollTop ?? 0);
-    };
+    return () => setDistributionScrollTop(scroller?.scrollTop ?? 0);
   }, [setDistributionScrollTop]);
 
-  const schedulePreview = useCallback((id: string, source: PreviewSource) => {
-    const pending = previewTimer.current;
-    if (pending.timer !== null) window.clearTimeout(pending.timer);
-    pending.source = source;
-    pending.timer = window.setTimeout(() => {
-      setPreviewId(id);
-      pending.source = null;
-      pending.timer = null;
-    }, PREVIEW_DELAY_MS);
-  }, []);
-
-  const cancelPreview = useCallback((source: PreviewSource) => {
-    const pending = previewTimer.current;
-    if (pending.source !== source || pending.timer === null) return;
-    window.clearTimeout(pending.timer);
-    pending.source = null;
-    pending.timer = null;
-  }, []);
-
-  const handleNavigate = useCallback(
-    (id: string, key: string) => {
-      if (!isDistributionNavigationKey(key)) return false;
-      const nextId = nextDistributionItemId(groups, id, key);
-      setDistributionFocusedId(nextId);
-      document.getElementById(distributionCellId(nextId))?.focus();
-      return true;
-    },
-    [groups, setDistributionFocusedId]
-  );
-
-  if (!bank) return null;
   if (orderedItems.length === 0) {
     return (
       <section className={styles.empty} id="main-workspace" aria-label="复习分布">
         <h1>题库还没有题目</h1>
-        <p>添加或导入题目后，这里会显示必须看、再看看、不用看和未标记的分布。</p>
+        <p>添加或导入题目后，这里会显示各复习优先级的数量和分布。</p>
         <button
           type="button"
           className={controls.primaryAction}
@@ -135,42 +61,158 @@ export function DistributionScreen() {
     );
   }
 
+  const total = orderedItems.length;
+  const marked = total - counts.unset;
+  const groupByChapterId = (item: QuestionItem) =>
+    groups.find((group) => group.items.includes(item))?.name ?? "";
+
   return (
-    <section className={styles.screen} id="main-workspace" aria-label="复习分布">
-      <DistributionSummary
-        counts={counts}
-        total={orderedItems.length}
-        highlight={highlight}
-        onHighlightChange={setDistributionHighlight}
-        onShowInEditor={showDistributionStatusInEditor}
-      />
-      <div className={styles.content}>
-        <div
-          className={styles.gridPane}
-          ref={scrollRef}
-          role="region"
-          aria-label="各章题目分布"
-        >
-          <DistributionGrid
-            groups={groups}
-            books={books}
-            highlight={highlight}
-            focusedId={currentId}
-            previewedId={previewItem?.id ?? null}
-            onFocusedIdChange={setDistributionFocusedId}
-            onPreviewStart={schedulePreview}
-            onPreviewEnd={cancelPreview}
-            onOpenItem={openQuestionFromDistribution}
-            onNavigate={handleNavigate}
-          />
+    <section ref={scrollRef} className={styles.screen} id="main-workspace" aria-label="复习分布">
+      <div className={styles.inner}>
+        <header className={styles.head}>
+          <h1>复习分布</h1>
+          <p>共 {total} 题，已标记 {marked} 题（{percentOf(marked, total)}%）</p>
+        </header>
+        <section className={styles.overall} aria-label="总体分布">
+          <Bar counts={counts} label={summaryLabel(counts, total)} big />
+          <div className={styles.stats}>
+            {DISTRIBUTION_STATUSES.map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={styles.stat}
+                aria-label={`${distributionStatusLabel(status)} ${counts[status]} 题，在题库中查看`}
+                disabled={counts[status] === 0}
+                onClick={() => appView.showDistributionStatusInEditor(status)}
+              >
+                <span className={styles.statName}>
+                  <i className={styles.mark} data-status={status} aria-hidden="true" />
+                  {distributionStatusLabel(status)}
+                </span>
+                <strong>{counts[status]}</strong>
+                <small>{percentOf(counts[status], total)}%</small>
+              </button>
+            ))}
+          </div>
+        </section>
+        <div className={styles.lower}>
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>各章复习分布</caption>
+            <thead>
+              <tr>
+                <th scope="col">章节</th>
+                <th scope="col">分布</th>
+                {DISTRIBUTION_STATUSES.map((status) => (
+                  <th scope="col" className={styles.num} key={status}>{distributionStatusLabel(status)}</th>
+                ))}
+                <th scope="col" className={styles.num}>已标记</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((group) => <ChapterRows key={group.id} group={group} books={books} />)}
+            </tbody>
+          </table>
+          <aside className={styles.mustList} aria-label="必须看清单">
+            <h2><span>必须看</span><span>{mustItems.length} 题</span></h2>
+            {mustItems.length ? (
+              <ul>
+                {mustItems.map((item) => (
+                  <li key={item.id}>
+                    <button type="button" onClick={() => appView.openQuestionFromDistribution(item.id)}>
+                      <strong>{questionSourceDisplay(item, books)}</strong>
+                      <small>{item.topics[0] ?? groupByChapterId(item)}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : <p>还没有标记为必须看的题。</p>}
+          </aside>
         </div>
-        <DistributionPreview
-          item={previewItem}
-          group={previewGroup}
-          books={books}
-          onOpenItem={openQuestionFromDistribution}
-        />
       </div>
     </section>
   );
+}
+
+function ChapterRows({
+  group,
+  books
+}: {
+  group: DistributionGroup;
+  books: ReturnType<typeof useBankSettings>["books"];
+}) {
+  const appView = useAppView();
+  const open = appView.distributionExpanded.includes(group.id);
+  const done = group.items.length - group.counts.unset;
+  const detailId = `distribution-detail-${group.id}`;
+  return (
+    <Fragment>
+      <tr>
+        <th scope="row">
+          <button
+            type="button"
+            className={styles.chapter}
+            aria-expanded={open}
+            aria-controls={detailId}
+            onClick={() => appView.toggleDistributionChapter(group.id)}
+          >
+            <ChevronRight size={14} aria-hidden="true" />
+            {group.name}
+          </button>
+        </th>
+        <td><Bar counts={group.counts} /></td>
+        {DISTRIBUTION_STATUSES.map((status) => (
+          <td className={`${styles.num} ${group.counts[status] ? "" : styles.zero}`} key={status}>
+            {group.counts[status]}
+          </td>
+        ))}
+        <td className={styles.num}>{percentOf(done, group.items.length)}%</td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={7} className={styles.detailCell} id={detailId}>
+            <div className={styles.detail}>
+              {group.items.map((item) => {
+                const status = distributionStatus(item.reviewPriority);
+                const source = questionSourceDisplay(item, books);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={styles.cell}
+                    data-status={status}
+                    aria-label={`${source}，${distributionStatusLabel(status)}`}
+                    title={source}
+                    onClick={() => appView.openQuestionFromDistribution(item.id)}
+                  >
+                    {item.chapterOrder}
+                  </button>
+                );
+              })}
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}
+
+function Bar({ counts, label, big = false }: { counts: DistributionCounts; label?: string; big?: boolean }) {
+  return (
+    <div
+      className={`${styles.bar} ${big ? styles.barBig : ""}`}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      {DISTRIBUTION_STATUSES.filter((status) => counts[status] > 0).map((status) => (
+        <i key={status} data-status={status} style={{ flexGrow: counts[status] }} />
+      ))}
+    </div>
+  );
+}
+
+function summaryLabel(counts: DistributionCounts, total: number): string {
+  return DISTRIBUTION_STATUSES.map(
+    (status) => `${distributionStatusLabel(status)} ${counts[status]} 题，占 ${percentOf(counts[status], total)}%`
+  ).join("；");
 }

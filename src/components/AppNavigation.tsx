@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Save } from "lucide-react";
+import { AlertTriangle, BarChart3, Check, CheckSquare, PenLine, Save, SlidersHorizontal } from "lucide-react";
 import {
   useAppView,
   useLifecycle,
@@ -33,14 +33,16 @@ export function AppNavigation() {
           aria-current={appView.activeView === "editor" ? "page" : undefined}
           onClick={() => appView.setActiveView("editor")}
         >
-          编辑
+          <PenLine size={18} aria-hidden="true" />
+          <span>编辑</span>
         </button>
         <button
           className={appView.activeView === "review" ? styles.active : ""}
           aria-current={appView.activeView === "review" ? "page" : undefined}
           onClick={() => appView.setActiveView("review")}
         >
-          待审阅
+          <CheckSquare size={18} aria-hidden="true" />
+          <span>待审阅</span>
           {pendingCount > 0 && (
             <span className={styles.reviewCount}>{pendingCount}</span>
           )}
@@ -50,14 +52,16 @@ export function AppNavigation() {
           aria-current={appView.activeView === "distribution" ? "page" : undefined}
           onClick={() => appView.setActiveView("distribution")}
         >
-          复习分布
+          <BarChart3 size={18} aria-hidden="true" />
+          <span>复习分布</span>
         </button>
         <button
           className={appView.activeView === "settings" ? styles.active : ""}
           aria-current={appView.activeView === "settings" ? "page" : undefined}
           onClick={() => appView.setActiveView("settings")}
         >
-          题库设置
+          <SlidersHorizontal size={18} aria-hidden="true" />
+          <span>题库设置</span>
         </button>
       </nav>
       <div className={styles.status}>

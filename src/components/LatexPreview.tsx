@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { AlertTriangle } from "lucide-react";
 import type { QuestionAsset } from "../../shared/types.js";
 import {
   disposeMathJaxRoot,
@@ -64,12 +63,6 @@ export function LatexPreview({
       ref={ref}
     >
       <div className={styles.previewContent} ref={contentRef} />
-      {/(\\begin\{tikzpicture}|\\begin\{axis})/.test(tex) && (
-        <div className={styles.tikzNotice}>
-          <AlertTriangle size={14} />
-          TikZ/pgfplots 以真实编译为准
-        </div>
-      )}
     </div>
   );
 }
@@ -116,9 +109,25 @@ function renderPreviewParts(root: HTMLElement, parts: LatexPreviewPart[]): void 
         fragment.appendChild(grid);
         return;
       }
+      if (part.type === "notice") {
+        const notice = document.createElement("p");
+        notice.className = styles.previewNotice;
+        notice.textContent = part.text;
+        fragment.appendChild(notice);
+        return;
+      }
       const text = document.createElement("div");
       text.className = styles.latexText;
-      text.textContent = part.text;
+      if (part.runs) {
+        part.runs.forEach((run) => {
+          const span = document.createElement("span");
+          if (run.style) span.dataset.textStyle = run.style;
+          span.textContent = run.text;
+          text.appendChild(span);
+        });
+      } else {
+        text.textContent = part.text;
+      }
       fragment.appendChild(text);
     });
   }

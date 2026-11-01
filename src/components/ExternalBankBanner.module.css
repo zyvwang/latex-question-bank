@@ -8,19 +8,19 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border: 1px solid oklch(0.79 0.08 35);
-  border-radius: var(--radius-md);
-  color: var(--ink);
-  background: var(--paper);
-  box-shadow: var(--shadow-raised);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  color: var(--text);
+  background: var(--chrome);
+  box-shadow: var(--shadow-pop);
 }
 .text {
   min-width: 0;
   display: grid;
   gap: 3px;
 }
-.text strong { color: var(--coral); font-size: 14px; }
-.text span { color: var(--muted); font-size: 13px; }
+.text strong { color: var(--danger); font-size: 14px; }
+.text span { color: var(--dim); font-size: 13px; }
 .actions {
   margin-left: auto;
   display: flex;

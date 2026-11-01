@@ -32,7 +32,9 @@ const cliScript = path.resolve("cli/lqb.ts");
 let server: StartedApiServer;
 let cliEnv: NodeJS.ProcessEnv;
 
+// 启动前清理合成应用状态，避免读取其他安全测试刻意留下的符号链接工作区。
 beforeAll(async () => {
+  await rm(appDataDir, { recursive: true, force: true });
   process.env.LQB_AGENT_DISCOVERY_FILE = discoveryFile;
   server = await startApiServer({ port: 0, appVersion: "test" });
   cliEnv = {
@@ -475,3 +477,27 @@ async function runCli(
   );
   return stdout;
 }
+
+it("creates and validates skins offline and installs, overwrites, lists and removes via CLI", async () => {
+  const offline = { LQB_AGENT_DISCOVERY_FILE: path.join(agentDir, "not-running.json") };
+  await runCli(["skin", "init", "pine-copy", "--from", "pine", "--out", "pine.json"], offline);
+  await runCli(["skin", "validate", "--file", "pine.json"], offline);
+  const lowContrast = JSON.parse(await readFile(path.join(agentDir, "pine.json"), "utf8"));
+  lowContrast.tokens.dim = "#E0E0E0";
+  await writeFile(path.join(agentDir, "pine.json"), JSON.stringify(lowContrast));
+  const contrastFailure = await runCliExpectingFailure(["skin", "validate", "--file", "pine.json"], offline);
+  expect(contrastFailure.code).toBe(2);
+  expect(contrastFailure.stderr).toContain("SKIN_CONTRAST");
+  await runCli(["skin", "init", "cli-skin", "--from", "sheet", "--out", "skin.json"], offline);
+  const validated = JSON.parse(await runCli(["skin", "validate", "--file", "skin.json", "--json"], offline));
+  expect(validated.ok).toBe(true);
+  await runCli(["skin", "install", "--file", "skin.json", "--json"]);
+  expect((await runCliExpectingFailure(["skin", "install", "--file", "skin.json"])).code).toBe(1);
+  await runCli(["skin", "install", "--file", "skin.json", "--overwrite"]);
+  const list = JSON.parse(await runCli(["skin", "list", "--json"]));
+  expect(list.skins.some((skin: { id: string }) => skin.id === "cli-skin")).toBe(true);
+  await runCli(["skin", "remove", "cli-skin"]);
+  expect((await runCliExpectingFailure(["skin", "remove", "sheet"])).code).toBe(2);
+  await writeFile(path.join(agentDir, "bad-skin.json"), "{}");
+  expect((await runCliExpectingFailure(["skin", "validate", "--file", "bad-skin.json"], offline)).code).toBe(2);
+});

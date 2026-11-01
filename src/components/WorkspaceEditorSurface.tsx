@@ -7,9 +7,10 @@ import {
 } from "../context/questionBankContexts.js";
 import type { ModuleKind } from "../../shared/types.js";
 import { ModuleEditor } from "./ModuleEditor.js";
+import { WorkspaceExportPanel } from "./WorkspaceExportPanel.js";
 import styles from "./WorkspaceView.module.css";
 
-export function WorkspaceEditorSurface() {
+export function WorkspaceEditorSurface({ exportEnabled }: { exportEnabled: boolean }) {
   const questions = useQuestions();
   const compileExport = useCompileExport();
   const ui = useWorkspaceUi();
@@ -45,10 +46,11 @@ export function WorkspaceEditorSurface() {
               onKeyDown={(event) => handleTabKey(event, kind)}
             >
               <span>{moduleLabels[kind]}</span>
-              <small>{item.modules[kind].tex.trim() ? "已填写" : "空"}</small>
+              {!item.modules[kind].tex.trim() && <small>空</small>}
             </button>
           ))}
         </div>
+        <WorkspaceExportPanel exportEnabled={exportEnabled} />
       </header>
       <ModuleEditor
         kind={ui.activeModule}

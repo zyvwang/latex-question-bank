@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LatexPreview } from "../../src/components/LatexPreview.js";
 
@@ -97,3 +97,21 @@ function createDeferred<T>() {
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
+
+describe("LatexPreview text translation", () => {
+  it("shows a calm notice instead of a MathJax error for TikZ", async () => {
+    render(<LatexPreview tex={"看图\n\\begin{center}\\begin{tikzpicture}\\draw (0,0);\\end{tikzpicture}\\end{center}"} assets={[]} />);
+    await wait(50);
+    expect(screen.getByText(/tikzpicture 不在预览中显示/)).toBeInTheDocument();
+    expect(screen.queryByText(/\\draw/)).not.toBeInTheDocument();
+    expect(screen.getByText("看图")).toBeInTheDocument();
+  });
+
+  it("renders emphasis and names commands it cannot translate", async () => {
+    const { container } = render(<LatexPreview tex={"\\noindent\\textbf{重点}\\foo"} assets={[]} />);
+    await wait(50);
+    expect(screen.getByText("重点")).toHaveAttribute("data-text-style", "bold");
+    expect(container).not.toHaveTextContent("\\noindent");
+    expect(screen.getByText(/预览未处理 \\foo/)).toBeInTheDocument();
+  });
+});

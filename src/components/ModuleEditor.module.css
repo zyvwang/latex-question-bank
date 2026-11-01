@@ -1,25 +1,10 @@
 .modulePanel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
-.panelHead {
-  min-width: 0;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--panel);
-}
-.panelHead > header {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 15px;
-}
-.panelHead > header > div:first-child { margin-right: auto; }
-.panelHead header span { color: var(--muted); font-size: 11px; }
-.modulePanel h2 {
-  margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
-  font-size: 19px;
-  line-height: 1.1;
-}
-.miniStatus { color: var(--muted); font-size: 13px; }
+.panelHead { min-width: 0; border-bottom: 1px solid var(--border); background: var(--code-bg); }
+.panelHead > header { min-height: 40px; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+.panelHead > header:not(:has(button)) { min-height: 0; }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.panelHead :global(button) { border-color: transparent; color: var(--dim); }
+.miniStatus { color: var(--dim); font-size: 13px; }
 .solutionMeta {
   display: flex;
   flex-wrap: wrap;
@@ -32,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--muted);
+  color: var(--dim);
   font-size: 12px;
 }
 .solutionMeta select,
@@ -40,36 +25,40 @@
   min-width: 0;
   min-height: 32px;
   padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
   background: var(--field);
-  color: var(--ink);
+  color: var(--text);
   font-size: 13px;
 }
 .solutionMeta input { width: 180px; }
 .moduleGrid {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(340px, var(--module-editor-percent)) 12px minmax(300px, 1fr);
+  grid-template-columns: minmax(220px, var(--module-editor-percent)) 1px minmax(220px, 1fr);
 }
 .editorRegion,
 .previewRegion { min-width: 0; min-height: 0; overflow: hidden; }
 .editorPane { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
-.editorFallback { display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.editorFallback { display: grid; place-items: center; color: var(--dim); font-size: 13px; }
 .editorPane > :global([class^="cm-theme"]),
-.editorPane :global(.cm-editor) { height: 100%; min-height: 0; }
+.editorPane :global(.cm-editor) { height: 100%; min-height: 0; color: var(--text); background: var(--code-bg); font-size: 13px; }
+.editorPane :global(.cm-gutters) { border: 0; color: var(--dim); background: var(--code-bg); }
+.editorPane :global(.cm-activeLine),
+.editorPane :global(.cm-activeLineGutter) { background: var(--well); }
+.editorPane :global(.cm-cursor) { border-left-color: var(--text); }
 .editorPane :global(.cm-editor) { font-family: "SFMono-Regular", Consolas, monospace; font-size: 14px; }
 .editorPane :global(.cm-scroller) { overscroll-behavior: contain; }
 .editorPane :global(.cm-scroller::-webkit-scrollbar) { width: 10px; height: 10px; }
 .editorPane :global(.cm-scroller::-webkit-scrollbar-thumb) {
   border: 3px solid transparent;
   border-radius: 999px;
-  background: rgb(108 117 111 / 0.44);
+  background: var(--border-strong);
   background-clip: content-box;
 }
 
 @media (max-width: 1040px) {
   .moduleGrid { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) minmax(300px, 1fr); }
   .moduleGrid > [role="separator"] { display: none; }
-  .editorRegion { border-bottom: 1px solid var(--hairline); }
+  .editorRegion { border-bottom: 1px solid var(--border); }
 }

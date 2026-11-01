@@ -1,12 +1,12 @@
 .screen {
   min-height: 0;
   overflow: auto;
-  padding: 28px clamp(18px, 4vw, 64px) 56px;
-  background: var(--canvas);
+  padding: 32px clamp(16px, 4vw, 48px) 56px;
+  background: var(--surface);
 }
 
 .pageHeader {
-  max-width: 1180px;
+  max-width: 960px;
   margin: 0 auto 22px;
   display: flex;
   align-items: end;
@@ -14,16 +14,15 @@
   gap: 24px;
 }
 
-.pageHeader span { color: var(--teal-strong); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
-.pageHeader h1 { margin: 4px 0 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 30px; }
+.pageHeader h1 { margin: 0; font-size: var(--text-xl); font-weight: 600; }
 .pageHeader p,
-.section header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.section header p { margin: 4px 0 0; color: var(--dim); font-size: 13px; }
 
 .section {
-  max-width: 1180px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 23px 0 25px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--border);
 }
 
 .section > header {
@@ -34,18 +33,20 @@
   margin-bottom: 14px;
 }
 
-.section h2 { margin: 0; font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 21px; }
+.section h2 { margin: 0; font-size: var(--text-md); font-weight: 600; }
 .createRow { display: flex; align-items: center; gap: 7px; }
 .createRow input {
   min-height: 40px;
   padding: 0 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
 }
 
-.rows { display: grid; gap: 7px; }
+.rows { display: grid; }
+.systemRow { grid-template-columns: 76px 72px minmax(0, 1fr) !important; }
+.systemRow strong { white-space: nowrap; }
 .row {
   min-height: 52px;
   display: grid;
@@ -53,9 +54,9 @@
   align-items: center;
   gap: 8px;
   padding: 6px 9px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
 }
 
 .row > input,
@@ -66,14 +67,14 @@
   min-height: 38px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--ink);
+  border-radius: var(--r);
+  color: var(--text);
   background: var(--field);
 }
 .row > input:focus,
 .row > select:focus,
-.colorField input:focus { border-color: var(--teal); }
-.dragHandle { min-height: 40px; display: grid; place-items: center; color: var(--muted); cursor: grab; }
+.colorField input:focus { border-color: var(--accent); }
+.dragHandle { min-height: 40px; display: grid; place-items: center; color: var(--dim); cursor: grab; }
 .dragging { opacity: 0.5; }
 .orderNumber,
 .swatch {
@@ -81,9 +82,9 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-sm);
-  color: var(--teal-strong);
-  background: var(--teal-soft);
+  border-radius: var(--r);
+  color: var(--accent);
+  background: var(--active);
   font-variant-numeric: tabular-nums;
 }
 .rowActions { display: flex; gap: 4px; }
@@ -91,51 +92,51 @@
 .emptyState {
   margin: 0;
   padding: 16px;
-  border: 1px dashed var(--hairline);
-  border-radius: var(--radius-md);
-  color: var(--muted);
-  background: rgb(255 255 255 / 0.35);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  color: var(--dim);
+  background: transparent;
 }
 .bookRow {
   grid-template-columns:
-    minmax(160px, 0.8fr)
-    minmax(220px, 1.4fr)
-    minmax(220px, 1.4fr)
-    72px
-    132px
+    minmax(0, 0.8fr)
+    minmax(0, 1.2fr)
+    minmax(0, 1.2fr)
+    56px
+    120px
     44px;
 }
 .bookCount,
 .hashState {
-  color: var(--muted);
+  color: var(--dim);
   font-size: 12px;
   white-space: nowrap;
 }
 .hashState { line-height: 1.4; white-space: normal; }
 .importRow {
   grid-template-columns:
-    140px
-    minmax(140px, 0.8fr)
-    minmax(220px, 1.2fr)
-    80px
-    minmax(150px, 0.9fr)
+    128px
+    minmax(0, 0.8fr)
+    minmax(0, 1.2fr)
+    56px
+    minmax(0, 0.9fr)
     auto;
 }
 .importTime,
 .importCounts {
-  color: var(--muted);
+  color: var(--dim);
   font-size: 12px;
 }
 .importBooks { min-width: 0; overflow-wrap: anywhere; }
 .importStatus {
-  color: var(--teal-strong);
+  color: var(--accent);
   font-size: 12px;
   white-space: nowrap;
 }
 .importBatchId {
   min-width: 0;
   overflow: hidden;
-  color: var(--muted);
+  color: var(--dim);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
   text-overflow: ellipsis;
@@ -154,31 +155,31 @@
   justify-content: center;
   gap: 7px;
   padding: 0 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--dim);
 }
-.texAvailable { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
-.texMissing { color: var(--coral); border-color: oklch(0.79 0.08 35); }
+.texAvailable { color: var(--accent); border-color: var(--success); }
+.texMissing { color: var(--danger); border-color: var(--danger); }
 .latexGrid label {
   min-height: 44px;
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 0 11px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
-.latexGrid label span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.latexGrid label span { color: var(--dim); font-size: 13px; white-space: nowrap; }
 .latexGrid input,
 .latexGrid textarea {
   width: 100%;
   min-width: 0;
   border: 0;
   outline: 0;
-  color: var(--ink);
+  color: var(--text);
   background: transparent;
 }
 .latexGrid .preambleField {

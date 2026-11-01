@@ -1,3 +1,5 @@
+import { BUILTIN_SKINS } from "../shared/builtin-skins.js";
+import { parseSkin, validateSkin } from "../shared/skins.js";
 import { createHash, randomBytes } from "node:crypto";
 import {
   access,
@@ -70,6 +72,8 @@ interface ParsedArgs {
 }
 
 const VALUE_FLAGS = new Set([
+  "from",
+  "out",
   "workspace",
   "file",
   "batch-id",
@@ -102,6 +106,8 @@ async function main(): Promise<void> {
     return;
   }
   switch (command) {
+    case "skin":
+      return skinCommand(args, rest);
     case "status":
       return statusCommand(args);
     case "link":
@@ -147,6 +153,61 @@ async function main(): Promise<void> {
       break;
   }
   throw new CliError(1, `未知命令：${args.positionals.join(" ")}`);
+}
+
+async function skinCommand(args: ParsedArgs, rest: string[]): Promise<void> {
+  const [command, id] = rest;
+  if (command === "init") {
+    const source = stringFlag(args.flags, "from") ?? "sheet";
+    const builtin = BUILTIN_SKINS.find((skin) => skin.id === source);
+    if (!builtin || !id) throw new CliError(1, "用法：lqb skin init <id> [--from <内置id>] [--out <路径>]");
+    const skin = { ...structuredClone(builtin), id, name: id };
+    const result = validateSkin(skin);
+    // init 是可编辑模板；保留原型的对比度问题，让 validate/install 阻止安装。
+    const templateErrors = result.ok ? [] : result.errors.filter((error) => error.code !== "SKIN_CONTRAST");
+    if (templateErrors.length) throw new CliError(2, templateErrors.map((e) => `${e.code}: ${e.message}`).join("\n"));
+    const output = path.resolve(stringFlag(args.flags, "out") ?? "skin.json");
+    await writeFile(output, `${JSON.stringify(skin, null, 2)}\n`, { flag: "wx" });
+    console.log(output);
+    return;
+  }
+  let skin: unknown;
+  if (command === "validate" || command === "install") {
+    const file = stringFlag(args.flags, "file");
+    if (!file) throw new CliError(1, `用法：lqb skin ${command} --file <路径> [--json]`);
+    const result = parseSkin(await readFile(path.resolve(file), "utf8"));
+    if (!result.ok) {
+      if (args.flags.has("json")) printJson(result);
+      throw new CliError(2, result.errors.map((e) => `${e.code}: ${e.message}`).join("\n"));
+    }
+    if (command === "validate") {
+      if (args.flags.has("json")) printJson(result);
+      else console.log(`皮肤 ${result.value.id} 校验通过。`);
+      return;
+    }
+    skin = result.value;
+  } else if (command !== "list" && command !== "remove") {
+    throw new CliError(1, "用法：lqb skin init|validate|install|list|remove");
+  }
+  if (command === "remove" && !id) throw new CliError(1, "用法：lqb skin remove <id>");
+  const discovery = await readDiscovery();
+  const endpoint = command === "list" ? "/api/skins" : command === "remove"
+    ? `/api/agent/skins/${encodeURIComponent(id!)}`
+    : `/api/agent/skins?overwrite=${args.flags.has("overwrite")}`;
+  let response: Response;
+  try {
+    response = await agentRequest(discovery, endpoint, command === "list" ? {} : command === "remove"
+      ? { method: "DELETE" }
+      : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(skin) });
+  } catch { throw new CliError(5, "无法连接应用，请先启动应用。"); }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw apiError(response.status, payload);
+  if (args.flags.has("json")) printJson(payload);
+  else if (command === "list") {
+    const list = payload as import("../shared/skins.js").SkinList;
+    for (const item of list.skins) console.log(`${item.id}  ${item.name}  ${item.mode}`);
+    for (const error of list.errors) console.log(`${error.file}: ${error.code} ${error.message}`);
+  } else console.log(command === "remove" ? `已删除皮肤 ${id}。` : "皮肤已安装。");
 }
 
 async function statusCommand(args: ParsedArgs): Promise<void> {
@@ -1040,6 +1101,7 @@ function apiError(status: number, payload: unknown): CliError {
   ) {
     return new CliError(6, message);
   }
+  if (status === 413 && code === "SKIN_TOO_LARGE") return new CliError(2, message);
   if (status === 400) return new CliError(2, message);
   return new CliError(1, message);
 }
@@ -1225,6 +1287,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function printHelp(): void {
+  console.log("lqb skin init <id> [--from <内置id>] [--out <路径>] | validate/install --file <路径> [--overwrite] [--json] | list [--json] | remove <id>");
   console.log(`lqb — LaTeX 题库本地 Agent CLI
 
 用法：

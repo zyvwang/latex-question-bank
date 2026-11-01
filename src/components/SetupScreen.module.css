@@ -4,15 +4,15 @@
   display: grid;
   place-items: center;
   padding: 28px;
-  background: var(--paper);
+  background: var(--chrome);
 }
 
 .loadingMark,
 .setupPanel {
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
 }
 
 .loadingMark {
@@ -20,14 +20,14 @@
   align-items: center;
   gap: 10px;
   padding: 18px 22px;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 18px;
 }
 
 .loadingMark img,
 .setupBrand img {
-  border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px rgb(23 33 29 / 0.12);
+  border-radius: var(--r-md);
+  box-shadow: var(--seg-shadow);
 }
 
 .setupPanel {
@@ -42,27 +42,27 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  color: var(--teal-strong);
+  color: var(--accent);
   font-weight: 700;
 }
 .setupCopy h1 {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  font-family: var(--font-book);
   font-size: 28px;
   line-height: 1.18;
   letter-spacing: -0.012em;
   text-wrap: balance;
 }
-.setupCopy p, .setupNotice { margin: 0; color: var(--muted); text-wrap: pretty; }
+.setupCopy p, .setupNotice { margin: 0; color: var(--dim); text-wrap: pretty; }
 .setupActions { display: flex; flex-wrap: wrap; gap: 10px; }
 .setupNotice {
   padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
 }
-.ok { color: var(--teal-strong); border-color: oklch(0.79 0.05 170); }
-.error { color: var(--coral); border-color: oklch(0.79 0.08 35); }
-.info { color: var(--blue); }
+.ok { color: var(--accent); border-color: var(--success); }
+.error { color: var(--danger); border-color: var(--danger); }
+.info { color: var(--accent); }
 .recoveryPanel { width: min(680px, 100%); }
 .recoveryList { display: grid; gap: 8px; }
 .recoveryList button { justify-content: flex-start; }

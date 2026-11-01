@@ -1,35 +1,96 @@
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-600-normal.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
-  --ink: oklch(0.237 0.016 168.5);
-  --muted: oklch(0.553 0.014 156.7);
-  --hairline: oklch(0.897 0.011 141.3);
-  --paper: oklch(0.97 0.008 91.5);
-  --panel: oklch(0.994 0.007 88.6);
-  --sidebar: oklch(0.952 0.014 157);
-  --field: oklch(1 0 0);
-  --teal: oklch(0.511 0.086 186.4);
-  --teal-strong: oklch(0.439 0.073 187.1);
-  --teal-soft: oklch(0.93 0.025 173);
-  --coral: oklch(0.543 0.137 31.5);
-  --amber: oklch(0.573 0.122 73.2);
-  --blue: oklch(0.469 0.096 253.9);
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --shadow-raised: 0 1px 3px rgb(23 33 29 / 0.11), 0 10px 28px rgb(23 33 29 / 0.06);
+
+  /* 皮肤约定 v1：默认值是内置皮肤 sheet，运行时由当前皮肤覆盖。组件只用这一层。 */
+  --surface: #FBFCFA;
+  --chrome: #F1F4F2;
+  --text: #14264F;
+  --dim: #5B6880;
+  --border: #DDE3E2;
+  --border-strong: #C4CDD0;
+  --accent: #14264F;
+  --on-accent: #FBFCFA;
+  --active: #FBFCFA;
+  --active-line: #C4CDD0;
+  --field: #FBFCFA;
+  --well: #E6EBEA;
+  --raised: #FFFFFF;
+  --raised-solid: #FFFFFF;
+  --scrim: #14264F38;
+  --code-bg: #F6F8F6;
+  --syntax: #A82C44;
+  --preview-bg: #FBFCFA;
+  --page: #FBFCFA;
+  --page-ink: #14264F;
+  --must: #C4314B;
+  --on-must: #FFFFFF;
+  --recheck: #6E7EA0;
+  --recheck-soft: #CDD4E2;
+  --skip: #A9B3BE;
+  --unset: #E2E7E7;
+  --unset-line: #B9C1C8;
+  --danger: #B3293F;
+  --success: #1B6B4F;
+  --warning: #8A5A00;
+  --r: 3px;
+
+  /* 由皮肤派生，不属于公开约定。 */
+  --r-md: calc(var(--r) + 2px);
+  --r-lg: calc(var(--r) + 4px);
+  --seg-shadow: 0 0 0 1px var(--border-strong);
+  --shadow-pop: 0 0 0 1px var(--border-strong), 0 12px 32px rgb(10 14 24 / 0.18);
+  --shadow-page: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.3);
+
+  /* 字号 6 级，间距 4px 网格。 */
+  --font-ui: "Hanken Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-book: "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 30px;
+
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
-  background: var(--paper);
-  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--chrome);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-heading-font="book"] h1,
+:root[data-heading-font="book"] h2 { font-family: var(--font-book); }
+:root[data-density="compact"] { font-size: 13px; --row-height: 40px; }
+
 * { box-sizing: border-box; }
 html, body, #root { min-width: 320px; min-height: 100%; }
-body { margin: 0; min-height: 100vh; background: var(--paper); }
+body { margin: 0; min-height: 100vh; background: var(--chrome); }
 button, input, select, textarea { font: inherit; }
 button { border: 0; cursor: pointer; touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
@@ -39,7 +100,7 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid oklch(0.65 0.11 185 / 0.42);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

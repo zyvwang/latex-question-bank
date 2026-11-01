@@ -126,10 +126,8 @@ export interface SelectionContextValue {
 export interface AppViewContextValue {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
-  distributionHighlight: DistributionStatus | null;
-  setDistributionHighlight: (status: DistributionStatus | null) => void;
-  distributionFocusedId: string | null;
-  setDistributionFocusedId: (id: string | null) => void;
+  distributionExpanded: string[];
+  toggleDistributionChapter: (id: string) => void;
   distributionScrollTop: number;
   setDistributionScrollTop: (value: number) => void;
   openQuestionFromDistribution: (id: string) => void;

@@ -1,6 +1,7 @@
 import { LoadingScreen } from "./components/LoadingScreen.js";
 import { AppErrorBoundary } from "./components/AppErrorBoundary.js";
 import { AppNavigation } from "./components/AppNavigation.js";
+import { CommandPalette } from "./components/CommandPalette.js";
 import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
 import { SetupScreen } from "./components/SetupScreen.js";
@@ -11,6 +12,7 @@ import { DistributionScreen } from "./components/DistributionScreen.js";
 import { ExternalBankBanner } from "./components/ExternalBankBanner.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
 import { LayoutPreferencesProvider } from "./context/LayoutPreferencesContext.js";
+import { SkinProvider } from "./context/SkinProvider.js";
 import { useBeforeCloseFlush } from "./hooks/useBeforeCloseFlush.js";
 import {
   useLifecycle,
@@ -59,6 +61,7 @@ function AppContent() {
           </div>
         )}
         <Overlays />
+        <CommandPalette />
         <ExternalBankBanner />
       </main>
     </>
@@ -70,9 +73,11 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <LayoutPreferencesProvider>
-        <QuestionBankProvider>
-          <AppContent />
-        </QuestionBankProvider>
+        <SkinProvider>
+          <QuestionBankProvider>
+            <AppContent />
+          </QuestionBankProvider>
+        </SkinProvider>
       </LayoutPreferencesProvider>
     </AppErrorBoundary>
   );

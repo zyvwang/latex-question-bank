@@ -402,6 +402,7 @@ it("approves a pending item from the metadata panel", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
+    await user.click(screen.getByRole("button", { name: /^导出$/ }));
     expect(screen.getByText("其中 1 道待审阅")).toBeInTheDocument();
 
     await user.click(screen.getByText("2024-2"));

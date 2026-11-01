@@ -53,7 +53,7 @@ export function Sidebar({
             <p>
               {reviewMode
                 ? `${pendingCount} 道待审阅`
-                : `${questions.orderedItems.length} 题 · 已选 ${selection.selectedIds.size}`}
+                : `共 ${questions.orderedItems.length} 题，已选 ${selection.selectedIds.size} 题`}
             </p>
           </div>
         </div>

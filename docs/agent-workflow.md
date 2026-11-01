@@ -420,3 +420,7 @@ Agent 导入或撤销成功后，应用通过本地 SSE 收到通知：
 - 不自动批准、不自动删除、不改题库设置。
 - 导入不自动编译 LaTeX；最终以用户预览和真实编译为准。
 - PDF 默认只记录路径和哈希，不复制进题库；图片复制到 `assets/` 并做 PNG/JPEG 签名、MIME、尺寸校验。
+
+## 自定义皮肤
+
+使用 `lqb skin init|validate|install|list|remove` 管理本地皮肤；`init` 和 `validate` 可离线运行。完整 token、选项、示例和错误修复见 [皮肤编写指南](skin-authoring.md)，结构定义见 [JSON Schema](skin.schema.json)。皮肤只写应用数据目录，不改题库。安装与删除仍需 Agent token，并沿用 Host/Origin 校验。

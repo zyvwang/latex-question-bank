@@ -30,6 +30,7 @@ test("cancels a delayed export when the user switches workspaces", async () => {
   try {
     const page = await app.firstWindow();
     await expect(page.getByLabel("来源题号")).toHaveValue("示例 1");
+    await page.getByRole("button", { name: "导出", exact: true }).click();
     await expect(page.getByLabel("导出名")).not.toHaveValue("");
     const writes: SaveBankRequest[] = [];
     let exportRequests = 0;
@@ -59,6 +60,7 @@ test("cancels a delayed export when the user switches workspaces", async () => {
     await oldResponse;
     // A subsequent renderer task observes the completed fetch continuation, without a guessed delay.
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await page.getByRole("button", { name: "导出", exact: true }).click();
     await expect(page.getByRole("button", { name: "导出 2 题", exact: true })).toBeEnabled();
     await expect(page.getByLabel("导出名")).not.toHaveValue("stale-export");
     expect(exportRequests).toBe(0);

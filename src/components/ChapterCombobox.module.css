@@ -2,7 +2,7 @@
   min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(140px, 1.3fr) minmax(112px, 0.7fr) 32px;
+  grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
   gap: 4px;
 }
@@ -13,22 +13,28 @@
   min-width: 0;
   border: 0;
   outline: 0;
-  color: var(--ink);
+  color: var(--text);
   background: transparent;
 }
 
 .combobox .chapterSelect {
-  min-height: 28px;
-  padding: 3px 22px 3px 7px;
-  border: 0;
-  color: var(--teal-strong);
-  background-color: var(--teal-soft);
-  font-size: 12px;
+  grid-column: 1 / -1;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--r);
+  color: var(--text);
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--text-sm);
 }
 
 .combobox input {
-  padding-left: 6px;
-  border-left: 1px solid var(--hairline);
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--r);
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--text-sm);
 }
 
 .combobox button {
@@ -36,7 +42,7 @@
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-sm);
-  color: var(--teal-strong);
-  background: var(--teal-soft);
+  border-radius: var(--r);
+  color: var(--text);
+  background: var(--well);
 }
