@@ -86,14 +86,6 @@ export const QuestionListRow = memo(function QuestionListRow({
             {item.reviewStatus === "pending" ? (
               <span className={styles.pendingBadge}>待审阅</span>
             ) : null}
-            {item.reviewPriority ? (
-              <span
-                className={styles.priorityBadge}
-                data-priority={item.reviewPriority}
-              >
-                {REVIEW_PRIORITY_LABELS[item.reviewPriority]}
-              </span>
-            ) : null}
             {item.variantOf ? <span className={styles.variantBadge}>变式</span> : null}
             {item.questionTypes.map((type) => (
               <span className={styles.typeBadge} key={type} title={type}>
@@ -113,6 +105,15 @@ export const QuestionListRow = memo(function QuestionListRow({
             ))}
           </span> : null}
         </span>
+        {item.reviewPriority ? (
+          <span
+            className={styles.priorityDot}
+            data-priority={item.reviewPriority}
+            title={REVIEW_PRIORITY_LABELS[item.reviewPriority]}
+          >
+            <span className={styles.srOnly}>{REVIEW_PRIORITY_LABELS[item.reviewPriority]}</span>
+          </span>
+        ) : null}
       </button>
     </div>
   );

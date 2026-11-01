@@ -84,6 +84,7 @@ it("keeps export selection independent from filters and resets it on workspace s
     await screen.findByText("2024-1");
 
     await user.type(screen.getByLabelText("搜索题目"), "矩阵");
+    await user.click(screen.getByRole("button", { name: /^导出$/ }));
     await user.click(screen.getByRole("button", { name: "导出 2 题" }));
     const exportCall = vi.mocked(fetch).mock.calls.find(
       ([url]) => String(url) === "/api/export"

@@ -2,396 +2,232 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  overflow: hidden;
-}
-.reviewWorkspace { grid-template-rows: auto auto auto minmax(0, 1fr); }
-.topBar {
-  min-height: 54px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 18px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper);
-}
-.statusCluster,
-.toolbar,
-.exportBlock,
-.compileBlock { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.savePill,
-.notice {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  color: var(--muted);
-  background: var(--panel);
-  white-space: nowrap;
-}
-.saving { color: var(--amber); }
-.error { color: var(--coral); border-color: var(--danger); }
-.ok { color: var(--teal-strong); border-color: var(--success); }
-.info { color: var(--blue); }
-.notice span { max-width: min(44vw, 700px); overflow: hidden; text-overflow: ellipsis; }
-.notice button { padding: 3px 6px; border-radius: var(--radius-sm); color: inherit; background: transparent; font-weight: 700; }
-
-.metadataPanel {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-  padding: 8px 18px 7px;
-}
-
-.metaStrip {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(300px, 1fr) minmax(260px, 1fr);
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  background: var(--surface);
 }
-.metaStrip label,
-.sourceField,
-.settingsGrid label,
-.exportBlock label {
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border-right: 1px solid var(--hairline);
-  background: transparent;
-}
-.metaStrip label:last-child,
-.sourceField:last-child { border-right: 0; }
-.metaStrip span,
-.sourceField > span,
-.settingsGrid span,
-.exportBlock span { color: var(--muted); font-size: 13px; white-space: nowrap; }
-.metaStrip input,
-.metaStrip select,
-.settingsGrid input,
-.exportBlock input,
-.exportBlock select {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  color: var(--ink);
-  background: transparent;
-}
-.chapterField { min-width: 0; }
-.tagsField > div { flex: 1; }
-.tagsGroup {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 0;
-  border-right: 1px solid var(--hairline);
-}
-.tagsGroup > label > div { flex: 1; }
-.tagsGroup > label { border-right: 0; padding-block: 4px; }
-.tagsGroup > label:nth-child(even) { border-left: 1px solid var(--hairline); }
-.tagsGroup > label:nth-child(n + 3) { border-top: 1px solid var(--hairline); }
-.tagsGroup > label > span { min-width: 2.5em; }
-.tagsGroup > label input { min-width: 64px; flex-basis: 64px; }
-
-.sourceField { min-width: 0; }
-.sourceField select { flex: 0 1 132px; width: auto; }
-.sourceField input { flex: 1 1 80px; }
-.createBookButton {
-  min-height: 30px;
-  flex: none;
-  padding: 0 8px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  color: var(--teal-strong);
-  background: var(--field);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.reviewRow {
+.reviewWorkspace { background: var(--surface); }
+.workspaceBody {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
 }
-.contextRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.contextField {
-  min-width: 0;
-  min-height: 44px;
-  flex: 1 1 260px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-}
-.contextField > span {
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
-.variantLink {
-  min-width: 0;
-  min-height: 36px;
+
+/* 状态：没有内容时整行不占高度 */
+.statusBar:has(> .statusCluster:empty) { display: none; }
+.statusBar { padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--chrome); }
+.statusCluster { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.notice {
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 10px;
-  overflow: hidden;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
-  color: var(--blue);
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+.notice span { max-width: min(60vw, 760px); overflow: hidden; text-overflow: ellipsis; }
+.notice button { min-height: 32px; padding: 0 6px; border-radius: var(--r); color: inherit; background: transparent; font-weight: 600; text-decoration: underline; }
+.error { color: var(--danger); }
+.ok { color: var(--success); }
+.info { color: var(--dim); }
+
+/* 题目信息 */
+.metadataPanel {
+  width: 264px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--chrome);
+}
+.metadataClosed { width: 44px; }
+.metadataHead { min-height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 16px; border-bottom: 1px solid var(--border); }
+.metadataClosed .metadataHead { justify-content: center; padding: 0; }
+.metadataHead h2 { margin: 0; font-size: var(--text-sm); font-weight: 600; }
+.metadataHead button { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--r); background: transparent; color: var(--dim); }
+.metadataBody { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 16px; }
+.metadataBody[hidden] { display: none; }
+.metadataBody > * { padding-block: 12px; border-bottom: 1px solid var(--border); }
+.metadataBody > :last-child { border-bottom: 0; }
+
+.reviewField,
+.sourceField,
+.chapterField,
+.tagsGroup > label,
+.contextField { min-width: 0; display: grid; gap: 6px; }
+.reviewField > span:first-child,
+.sourceField > span,
+.chapterField > span,
+.tagsGroup > label > span,
+.contextField > span { color: var(--dim); font-size: var(--text-xs); }
+.tagsGroup { display: grid; gap: 12px; }
+
+.sourceField { grid-template-columns: minmax(0, 1fr) auto; }
+.sourceField > span,
+.sourceField select { grid-column: 1 / -1; }
+.sourceField select,
+.sourceField input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r);
+  color: var(--text);
   background: var(--field);
-  font-size: 13px;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--text-sm);
+}
+.createBookButton {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--r);
+  color: var(--dim);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--text-xs);
+}
+
+.contextRow { display: grid; gap: 12px; }
+.variantLink {
+  min-width: 0;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  text-decoration: underline;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.variantMissing {
-  color: var(--coral);
-  font-size: 13px;
-}
-.reviewField {
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-}
-.reviewField > span {
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
-.priorityOptions { display: flex; flex-wrap: wrap; gap: 4px; }
+.variantMissing { color: var(--danger); font-size: var(--text-sm); font-weight: 500; }
+
+.priorityOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--well); }
 .priorityOption {
-  min-height: 36px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  background: var(--field);
-  font-size: 13px;
-  white-space: nowrap;
-}
-.priorityOption i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.priorityOption[aria-pressed="true"] {
-  color: var(--ink);
-  border-color: var(--teal);
-  background: var(--well);
-}
-.priority_must i { background: var(--coral); }
-.priority_recheck i { background: var(--amber); }
-.priority_skip i { background: var(--muted); }
-.priority_unset i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
-.pendingBadge {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
   padding: 0 8px;
-  border-radius: 999px;
-  color: var(--amber);
-  background: var(--field);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.approvedStatus {
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.approveButton {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: var(--radius-sm);
-  color: var(--paper);
-  background: var(--teal-strong);
-  font-size: 13px;
-  font-weight: 700;
-}
-.settingsBand {
-  margin: 0 18px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-}
-.settingsBand summary {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  cursor: pointer;
-  color: var(--teal-strong);
-}
-.settingsGrid { display: grid; grid-template-columns: 150px 150px minmax(260px, 1fr); gap: 9px; padding: 0 12px 12px; }
-.settingsGrid .preambleField { height: auto; align-items: flex-start; padding-block: 8px; }
-.settingsGrid .texPathField { grid-column: 1 / -1; }
-.preambleField textarea {
-  width: 100%;
-  min-height: 72px;
-  resize: vertical;
-  border: 0;
-  outline: 0;
+  border-radius: var(--r);
+  color: var(--dim);
   background: transparent;
-  color: var(--ink);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
 }
+.priorityOption i { width: 10px; height: 10px; flex: none; border-radius: 50%; }
+.priorityOption[aria-pressed="true"] { color: var(--text); background: var(--raised); box-shadow: var(--seg-shadow); }
+.priority_must i { background: var(--must); }
+.priority_recheck i { background: linear-gradient(90deg, var(--recheck) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--recheck); }
+.priority_skip i { box-shadow: inset 0 0 0 1.5px var(--skip); }
+.priority_unset i { box-shadow: inset 0 0 0 1px var(--unset-line); }
 
-.editorSurface {
-  min-height: 0;
-  margin: 0 18px 9px;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-raised);
-}
+.reviewField { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.reviewField > span:first-child { grid-column: 1 / -1; }
+.pendingBadge { color: var(--warning); font-size: var(--text-sm); font-weight: 500; }
+.approvedStatus { color: var(--text) !important; font-size: var(--text-sm) !important; }
+.approveButton { min-height: 32px; padding: 0 12px; border-radius: var(--r); color: var(--on-accent); background: var(--accent); font-size: var(--text-xs); font-weight: 600; }
+
+.questionActions { display: flex; justify-content: space-between; gap: 4px; }
+
+/* 编辑区 */
+.editorSurface { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .editorHeader {
-  min-height: 50px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 10px 0;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--well);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
 }
-.moduleTabs { height: 100%; display: flex; align-items: end; gap: 3px; }
+.moduleTabs { display: flex; padding: 2px; border-radius: var(--r-md); background: var(--well); }
 .moduleTabs button {
-  position: relative;
-  min-width: 112px;
-  min-height: 43px;
-  display: grid;
-  align-content: center;
-  gap: 1px;
-  padding: 4px 18px 6px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  color: var(--muted);
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+  border-radius: var(--r);
+  color: var(--dim);
   background: transparent;
-  text-align: left;
-  transition: transform 150ms var(--ease-out), background-color 150ms ease, color 150ms ease;
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
-.moduleTabs button span { font-family: var(--font-book); font-size: 17px; font-weight: 700; }
-.moduleTabs button small { font-size: 11px; }
-.moduleTabs button::after {
-  content: "";
+.moduleTabs button small { font-size: 11px; font-weight: 400; }
+.moduleTabs .activeTab { color: var(--text); background: var(--raised); box-shadow: var(--seg-shadow); }
+.editorActions { position: relative; display: flex; align-items: center; gap: 8px; }
+.editorActions > button { min-height: 32px; }
+
+.exportPanel {
   position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: -1px;
-  height: 3px;
-  transform: scaleX(0);
-  background: var(--teal);
-  transition: transform 150ms var(--ease-out);
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--raised-solid);
+  box-shadow: var(--shadow-pop);
 }
-.moduleTabs .activeTab { color: var(--ink); background: var(--panel); }
-.moduleTabs .activeTab::after { transform: scaleX(1); }
-.exportDock {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 11px 18px;
-  border-top: 1px solid var(--hairline);
-  background: var(--sidebar);
+.exportPanel h2 { margin: 0; font-size: var(--text-md); font-weight: 600; }
+.exportPanel p { margin: 0; color: var(--dim); font-size: var(--text-sm); }
+.exportField { display: grid; gap: 4px; }
+.exportField span { color: var(--dim); font-size: var(--text-xs); }
+.exportField input,
+.exportField select {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r);
+  color: var(--text);
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--text-sm);
 }
-.compileBlock { flex-wrap: wrap; }
+.exportPanel .pendingExportWarning { color: var(--warning); }
 .logBox {
-  max-width: min(42vw, 680px);
-  max-height: 88px;
+  max-height: 160px;
   margin: 0;
   overflow: auto;
   padding: 8px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--r);
   background: var(--well);
-  color: var(--dim);
-  font-size: 12px;
+  color: var(--text);
+  font-size: var(--text-xs);
   white-space: pre-wrap;
 }
-.exportBlock { justify-content: flex-end; }
-.pendingExportWarning {
-  color: var(--amber);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.exportNameField { width: min(30vw, 280px); }
-.exportOrderField { width: 158px; }
-.exportSeedField { width: min(23vw, 220px); }
-.emptyState { grid-row: 2 / 5; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--muted); }
+.compileLog { position: absolute; z-index: 15; top: calc(100% + 8px); right: 0; width: min(60vw, 560px); box-shadow: var(--shadow-pop); }
+
+.emptyState { flex: 1; min-height: 240px; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--dim); }
+.emptyState p { margin: 0; }
 
 @media (hover: hover) {
-  .moduleTabs button:hover { color: var(--teal-strong); background: var(--well); }
+  .moduleTabs button:not(.activeTab):hover,
+  .metadataHead button:hover,
+  .createBookButton:hover { color: var(--text); }
 }
 
-@media (max-width: 1040px) {
-  .metaStrip { grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); }
-  .chapterField { border-right: 0; }
-  .tagsField {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--hairline);
-    border-right: 0;
-  }
-  .settingsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .reviewRow { grid-template-columns: 1fr; }
-  .preambleField, .texPathField { grid-column: 1 / -1; }
-  .exportDock, .topBar { align-items: stretch; flex-direction: column; }
-  .exportBlock { justify-content: flex-start; flex-wrap: wrap; }
-  .exportNameField { flex: 1 1 240px; }
+@media (max-width: 1180px) {
+  .metadataPanel { width: 236px; }
 }
 
 @media (max-width: 760px) {
-  .workspace { height: auto; min-height: 100vh; overflow: visible; }
-  .metaStrip { display: grid; grid-template-columns: 1fr; }
-  .metaStrip label,
-  .sourceField { border-right: 0; border-bottom: 1px solid var(--hairline); }
-  .metaStrip label:last-child,
-  .sourceField:last-child { border-bottom: 0; }
-  .tagsField { grid-column: auto; border-top: 0; }
-  .tagsGroup { grid-template-columns: 1fr; }
-  .tagsGroup > label:nth-child(even) { border-left: 0; }
-  .tagsGroup > label:nth-child(n + 2) { border-top: 1px solid var(--hairline); }
-  .settingsGrid { grid-template-columns: 1fr; }
-  .editorSurface { min-height: 680px; margin-inline: 12px; }
-  .moduleTabs { min-width: 0; flex: 1; }
-  .moduleTabs button { min-width: 0; flex: 1; padding-inline: 10px; }
-  .exportDock, .topBar { padding-inline: 12px; }
-  .metadataPanel { padding-inline: 12px; }
-  .settingsBand { margin-inline: 12px; }
-  .exportBlock { display: grid; grid-template-columns: 1fr; width: 100%; }
-  .exportBlock label, .exportBlock button { width: 100%; }
-  .notice span { max-width: 60vw; }
-}
-
-@media (max-width: 520px) {
-  .editorHeader { align-items: stretch; flex-direction: column; padding: 8px; }
-  .moduleTabs { width: 100%; }
-  .moduleTabs button span { font-size: 15px; }
+  .workspace { height: auto; overflow: visible; }
+  .workspaceBody { display: block; }
+  .metadataPanel, .metadataClosed { width: auto; border-left: 0; border-top: 1px solid var(--border); }
+  .metadataClosed .metadataHead { justify-content: flex-end; padding-right: 4px; }
+  .editorHeader { flex-wrap: wrap; padding-block: 8px; }
+  .editorSurface { min-height: 560px; overflow: visible; }
+  .exportPanel { left: 0; right: auto; width: min(320px, calc(100vw - 32px)); }
+  .compileLog { left: 0; right: auto; width: calc(100vw - 32px); }
 }

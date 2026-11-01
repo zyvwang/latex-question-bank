@@ -172,6 +172,7 @@ it("increments an automatic export name and opens its file location", async () =
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
+    await user.click(screen.getByRole("button", { name: /^导出$/ }));
     const nameInput = await screen.findByLabelText("导出名");
     // 导出名只由服务端给出。必须等它落地再断言:findBy* 在元素一出现就 resolve,
     // 直接断言会读到 fetch 前的空值。这里的日期来自 mock 响应,与本机日期无关。
@@ -203,6 +204,7 @@ it("keeps a manually edited export name after success", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
+    await user.click(screen.getByRole("button", { name: /^导出$/ }));
     const nameInput = await screen.findByLabelText("导出名");
     // 先等服务端名字落地:对空字段 clear 不会触发 onChange,手动标记不会置位,
     // 随后到达的服务端值就会盖掉用户输入。
@@ -224,10 +226,12 @@ it("falls back to a local export name when the server cannot supply one", async 
       }
       return handleFetch(input, init);
     });
+    const user = userEvent.setup();
     render(<App />);
     await screen.findByText("2024-1");
 
     // 服务端拿不到名字时不能把字段留空:空 fileName 会被服务端兜成 export-<date>。
+    await user.click(screen.getByRole("button", { name: /^导出$/ }));
     const nameInput = (await screen.findByLabelText("导出名")) as HTMLInputElement;
     await waitFor(() =>
       expect(nameInput.value).toMatch(/^questions-\d{4}-\d{2}-\d{2}-1$/)

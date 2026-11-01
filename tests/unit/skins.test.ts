@@ -46,7 +46,7 @@ it("keeps schema and runtime field sources identical", async () => {
 });
 it("uses WCAG luminance and normalizes old preferences without writing", () => {
   expect(contrastRatio("#000000", "#FFFFFF")).toBe(21);
-  expect(normalizeUiLayoutPreferences({})).toMatchObject({ skinMode: "system", lightSkinId: "sheet", darkSkinId: "darkroom" });
-  expect(normalizeUiLayoutPreferences({ skinMode: "bad", lightSkinId: "../x", darkSkinId: null })).toMatchObject({ skinMode: "system", lightSkinId: "sheet", darkSkinId: "darkroom" });
+  expect(normalizeUiLayoutPreferences({})).toMatchObject({ skinMode: "light", lightSkinId: "sheet", darkSkinId: "darkroom" });
+  expect(normalizeUiLayoutPreferences({ skinMode: "bad", lightSkinId: "../x", darkSkinId: null })).toMatchObject({ skinMode: "light", lightSkinId: "sheet", darkSkinId: "darkroom" });
   expect(normalizeUiLayoutPreferences({ skinMode: "dark", lightSkinId: "my-light", darkSkinId: "my-dark" })).toMatchObject({ skinMode: "dark", lightSkinId: "my-light", darkSkinId: "my-dark" });
 });

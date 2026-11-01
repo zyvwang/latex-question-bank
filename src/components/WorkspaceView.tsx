@@ -18,7 +18,6 @@ import type { NoticeAction } from "../hooks/controllerTypes.js";
 import controls from "../styles/controls.module.css";
 import { WorkspaceDetails } from "./WorkspaceDetails.js";
 import { WorkspaceEditorSurface } from "./WorkspaceEditorSurface.js";
-import { WorkspaceExportDock } from "./WorkspaceExportDock.js";
 import { ReviewToolbar } from "./ReviewToolbar.js";
 import styles from "./WorkspaceView.module.css";
 
@@ -36,14 +35,18 @@ export function WorkspaceView({
       id="main-workspace"
     >
       {mode === "review" && <ReviewToolbar />}
-      <TopBar />
-      {questions.activeItem ? <ActiveWorkspace /> : <EmptyWorkspace />}
-      {mode === "editor" && <WorkspaceExportDock />}
+      <StatusBar />
+      {questions.activeItem ? (
+        <div className={styles.workspaceBody}>
+          <WorkspaceEditorSurface exportEnabled={mode === "editor"} />
+          <WorkspaceDetails actions={<QuestionActions />} />
+        </div>
+      ) : <EmptyWorkspace />}
     </section>
   );
 }
 
-function TopBar() {
+function StatusBar() {
   const compileExport = useCompileExport();
   const lifecycle = useLifecycle();
   const questions = useQuestions();
@@ -66,7 +69,7 @@ function TopBar() {
   }
 
   return (
-    <header className={styles.topBar}>
+    <div className={styles.statusBar}>
       <div className={styles.statusCluster}>
         {lifecycle.saveIssue?.kind === "error" && (
           <div
@@ -116,13 +119,19 @@ function TopBar() {
           </div>
         )}
       </div>
-      <div className={styles.toolbar}>
-        <ToolbarButton label="上移" onClick={() => questions.moveActive(-1)}><ArrowUp size={18} /></ToolbarButton>
-        <ToolbarButton label="下移" onClick={() => questions.moveActive(1)}><ArrowDown size={18} /></ToolbarButton>
-        <ReorderButton />
-        <ToolbarButton label="删除题目" danger onClick={questions.deleteActiveItem}><Trash2 size={18} /></ToolbarButton>
-      </div>
-    </header>
+    </div>
+  );
+}
+
+function QuestionActions() {
+  const questions = useQuestions();
+  return (
+    <div className={styles.questionActions}>
+      <ToolbarButton label="上移" onClick={() => questions.moveActive(-1)}><ArrowUp size={17} /></ToolbarButton>
+      <ToolbarButton label="下移" onClick={() => questions.moveActive(1)}><ArrowDown size={17} /></ToolbarButton>
+      <ReorderButton />
+      <ToolbarButton label="删除题目" danger onClick={questions.deleteActiveItem}><Trash2 size={17} /></ToolbarButton>
+    </div>
   );
 }
 
@@ -157,15 +166,6 @@ function ToolbarButton(props: {
     >
       {props.children}
     </button>
-  );
-}
-
-function ActiveWorkspace() {
-  return (
-    <>
-      <WorkspaceDetails />
-      <WorkspaceEditorSurface />
-    </>
   );
 }
 

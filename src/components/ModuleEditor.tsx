@@ -95,10 +95,7 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
     >
       <div className={styles.panelHead}>
         <header>
-          <div>
-            <span>当前模块</span>
-            <h2>{moduleLabels[kind]}</h2>
-          </div>
+          <h2 className={styles.srOnly}>{moduleLabels[kind]}</h2>
           {kind === "question" &&
             QUESTION_SNIPPETS.map(({ label, text, cursorOffset, Icon }) => (
               <button

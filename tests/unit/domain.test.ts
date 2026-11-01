@@ -493,7 +493,7 @@ describe("storage", () => {
     }));
 
     expect(await readUiLayoutPreferences()).toEqual({
-      skinMode: "system",
+      skinMode: "light",
       lightSkinId: "sheet",
       darkSkinId: "darkroom",
       questionSidebarWidth: 360,

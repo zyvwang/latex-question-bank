@@ -92,7 +92,7 @@ it("keeps an early pane adjustment while desktop preferences are still loading",
     expect(separator).toHaveAttribute("aria-valuenow", "360");
 
     resolvePreferences({
-      skinMode: "system",
+      skinMode: "light",
       lightSkinId: "sheet",
       darkSkinId: "darkroom",
       questionSidebarWidth: 240,

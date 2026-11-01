@@ -1,3 +1,4 @@
+import { useSkins } from "../context/skins.js";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { StreamLanguage } from "@codemirror/language";
@@ -26,6 +27,7 @@ export default function LatexEditor({
   onChange: (value: string) => void;
   viewRef?: MutableRefObject<EditorView | null>;
 }) {
+  const { activeSkin } = useSkins();
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function LatexEditor({
       <CodeMirror
         value={value}
         height="100%"
+        theme={activeSkin.mode}
         basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: true }}
         extensions={[latexExtension, EditorView.lineWrapping, editorScrollPadding]}
         onChange={onChange}

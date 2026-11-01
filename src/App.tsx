@@ -11,6 +11,7 @@ import { DistributionScreen } from "./components/DistributionScreen.js";
 import { ExternalBankBanner } from "./components/ExternalBankBanner.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
 import { LayoutPreferencesProvider } from "./context/LayoutPreferencesContext.js";
+import { SkinProvider } from "./context/SkinProvider.js";
 import { useBeforeCloseFlush } from "./hooks/useBeforeCloseFlush.js";
 import {
   useLifecycle,
@@ -70,9 +71,11 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <LayoutPreferencesProvider>
-        <QuestionBankProvider>
-          <AppContent />
-        </QuestionBankProvider>
+        <SkinProvider>
+          <QuestionBankProvider>
+            <AppContent />
+          </QuestionBankProvider>
+        </SkinProvider>
       </LayoutPreferencesProvider>
     </AppErrorBoundary>
   );

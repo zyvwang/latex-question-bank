@@ -30,7 +30,9 @@ test("explains an undo number conflict and allows retry after resolving it", asy
     await page.getByRole("button", { name: "撤销", exact: true }).click();
     await expect(page.getByText("无法撤销：来源题号“42”已被其他题目使用。", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "撤销", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "导出", exact: true }).click();
     await expect(page.getByRole("button", { name: "导出 1 题", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.getByLabel("来源题号").fill("43");
     await page.getByLabel("来源题号").press("Tab");
     await page.getByRole("button", { name: "撤销", exact: true }).click();

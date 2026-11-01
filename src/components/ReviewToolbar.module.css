@@ -1,13 +1,13 @@
 .toolbar {
   min-width: 0;
-  min-height: 54px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 7px 18px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--well);
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--chrome);
 }
 .summary {
   min-width: 0;
@@ -16,8 +16,8 @@
   gap: 10px;
 }
 .summary strong {
-  color: var(--teal-strong);
-  font-size: 14px;
+  color: var(--text);
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .summary span {
@@ -36,7 +36,7 @@
   justify-content: flex-end;
 }
 .actions button {
-  min-height: 40px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   gap: 5px;

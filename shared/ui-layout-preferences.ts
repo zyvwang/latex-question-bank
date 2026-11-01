@@ -15,7 +15,7 @@ export const UI_LAYOUT_LIMITS = {
 } as const;
 
 export const DEFAULT_UI_LAYOUT_PREFERENCES: UiLayoutPreferences = {
-  skinMode: "system",
+  skinMode: "light",
   lightSkinId: "sheet",
   darkSkinId: "darkroom",
   questionSidebarWidth: 288,
@@ -26,7 +26,7 @@ export const DEFAULT_UI_LAYOUT_PREFERENCES: UiLayoutPreferences = {
 export function normalizeUiLayoutPreferences(input: unknown): UiLayoutPreferences {
   const candidate = isRecord(input) ? input : {};
   return {
-    skinMode: candidate.skinMode === "light" || candidate.skinMode === "dark" ? candidate.skinMode : "system",
+    skinMode: candidate.skinMode === "system" || candidate.skinMode === "dark" ? candidate.skinMode : "light",
     lightSkinId: isSkinId(candidate.lightSkinId) ? candidate.lightSkinId : "sheet",
     darkSkinId: isSkinId(candidate.darkSkinId) ? candidate.darkSkinId : "darkroom",
     questionSidebarWidth: clampNumber(
