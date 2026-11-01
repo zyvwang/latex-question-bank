@@ -66,6 +66,7 @@ React UI
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
 - `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/utils/latexText.ts`：预览专用的文本命令翻译，只处理公式以外的内容，不影响导出。TikZ 不编译，原位显示提示。
 - `src/components/DistributionScreen.tsx`、`src/reviewDistribution.ts`：只读的「复习分布」页和纯统计逻辑；不新增 API、不写题库。
 - `src/context/SkinProvider.tsx`、`src/components/SkinSettings.tsx`、`src/components/CommandPalette.tsx`：皮肤运行时、皮肤设置和 `⌘K` 命令面板。
 - `shared/skins.ts`、`shared/builtin-skins.ts`、`server/skin-storage.ts`、`server/routes/skin-routes.ts`、`docs/skin-authoring.md`、`docs/skin.schema.json`：皮肤约定、校验、存储和 Agent 文档。皮肤只含 token 与枚举选项，不含 CSS、脚本或 URL；token 是带版本的公开约定，改名属于破坏性变更。

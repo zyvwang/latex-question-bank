@@ -1,10 +1,16 @@
 import { findMacros } from "../../shared/latex-macros.js";
 import type { QuestionAsset } from "../../shared/types.js";
+import {
+  splitUnsupportedEnvironments,
+  translateLatexText,
+  type TextRun
+} from "./latexText.js";
 
 export type PreviewImageSize = "s" | "m" | "l";
 
 export type LatexPreviewPart =
-  | { type: "text"; text: string }
+  | { type: "text"; text: string; runs?: TextRun[] }
+  | { type: "notice"; text: string }
   | { type: "image"; src: string; alt: string; size: PreviewImageSize | null }
   | { type: "choices"; options: string[]; columns: 1 | 2 | 4 };
 
@@ -39,13 +45,22 @@ function parseImageSize(option: string | undefined): PreviewImageSize {
 }
 
 function pushTextParts(parts: LatexPreviewPart[], raw: string): void {
-  const text = raw.replace(/\\begin\{center}|\\end\{center}/g, "");
+  for (const block of splitUnsupportedEnvironments(raw)) {
+    if (block.type === "placeholder") {
+      parts.push({ type: "notice", text: `${block.name} 不在预览中显示，请用「检查当前题」或导出 PDF 查看。` });
+      continue;
+    }
+    pushChoiceParts(parts, block.raw);
+  }
+}
+
+function pushChoiceParts(parts: LatexPreviewPart[], text: string): void {
   let lastIndex = 0;
   for (const choices of findMacros(text, "choices", 4)) {
     pushText(parts, text.slice(lastIndex, choices.start));
     parts.push({
       type: "choices",
-      options: choices.args.map((option) => replaceInlineMacros(option.trim())),
+      options: choices.args.map((option) => translateLatexText(replaceInlineMacros(option)).text),
       columns: previewChoiceColumns(choices.args)
     });
     lastIndex = choices.end;
@@ -54,8 +69,14 @@ function pushTextParts(parts: LatexPreviewPart[], raw: string): void {
 }
 
 function pushText(parts: LatexPreviewPart[], raw: string): void {
-  const text = replaceInlineMacros(raw).trim();
-  if (text) parts.push({ type: "text", text });
+  const { text, runs, unsupported } = translateLatexText(replaceInlineMacros(raw));
+  if (text) parts.push(runs ? { type: "text", text, runs } : { type: "text", text });
+  if (unsupported.length) {
+    parts.push({
+      type: "notice",
+      text: `预览未处理 ${unsupported.join("、")}，请用「检查当前题」或导出 PDF 确认效果。`
+    });
+  }
 }
 
 // 预览只做近似：真实列数以 TeX 编译时实测宽度为准。

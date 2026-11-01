@@ -28,6 +28,7 @@ No remote font dependency is required.
 - The active module gives source code about 55% of the width. The separator keeps a 35% to 65% range. Answer source and reference appear in the solution module.
 - Export is an on-demand panel opened from the editor header. Review hides export. Compile logs appear next to the check button.
 - The preview is flat, a centered sheet, or a lit page on a dark surface, chosen by the skin.
+- The preview translates common text commands outside math (`src/utils/latexText.ts`) because MathJax only handles math. It follows TeX line rules: a single newline is a space and a blank line starts a paragraph. Commands it cannot translate stay visible with a notice, and environments it cannot draw, such as TikZ, show a notice in place. Translation never changes exported TeX.
 - Review Distribution reads from coarse to fine: an overall proportion bar, four counts that open the filtered list, a per-chapter table with expandable question detail, and a must-review list. Counts include pending questions.
 - Bank Settings starts with skins. Light and dark skins are chosen separately, and the mode can follow the system. The default mode is light.
 

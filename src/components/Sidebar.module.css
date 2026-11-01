@@ -217,6 +217,8 @@
   background: transparent;
   transition: background-color 120ms ease;
 }
+.questionListItem:has(.questionMain:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.questionMain:focus-visible { outline: 0; }
 .activeQuestion { background: var(--active); box-shadow: inset 0 0 0 1px var(--active-line); }
 .dragging { opacity: 0.55; }
 .questionMain {
