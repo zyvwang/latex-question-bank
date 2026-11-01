@@ -1,8 +1,8 @@
 .handle {
   position: relative;
   z-index: 3;
-  width: 12px;
-  min-width: 12px;
+  width: 1px;
+  min-width: 1px;
   min-height: 40px;
   cursor: col-resize;
   touch-action: none;
@@ -15,7 +15,8 @@
   top: 50%;
   left: 50%;
   width: 40px;
-  height: 40px;
+  height: 100%;
+  min-height: 40px;
   transform: translate(-50%, -50%);
 }
 
@@ -27,7 +28,7 @@
   width: 1px;
   height: 100%;
   transform: translate(-50%, -50%);
-  background: var(--hairline);
+  background: var(--border);
 }
 
 .handle:focus-visible {
@@ -38,7 +39,7 @@
   width: 3px;
   height: 32px;
   border-radius: 999px;
-  background: var(--teal);
+  background: var(--accent);
 }
 
 .handle:focus-visible::after {
@@ -50,6 +51,6 @@
     width: 3px;
     height: 32px;
     border-radius: 999px;
-    background: var(--teal);
+    background: var(--accent);
   }
 }

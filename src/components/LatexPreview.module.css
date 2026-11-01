@@ -18,7 +18,17 @@
   background: var(--border-strong);
   background-clip: content-box;
 }
-.previewContent { min-width: 0; }
+.previewContent { min-width: 0; color: var(--page-ink); }
+:global(:root[data-preview="sheet"]) .previewContent { max-width: 62ch; margin-inline: auto; }
+:global(:root[data-preview="paper"]) .previewContent {
+  max-width: 560px;
+  min-height: 100%;
+  margin-inline: auto;
+  padding: 44px 40px;
+  border-radius: 2px;
+  background: var(--page);
+  box-shadow: var(--shadow-page);
+}
 .previewContent > :first-child { margin-top: 0; }
 .previewContent > :last-child { margin-bottom: 0; }
 .previewPane > :last-child { margin-bottom: 0; }
@@ -50,9 +60,9 @@
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
-  border-radius: var(--radius-md);
-  color: var(--amber);
+  border-radius: var(--r-md);
+  color: var(--warning);
   background: var(--well);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
 }

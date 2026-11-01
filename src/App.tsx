@@ -1,6 +1,7 @@
 import { LoadingScreen } from "./components/LoadingScreen.js";
 import { AppErrorBoundary } from "./components/AppErrorBoundary.js";
 import { AppNavigation } from "./components/AppNavigation.js";
+import { CommandPalette } from "./components/CommandPalette.js";
 import { Overlays } from "./components/Overlays.js";
 import { RecoveryScreen } from "./components/RecoveryScreen.js";
 import { SetupScreen } from "./components/SetupScreen.js";
@@ -60,6 +61,7 @@ function AppContent() {
           </div>
         )}
         <Overlays />
+        <CommandPalette />
         <ExternalBankBanner />
       </main>
     </>

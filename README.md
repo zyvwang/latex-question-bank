@@ -146,7 +146,9 @@ lqb topic undo .lqb/topic-undo/<文件>.json
 
 ![题库设置中的书目与导入记录](docs/screenshots/settings.png)
 
-「复习分布」页按章节展示「必须看 / 再看看 / 不用看 / 未标记」的数量、比例和每道题的位置。点击状态可突出显示该状态的题，并跳到编辑页查看；悬停格子可预览题目，点击格子打开该题。
+「复习分布」页先给出总体比例和四种状态的数量，再按章节列出明细。点击数量可跳到对应题目，展开章节可查看每道题，右侧列出全部必须看的题。
+
+应用内置精修、瓷白、暗房、松绿四套皮肤，可在「题库设置」切换，也可以让自己的 Agent 按 [docs/skin-authoring.md](docs/skin-authoring.md) 生成皮肤，用 `lqb skin install` 安装。
 
 ![复习分布页：四种复习优先级的数量与章节分布](docs/screenshots/distribution.png)
 

@@ -18,9 +18,9 @@
   left: 8px;
   transform: translateY(-140%);
   padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--ink);
-  color: var(--panel);
+  border-radius: var(--r-md);
+  background: var(--text);
+  color: var(--surface);
   transition: transform 140ms var(--ease-out);
 }
 
@@ -37,9 +37,9 @@
   left: 24px;
   right: 24px;
   padding: 16px;
-  border: 1px solid var(--coral);
-  border-radius: var(--radius-md);
-  color: var(--ink);
-  background: var(--paper);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  color: var(--text);
+  background: var(--chrome);
 }
 .workspaceRecovery p { margin: 0 0 12px; }

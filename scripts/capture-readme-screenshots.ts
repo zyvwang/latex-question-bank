@@ -135,7 +135,7 @@ async function captureDistribution() {
       .getByRole("button", { name: "复习分布" })
       .click();
     await expect(page.getByRole("heading", { name: "复习分布" })).toBeVisible();
-    await expect(page.getByLabel("题目预览")).toContainText("自编 1.1");
+    await expect(page.getByLabel("必须看清单")).toContainText("自编 1.1");
     await settlePage(page);
     await capture(page, "distribution.png");
   } finally {

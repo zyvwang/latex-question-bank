@@ -5,9 +5,9 @@
   display: grid;
   gap: 2px;
   padding: 6px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
   box-shadow: var(--shadow-pop);
 }
 .contextMenu button {
@@ -17,12 +17,12 @@
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  border-radius: var(--radius-sm);
-  color: var(--ink);
+  border-radius: var(--r);
+  color: var(--text);
   background: transparent;
   text-align: left;
 }
-.danger { color: var(--coral) !important; }
+.danger { color: var(--danger) !important; }
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -38,37 +38,37 @@
   display: grid;
   gap: 14px;
   padding: 19px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
   box-shadow: var(--shadow-pop);
 }
 .reorderDialog header,
 .reorderDialog footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .reorderDialog h2 { margin: 0; font-family: var(--font-book); font-size: 20px; }
 .reorderDialog header span,
-.reorderDialog label span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.reorderDialog label span { color: var(--dim); font-size: 13px; white-space: nowrap; }
 .reorderDialog label {
   min-height: 44px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 11px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 .reorderDialog input {
   width: 100%;
   min-width: 0;
   border: 0;
   outline: 0;
-  color: var(--ink);
+  color: var(--text);
   background: transparent;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.reorderError { margin: -4px 0 0; color: var(--coral); font-size: 13px; }
+.reorderError { margin: -4px 0 0; color: var(--danger); font-size: 13px; }
 .conflictDialog { width: min(650px, 100%); }
 .conflictDialog header { align-items: start; }
 .conflictDialog header span {
@@ -81,9 +81,9 @@
   display: grid;
   gap: 10px;
   padding: 13px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--chrome);
 }
 .conflictSummary dl {
   display: grid;
@@ -95,13 +95,13 @@
   display: grid;
   gap: 3px;
   padding: 9px;
-  border-radius: var(--radius-sm);
-  background: var(--panel);
+  border-radius: var(--r);
+  background: var(--surface);
 }
-.conflictSummary dt { color: var(--muted); font-size: 12px; }
+.conflictSummary dt { color: var(--dim); font-size: 12px; }
 .conflictSummary dd {
   margin: 0;
-  color: var(--ink);
+  color: var(--text);
   font-size: 19px;
   font-variant-numeric: tabular-nums;
 }
@@ -112,8 +112,8 @@
   font-size: 13px;
   line-height: 1.6;
 }
-.conflictReadError { color: var(--coral); }
-.conflictLoading { color: var(--muted); }
+.conflictReadError { color: var(--danger); }
+.conflictLoading { color: var(--dim); }
 .conflictActions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -121,14 +121,14 @@
 }
 .conflictActions button { width: 100%; }
 .conflictActions button:last-child { grid-column: 1 / -1; }
-.conflictDiscard { color: var(--coral); }
+.conflictDiscard { color: var(--danger); }
 .conflictDialog footer span {
-  color: var(--muted);
+  color: var(--dim);
   font-size: 12px;
 }
 
 @media (hover: hover) {
-  .contextMenu button:hover { color: var(--teal-strong); background: var(--teal-soft); }
+  .contextMenu button:hover { color: var(--accent); background: var(--active); }
   .contextMenu button.danger:hover { background: var(--well); }
 }
 

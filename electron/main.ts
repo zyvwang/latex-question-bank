@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { mkdirSync, readFileSync } from "node:fs";
 import type { Server } from "node:http";
@@ -56,6 +56,25 @@ let mainWindowCreation: Promise<BrowserWindow> | null = null;
 
 const isPrimaryInstance = app.requestSingleInstanceLock();
 
+// 窗口先于渲染端显示，底色要与当前皮肤一致，否则深色皮肤启动时会闪一下浅色。
+async function startupBackgroundColor(): Promise<string> {
+  try {
+    const { readUiLayoutPreferences } = await import("../server/app-state.js");
+    const { listSkins } = await import("../server/skin-storage.js");
+    const preferences = await readUiLayoutPreferences();
+    const dark =
+      preferences.skinMode === "dark" ||
+      (preferences.skinMode === "system" && nativeTheme.shouldUseDarkColors);
+    const { skins } = await listSkins();
+    const fallback = dark ? "darkroom" : "sheet";
+    const id = dark ? preferences.darkSkinId : preferences.lightSkinId;
+    const skin = skins.find((candidate) => candidate.id === id) ?? skins.find((candidate) => candidate.id === fallback);
+    return skin?.tokens.chrome ?? "#F1F4F2";
+  } catch {
+    return "#F1F4F2";
+  }
+}
+
 async function createWindow(): Promise<BrowserWindow> {
   process.env.LQB_DESKTOP = "1";
   process.env.LQB_APP_DATA_DIR = app.getPath("userData");
@@ -77,7 +96,7 @@ async function createWindow(): Promise<BrowserWindow> {
     minWidth: 1040,
     minHeight: 720,
     title: "LaTeX 题库",
-    backgroundColor: "#f7f5ef",
+    backgroundColor: await startupBackgroundColor(),
     webPreferences: createSecureWebPreferences(
       path.join(currentDir, "preload.cjs")
     )

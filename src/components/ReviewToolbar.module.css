@@ -23,7 +23,7 @@
 .summary span {
   min-width: 0;
   overflow: hidden;
-  color: var(--muted);
+  color: var(--dim);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -144,7 +144,9 @@ lqb topic undo .lqb/topic-undo/<file>.json
 
 ![Books and import history in Bank Settings](docs/screenshots/settings.png)
 
-The Review Distribution page (复习分布) shows how many questions are marked 必须看, 再看看, 不用看, or unmarked, with their share and position in each chapter. Select a status to highlight it and jump to that list in the editor; hover a cell to preview the question, or click it to open the question.
+The Review Distribution page (复习分布) leads with the overall share and the count of each review priority, then a per-chapter table. Select a count to open that list, expand a chapter to see its questions, and use the side list to reach every must-review question.
+
+The app includes four skins, which you can switch in Bank Settings. Your own Agent can also write a skin from [docs/skin-authoring.md](docs/skin-authoring.md) and install it with `lqb skin install`.
 
 ![Review Distribution: counts and per-chapter layout of the four review priorities](docs/screenshots/distribution.png)
 

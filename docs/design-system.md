@@ -2,49 +2,41 @@
 
 ## Theme
 
-The interface is a desktop-first paper editing desk: warm paper surfaces, restrained teal actions, and serif-led mathematical content. It favors long editing sessions and clear publishing hierarchy over decorative effects.
+The interface is a calm desktop editing tool. Quality comes from type, spacing, alignment, and restraint rather than themed props or decoration. Mathematical content is the most prominent thing on screen. The default skin is 精修: cool gray surfaces, ink blue text and actions, and red reserved for 必须看.
+
+Skins are the design system's public surface. A skin sets tokens and a few enumerated layout options; it cannot contain CSS, scripts, or URLs. Built-in skins are 精修 (`sheet`), 瓷白 (`porcelain`), 暗房 (`darkroom`), and 松绿 (`pine`). See `docs/skin-authoring.md` for the token contract.
 
 ## Tokens
 
-- Canvas: `oklch(0.97 0.008 91.5)`
-- Paper panel: `oklch(0.994 0.007 88.6)`
-- Sidebar: `oklch(0.952 0.014 157)`
-- Ink: `oklch(0.237 0.016 168.5)`
-- Muted ink: `oklch(0.553 0.014 156.7)`
-- Accent: `oklch(0.511 0.086 186.4)`
-- Danger: `oklch(0.543 0.137 31.5)`
-- Radius scale: 4px, 8px, 12px
-
-All shared tokens live in `src/styles/foundation.css`.
+Components use only the tokens in `src/styles/foundation.css`; `tests/unit/style-tokens.test.ts` rejects hard-coded colors and undefined tokens. Runtime values come from the active skin (`src/context/SkinProvider.tsx`), which also sets `data-skin`, `data-nav`, `data-preview`, `data-density`, and `data-heading-font` on the root element. Corner radii derive from one skin value.
 
 ## Typography
 
-- Product controls use the operating-system sans-serif stack.
-- Mathematical previews, module titles, and product title use Songti-compatible system fonts.
+- Interface text uses Hanken Grotesk for Latin and digits, bundled in `public/fonts/`, with the system CJK sans-serif.
+- Mathematical previews use MathJax with Songti-compatible system fonts.
 - Source editors use the system monospace stack.
-- Dynamic question numbers use tabular numerals.
+- Numbers that align use tabular numerals.
+- The type scale has six steps, from 12px to 30px.
 
 No remote font dependency is required.
 
 ## Layout
 
-- A persistent top navigation owns page switching and the global save state. Layout write failures show a separate “布局未保存 · 重试” action, leaving the bank save state visible and accurate. The status area can wrap at narrow widths; retry controls have a minimum 40px hit target. Editor, Review, Review Distribution, and Bank Settings are peer pages rather than drawers or modals. The Review nav item carries the pending count.
-- Wide desktop: the question navigation defaults to 288px, can be resized from 240px to 360px, and can collapse to a 48px rail. Workspace lifecycle controls live on the Bank Settings page rather than in the editor sidebar.
-- The active module gives source code about 55% of the editor width and preview about 45%. The separator keeps both panes usable, with a 35% to 65% source-width range and pixel minimums before the layout stacks.
-- The metadata panel keeps source (book + label), chapter, topics (考点), question types (题型), review priority, pending status, and answer source visible without a collapsible “题目属性” drawer. Book and path management lives in Bank Settings; the read-only import log sits below it.
-- A secondary context row appears only when needed: variants show their original question source as a link (or “原题已删除”), and attached screenshots render as compact expandable thumbnails. Attachments remain visible even when no TeX module references them; the preview is a focus-trapped dialog, not a replacement for embedded `\includegraphics`.
-- Medium desktop: editor and preview stack vertically; metadata uses two columns.
-- Below 760px: navigation and workspace become a single column with a horizontal question strip.
-- The workspace uses focused editing with one active module at a time. Question, solution, and note switch through tabs, and the preview follows the active module.
-- The Review page reuses the editor sidebar and workspace. A toolbar above the editor shows “待审阅 N 道”, the current source, and primary/secondary actions: approve and next, next without approval, delete, and approve the current filtered set. The export dock is hidden in Review. When no pending items remain, a centered empty state offers “返回编辑”; if filters hide pending items, it offers “清除筛选” instead.
-- The Review Distribution page (复习分布) is read-only. A summary strip above a full-width proportion bar shows the total, marked share, and each status's count and percentage in the order 必须看, 再看看, 不用看, 未标记. Below it, chapter rows hold a mini bar, per-status counts, and one numbered 40px cell per question; a 380px preview column shows the question module. Chapters follow saved order, empty chapters are omitted, and 未分类 comes last. Counts include pending questions. At 760px and below the page is a single column without the preview.
+- Navigation is a side rail or a top bar, chosen by the skin, and owns page switching and the global save state. Below 760px it is always a top bar. Editor, Review, Review Distribution, and Bank Settings are peer pages.
+- The editor page has three columns: the question list, the editor and preview, and the collapsible 题目信息 panel, which holds review priority, source, chapter, topics, question types, pending status, variant link, attachments, and question actions.
+- The question list keeps search and the six filters visible. Rows show the source label, types, topics, and a review-priority mark. Sticky chapter headings, virtualization, drag reorder, and selection for export are preserved.
+- The active module gives source code about 55% of the width. The separator keeps a 35% to 65% range. Answer source and reference appear in the solution module.
+- Export is an on-demand panel opened from the editor header. Review hides export. Compile logs appear next to the check button.
+- The preview is flat, a centered sheet, or a lit page on a dark surface, chosen by the skin.
+- Review Distribution reads from coarse to fine: an overall proportion bar, four counts that open the filtered list, a per-chapter table with expandable question detail, and a must-review list. Counts include pending questions.
+- Bank Settings starts with skins. Light and dark skins are chosen separately, and the mode can follow the system. The default mode is light.
 
 ## Interaction
 
 - Undoing a question deletion checks the restored book + label against the whole bank. A conflict shows an error and preserves the undo until its original ten-second deadline; resolving the conflict allows a retry without overwriting another question.
 - Chapter and book names commit on Enter or blur after normalized-name validation. Destructive chapter and book deletion requires confirmation; a book that is still referenced by questions cannot be deleted.
-- Review priority uses four text segments: 未标记 / 不用看 / 再看看 / 必须看. The pending state is a text badge with a single “批准” action; approved items do not keep a badge in the metadata panel.
-- Sidebar filters use compact multi-select menus. Counts expose active filters without expanding the control labels; book, priority, and status filters pair text labels with their values.
+- Review priority uses four labeled segments: 必须看 / 再看看 / 不用看 / 未标记. The pending state is a text badge with a single “批准” action; approved items do not keep a badge in the metadata panel.
+- Sidebar filters use compact multi-select menus that stay visible. Counts expose active filters without expanding the control labels; book, priority, and status filters pair text labels with their values.
 - Desktop sidebar question rows are virtualized with dynamic heights; keyboard navigation and export selection follow the complete logical list. Sticky chapter headings retain their push-away behaviour. Narrow layouts at 760px and below keep the ordinary list.
 - Sidebar question summaries show the source label, compact review-priority, pending-review, and variant badges plus one compact badge per question type, followed by topic tokens. Sidebar questions are grouped by chapter, with an opaque sticky chapter heading below the filters. The next chapter pushes the previous heading away. Only chapters with visible questions appear, including an uncategorized group last; current and selected lists share this behavior. Chapter names wrap in full and are not repeated as row tokens. Topic tokens remain rectangular, wrapping as whole tokens and breaking inside a token only when one name exceeds the available width.
 - The editor uses the same chapter, book, priority, and tag vocabulary while keeping the native chapter select and the existing tag add/remove behavior.
@@ -52,8 +44,9 @@ No remote font dependency is required.
 - Module tabs support Left, Right, Home, and End.
 - Editor and question-navigation separators are draggable and keyboard adjustable. Arrow keys move by one step, Home and End move to the limits, and every separator exposes its controlled panes and current range through ARIA.
 - Editor LaTeX previews own their horizontal and vertical scrolling. Trackpad and horizontal-wheel deltas scroll directly, Shift plus a vertical wheel scrolls horizontally, and overflowing content exposes a horizontal scrollbar.
-- Review priority is never encoded by color alone: each segment has a text label and a dot, with 必须看 in coral, 再看看 in amber, 不用看 in muted ink, and 未标记 as an outlined dot. Pending review is always written as「待审阅」.
-- Distribution cells never rely on color alone: 必须看 is solid coral, 再看看 an amber tint with diagonal texture, 不用看 a gray tint with dots, and 未标记 outlined, and every cell's accessible name states its chapter, order, source, and status. Selecting a status dims other cells in place, without moving them, and offers “在编辑页查看 N 道”, which replaces the sidebar filters with that status. Opening a cell clears filters only when they would hide that question. Preview updates after a 200ms hover or focus dwell, cells use roving tabindex (arrows, Home, End, Enter), and returning from the editor restores the highlight, scroll position, and focused cell.
+- Pending review is always written as「待审阅」.
+- Review marks never rely on color alone: 必须看 is filled, 再看看 half filled, 不用看 a ring, and 未标记 a faint ring, and every mark has a text label. Opening a question from Review Distribution clears filters only when they would hide it. Selecting a count replaces the sidebar filters with that status. Returning from the editor restores expanded chapters and scroll position.
+- `⌘K` (Ctrl+K outside macOS) opens the command palette for pages, skins, and questions. It is a focus-trapped dialog.
 - Approving the current filtered set requires a confirmation with the count. Deleting an item keeps the existing ten-second undo. The review page selects the next pending item after approval or deletion and does not alter editor filters.
 - External Agent imports use a fixed banner above the bottom edge when local drafts would be lost. It names the import count, offers “重新加载” and “稍后”, and never silently replaces local edits. Idle apps refresh automatically and show a transient success notice instead; batch undos use the same path and report deleted/restored counts.
 - Interactive targets are at least 40px or use an expanded hit area.
@@ -76,4 +69,4 @@ No remote font dependency is required.
 - Component CSS Modules: local layout and visual states.
 - CodeMirror selectors are scoped with `:global(...)` inside the module editor container.
 
-Avoid decorative gradients, glass effects, mixed radius systems, and generic cards around every section.
+Avoid themed props, decorative gradients, glass effects, mixed radius systems, and generic cards around every section.

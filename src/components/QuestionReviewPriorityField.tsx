@@ -7,7 +7,7 @@ export function ReviewPriorityField() {
   const questions = useQuestions();
   const item = questions.activeItem;
   if (!item) return null;
-  const options: Array<ReviewPriority | null> = [null, ...REVIEW_PRIORITY_ORDER];
+  const options: Array<ReviewPriority | null> = [...REVIEW_PRIORITY_ORDER, null];
   return (
     <div className={styles.reviewField} role="group" aria-label="复习优先级">
       <span>复习优先级</span>

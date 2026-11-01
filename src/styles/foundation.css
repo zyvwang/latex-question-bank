@@ -1,3 +1,25 @@
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk/hanken-grotesk-latin-600-normal.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
 
@@ -39,6 +61,7 @@
   --r-lg: calc(var(--r) + 4px);
   --seg-shadow: 0 0 0 1px var(--border-strong);
   --shadow-pop: 0 0 0 1px var(--border-strong), 0 12px 32px rgb(10 14 24 / 0.18);
+  --shadow-page: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.3);
 
   /* 字号 6 级，间距 4px 网格。 */
   --font-ui: "Hanken Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
@@ -51,25 +74,6 @@
   --text-xl: 22px;
   --text-2xl: 30px;
 
-  /* 迁移期别名：逐页替换后删除。 */
-  --ink: var(--text);
-  --muted: var(--dim);
-  --hairline: var(--border);
-  --paper: var(--chrome);
-  --panel: var(--surface);
-  --sidebar: var(--chrome);
-  --teal: var(--accent);
-  --teal-strong: var(--accent);
-  --teal-soft: var(--active);
-  --coral: var(--danger);
-  --amber: var(--warning);
-  --blue: var(--accent);
-  --radius-sm: var(--r);
-  --radius-md: var(--r-md);
-  --radius-lg: var(--r-lg);
-  --shadow-raised: var(--shadow-pop);
-  --canvas: var(--chrome);
-
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   font-family: var(--font-ui);
   font-size: 14px;
@@ -79,6 +83,10 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+:root[data-heading-font="book"] h1,
+:root[data-heading-font="book"] h2 { font-family: var(--font-book); }
+:root[data-density="compact"] { font-size: 13px; --row-height: 40px; }
 
 * { box-sizing: border-box; }
 html, body, #root { min-width: 320px; min-height: 100%; }

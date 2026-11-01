@@ -4,15 +4,15 @@
   display: grid;
   place-items: center;
   padding: 32px;
-  background: var(--canvas);
+  background: var(--chrome);
 }
 .emptyCard {
   max-width: 460px;
   padding: 28px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
 }
 .emptyCard h1 {
   margin: 0;
@@ -21,6 +21,6 @@
 }
 .emptyCard p {
   margin: 10px 0 20px;
-  color: var(--muted);
+  color: var(--dim);
   line-height: 1.7;
 }

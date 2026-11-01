@@ -84,7 +84,7 @@
   :global(:root[data-nav^="rail"]) .reviewCount { position: absolute; top: 4px; right: 6px; }
   :global(:root[data-nav^="rail"]) .status { margin: auto 0 0; flex-direction: column; align-items: center; }
   :global(:root[data-nav^="rail"]) .notice { display: none; }
-  :global(:root[data-nav^="rail"]) .saveState { padding: 0 2px; font-size: 11px; white-space: normal; text-align: center; justify-content: center; }
+  :global(:root[data-nav^="rail"]) .saveState { flex-direction: column; gap: 2px; min-height: 40px; padding: 0 2px; font-size: 11px; white-space: normal; text-align: center; justify-content: center; }
   :global(:root[data-nav="railIcons"]) .navigation nav button > span:not(.reviewCount) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 }
 
