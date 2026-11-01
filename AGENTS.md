@@ -60,11 +60,12 @@ React UI
 - `src/api/client.ts`：前端唯一的应用 API 请求入口。新增应用 API 调用时放在这里。
 - `src/context/QuestionBankProvider.tsx`：题库上下文 Provider，向组件暴露拆分后的领域上下文。
 - `src/context/questionBankContexts.ts`：前端组件使用的上下文 hooks。
-- `src/hooks/useAppView.ts`：顶层 editor、review、settings 视图及页面重置。
+- `src/hooks/useAppView.ts`：顶层 editor、review、distribution、settings 视图、复习分布页的会话状态及页面重置。
 - `src/hooks/useQuestionBankModel.ts`：组合 workspace、题目、选择、保存、排序、编译和导出行为。
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
 - `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/components/DistributionScreen.tsx`、`DistributionSummary.tsx`、`DistributionGrid.tsx`、`DistributionPreview.tsx`、`src/reviewDistribution.ts`：只读的「复习分布」页和纯统计逻辑；不新增 API、不写题库，格子保持 memo 且只收标量 props。
 - `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览；变式原题链接在 `WorkspaceDetails.tsx` 的上下文行。
 - `src/hooks/useExternalBankSync.ts`：SSE 外部导入/撤销同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
@@ -167,7 +168,7 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
 - 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
-- `main.png`、`review.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；设置页展示书目与导入记录。热力图和掌握历史已移除，不再生成对应截图。
+- `main.png`、`review.png`、`distribution.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；复习分布页使用同一批 48 道题，但优先级改为偏态分布（大量未标记、少量必须看）；设置页展示书目与导入记录。掌握历史已移除，不再生成对应截图。
 - 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定

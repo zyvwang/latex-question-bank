@@ -5,9 +5,9 @@ import {
   normalizeSourceLabel
 } from "../../shared/question-source.js";
 import {
-  REVIEW_PRIORITY_LABELS,
   REVIEW_PRIORITY_ORDER,
-  REVIEW_STATUS_LABELS
+  REVIEW_STATUS_LABELS,
+  reviewPriorityLabel
 } from "../../shared/review-fields.js";
 import type { ReviewPriority } from "../../shared/types.js";
 import {
@@ -280,7 +280,7 @@ function ReviewPriorityField() {
             }
           >
             <i aria-hidden="true" />
-            {value ? REVIEW_PRIORITY_LABELS[value] : "未标记"}
+            {reviewPriorityLabel(value)}
           </button>
         ))}
       </div>

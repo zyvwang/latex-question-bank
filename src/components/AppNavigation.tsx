@@ -46,6 +46,13 @@ export function AppNavigation() {
           )}
         </button>
         <button
+          className={appView.activeView === "distribution" ? styles.active : ""}
+          aria-current={appView.activeView === "distribution" ? "page" : undefined}
+          onClick={() => appView.setActiveView("distribution")}
+        >
+          复习分布
+        </button>
+        <button
           className={appView.activeView === "settings" ? styles.active : ""}
           aria-current={appView.activeView === "settings" ? "page" : undefined}
           onClick={() => appView.setActiveView("settings")}

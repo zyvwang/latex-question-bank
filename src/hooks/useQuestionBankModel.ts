@@ -44,6 +44,11 @@ import { useSaveConflictActions } from "./useSaveConflictActions.js";
 import { usePendingChanges } from "./usePendingChanges.js";
 import { useExternalBankSync } from "./useExternalBankSync.js";
 import type { ExternalBankNotice } from "./controllerTypes.js";
+import {
+  distributionStatus,
+  distributionStatusFilter,
+  type DistributionStatus
+} from "../reviewDistribution.js";
 
 // 空题库时保持同一引用，避免 bankSettings 每次渲染都变成新对象。
 const NO_BOOKS: BookRecord[] = [];
@@ -535,9 +540,37 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     startPointerDrag: reorder.startPointerDrag,
     startMouseDrag: reorder.startMouseDrag
   });
+  const openQuestionFromDistribution = (id: string) => {
+    // 当前列表看不到这道题时先清筛选，否则编辑页侧栏里找不到正在编辑的题。
+    if (!derived.listItems.some((item) => item.id === id)) {
+      selection.clearFilters();
+    }
+    setActiveId(id);
+    setActiveModule("question");
+    appView.setActiveView("editor");
+  };
+  const showDistributionStatusInEditor = (status: DistributionStatus) => {
+    const first = derived.orderedItems.find(
+      (item) => distributionStatus(item.reviewPriority) === status
+    );
+    if (!first) return;
+    selection.clearFilters();
+    selection.setReviewPriorityFilters([distributionStatusFilter(status)]);
+    setActiveId(first.id);
+    setActiveModule("question");
+    appView.setActiveView("editor");
+  };
   const appViewValue = useStableSlice<AppViewContextValue>({
     activeView: appView.activeView,
-    setActiveView: appView.setActiveView
+    setActiveView: appView.setActiveView,
+    distributionHighlight: appView.distributionHighlight,
+    setDistributionHighlight: appView.setDistributionHighlight,
+    distributionFocusedId: appView.distributionFocusedId,
+    setDistributionFocusedId: appView.setDistributionFocusedId,
+    distributionScrollTop: appView.distributionScrollTop,
+    setDistributionScrollTop: appView.setDistributionScrollTop,
+    openQuestionFromDistribution,
+    showDistributionStatusInEditor
   });
   const bankSettingsValue = useStableSlice<BankSettingsContextValue>({
     chapters: derived.chapters,

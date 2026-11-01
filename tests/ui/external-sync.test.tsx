@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Bank } from "../../shared/types.js";
@@ -88,6 +88,44 @@ it("auto-reloads an idle app after an agent import event", async () => {
 
   expect(await screen.findByText("导入题")).toBeInTheDocument();
   expect(await screen.findByText("已导入 1 道题。")).toBeInTheDocument();
+});
+
+it("stays on the distribution page and updates counts after an agent import", async () => {
+  vi.stubGlobal(
+    "EventSource",
+    FakeEventSource as unknown as typeof EventSource
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText("2024-1");
+  await waitFor(() =>
+    expect(FakeEventSource.instances.length).toBeGreaterThan(0)
+  );
+  await user.click(
+    within(screen.getByRole("navigation", { name: "题库页面" })).getByRole(
+      "button",
+      { name: "复习分布" }
+    )
+  );
+  expect(await screen.findByText(/^共 2 道/)).toBeInTheDocument();
+
+  setFixtureBank(importedBank());
+  FakeEventSource.instances.at(-1)!.emit("bank-changed", {
+    workspacePath: "/tmp/latex-bank",
+    revision: "revision-import",
+    counts: {
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      conflicts: 0,
+      assets: 0
+    }
+  });
+
+  expect(await screen.findByText(/^共 3 道/)).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "复习分布" })
+  ).toBeInTheDocument();
 });
 
 it("shows an undo notice after an agent batch-undo event", async () => {

@@ -7,6 +7,7 @@ import { SetupScreen } from "./components/SetupScreen.js";
 import { SettingsScreen } from "./components/SettingsScreen.js";
 import { EditorLayout } from "./components/EditorLayout.js";
 import { ReviewScreen } from "./components/ReviewScreen.js";
+import { DistributionScreen } from "./components/DistributionScreen.js";
 import { ExternalBankBanner } from "./components/ExternalBankBanner.js";
 import { QuestionBankProvider } from "./context/QuestionBankProvider.js";
 import { LayoutPreferencesProvider } from "./context/LayoutPreferencesContext.js";
@@ -44,6 +45,8 @@ function AppContent() {
             <EditorLayout />
           ) : appView.activeView === "review" ? (
             <ReviewScreen />
+          ) : appView.activeView === "distribution" ? (
+            <DistributionScreen />
           ) : (
             <SettingsScreen />
           )}

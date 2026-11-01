@@ -41,6 +41,7 @@ async function main() {
   try {
     await captureEditor();
     await captureReview();
+    await captureDistribution();
     await captureSettings();
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
@@ -112,6 +113,31 @@ async function captureReview() {
     );
     await settlePage(page);
     await capture(page, "review.png");
+  } finally {
+    await closeApp(electronApp);
+  }
+}
+
+async function captureDistribution() {
+  const workspacePath = path.join(
+    temporaryRoot,
+    "distribution-workspace",
+    "高等数学分布演示库"
+  );
+  const appDataPath = path.join(temporaryRoot, "distribution-app-data");
+  await prepareRun(workspacePath, appDataPath, createDistributionBank());
+  const electronApp = await launchApp(workspacePath, appDataPath);
+  try {
+    const page = await electronApp.firstWindow();
+    await setViewport(electronApp, page);
+    await page
+      .getByRole("navigation", { name: "题库页面" })
+      .getByRole("button", { name: "复习分布" })
+      .click();
+    await expect(page.getByRole("heading", { name: "复习分布" })).toBeVisible();
+    await expect(page.getByLabel("题目预览")).toContainText("自编 1.1");
+    await settlePage(page);
+    await capture(page, "distribution.png");
   } finally {
     await closeApp(electronApp);
   }
@@ -414,6 +440,19 @@ function createQuestion({
     assets: [],
     createdAt: timestamp,
     updatedAt: timestamp
+  };
+}
+
+// 编辑页演示数据四态均匀循环，分布页要展示真实题库常见的偏态：大量未标记、少量必须看。
+function createDistributionBank(): Bank {
+  const pattern = ["must", null, "recheck", null, "skip", null, "skip", "recheck", null, null] as const;
+  const bank = createEditorBank();
+  return {
+    ...bank,
+    items: bank.items.map((item, index) => ({
+      ...item,
+      reviewPriority: pattern[(index * 7) % pattern.length] ?? null
+    }))
   };
 }
 

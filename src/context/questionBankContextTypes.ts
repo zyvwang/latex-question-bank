@@ -28,6 +28,7 @@ import type {
 } from "../hooks/controllerTypes.js";
 import type { AppView } from "../hooks/useAppView.js";
 import type { QuestionListMode } from "../hooks/useSelectionFilters.js";
+import type { DistributionStatus } from "../reviewDistribution.js";
 import type { DropPosition } from "../itemOrder.js";
 
 export interface LifecycleContextValue {
@@ -125,6 +126,14 @@ export interface SelectionContextValue {
 export interface AppViewContextValue {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
+  distributionHighlight: DistributionStatus | null;
+  setDistributionHighlight: (status: DistributionStatus | null) => void;
+  distributionFocusedId: string | null;
+  setDistributionFocusedId: (id: string | null) => void;
+  distributionScrollTop: number;
+  setDistributionScrollTop: (value: number) => void;
+  openQuestionFromDistribution: (id: string) => void;
+  showDistributionStatusInEditor: (status: DistributionStatus) => void;
 }
 
 export interface BankSettingsContextValue {
