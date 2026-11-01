@@ -142,6 +142,8 @@ Both `latexmk` and `xelatex` are probed in the same environment used for compila
 
 `server/latex-process.ts` owns bounded output and process termination for probes and compilation. POSIX timeout cleanup signals the process group, escalates to SIGKILL even when its leader has exited, and waits for the group to disappear. Windows waits for taskkill and reports spawn, exit and timeout failures. Timeout completion waits for cleanup; failed cleanup must be resolved before another process starts. The document execution slot remains held through this boundary.
 
+Process-group signaling treats ESRCH as an exited group. On macOS only, EPERM is also treated as exited because it can occur when only exiting zombies remain; other errors and EPERM on other POSIX platforms still fail cleanup. The TERM-to-KILL escalation remains unchanged for live groups.
+
 ## Skin Infrastructure
 
 `shared/skins.ts` owns skin v1 types, pure validation, contrast rules and the JSON Schema source; `shared/builtin-skins.ts` preserves prototype colors. `server/skin-storage.ts` owns serialized, atomic custom skin writes under app data, rejects symlinks/non-files/path escapes, and reports invalid files as list errors. `server/routes/skin-routes.ts` exposes `/api/skins` and token-protected `/api/agent/skins` writes with the existing Host/Origin guards. Successful writes broadcast `skins-changed` separately from bank events. Skins never write workspace files. `cli/lqb.ts` uses the same validation offline and installs/removes through the local API. Renderer access is through `fetchSkins()` in `src/api/client.ts`; applying skins is a separate layer.

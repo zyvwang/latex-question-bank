@@ -40,7 +40,9 @@ function signalGroup(group: number, signal: NodeJS.Signals | 0): boolean {
     process.kill(group, signal);
     return true;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+    const code = (error as NodeJS.ErrnoException).code;
+    // macOS can report EPERM when only exiting zombies remain in the group.
+    if (code === "ESRCH" || (process.platform === "darwin" && code === "EPERM")) return false;
     throw error;
   }
 }
