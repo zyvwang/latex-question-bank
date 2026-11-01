@@ -213,10 +213,8 @@ export function useQuestionBankContextSlices({
   const appViewValue = useStableSlice<AppViewContextValue>({
     activeView: appView.activeView,
     setActiveView: appView.setActiveView,
-    distributionHighlight: appView.distributionHighlight,
-    setDistributionHighlight: appView.setDistributionHighlight,
-    distributionFocusedId: appView.distributionFocusedId,
-    setDistributionFocusedId: appView.setDistributionFocusedId,
+    distributionExpanded: appView.distributionExpanded,
+    toggleDistributionChapter: appView.toggleDistributionChapter,
     distributionScrollTop: appView.distributionScrollTop,
     setDistributionScrollTop: appView.setDistributionScrollTop,
     openQuestionFromDistribution,

@@ -1,30 +1,29 @@
 import { useCallback, useState } from "react";
-import type { DistributionStatus } from "../reviewDistribution.js";
 
 export type AppView = "editor" | "review" | "distribution" | "settings";
 
 export function useAppView() {
   const [activeView, setActiveView] = useState<AppView>("editor");
-  const [distributionHighlight, setDistributionHighlight] =
-    useState<DistributionStatus | null>(null);
-  const [distributionFocusedId, setDistributionFocusedId] =
-    useState<string | null>(null);
+  const [distributionExpanded, setDistributionExpanded] = useState<string[]>([]);
   const [distributionScrollTop, setDistributionScrollTop] = useState(0);
 
   const resetAppView = useCallback((nextActiveView: AppView = "editor") => {
     setActiveView(nextActiveView);
-    setDistributionHighlight(null);
-    setDistributionFocusedId(null);
+    setDistributionExpanded([]);
     setDistributionScrollTop(0);
+  }, []);
+
+  const toggleDistributionChapter = useCallback((id: string) => {
+    setDistributionExpanded((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
+    );
   }, []);
 
   return {
     activeView,
     setActiveView,
-    distributionHighlight,
-    setDistributionHighlight,
-    distributionFocusedId,
-    setDistributionFocusedId,
+    distributionExpanded,
+    toggleDistributionChapter,
     distributionScrollTop,
     setDistributionScrollTop,
     resetAppView

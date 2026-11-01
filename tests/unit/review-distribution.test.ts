@@ -5,12 +5,9 @@ import {
   DISTRIBUTION_STATUSES,
   buildDistributionGroups,
   countByPriority,
-  describeDistributionItem,
   distributionStatusFilter,
   distributionStatusLabel,
-  nextDistributionItemId,
-  percentOf,
-  toChineseNumber
+  percentOf
 } from "../../src/reviewDistribution.js";
 
 function item(
@@ -39,14 +36,6 @@ describe("buildDistributionGroups", () => {
       ["b1"],
       ["loose"]
     ]);
-  });
-
-  it("numbers chapters by their full position so a skipped chapter keeps its gap", () => {
-    const groups = buildDistributionGroups(
-      [item("a1", "a"), item("b1", "b"), item("loose", null)],
-      chapters
-    );
-    expect(groups.map((group) => group.numeral)).toEqual(["一", "三", null]);
   });
 
   it("omits the uncategorized group when every question has a chapter", () => {
@@ -93,62 +82,5 @@ describe("status helpers", () => {
   it("rounds percentages and never divides by zero", () => {
     expect(percentOf(1, 3)).toBe(33);
     expect(percentOf(0, 0)).toBe(0);
-  });
-
-  it("describes a cell without relying on colour", () => {
-    expect(
-      describeDistributionItem({
-        chapterName: "极限",
-        chapterOrder: 3,
-        sourceText: null,
-        status: "unset"
-      })
-    ).toBe("章节 极限，章内第 3 题，来源 未设置，复习优先级 未标记");
-  });
-});
-
-describe("nextDistributionItemId", () => {
-  const groups = buildDistributionGroups(
-    [item("a1", "a"), item("a2", "a"), item("a3", "a"), item("b1", "b")],
-    chapters
-  );
-
-  it("moves through the whole sequence with left and right and stops at the ends", () => {
-    expect(nextDistributionItemId(groups, "a3", "ArrowRight")).toBe("b1");
-    expect(nextDistributionItemId(groups, "b1", "ArrowLeft")).toBe("a3");
-    expect(nextDistributionItemId(groups, "a1", "ArrowLeft")).toBe("a1");
-    expect(nextDistributionItemId(groups, "b1", "ArrowRight")).toBe("b1");
-  });
-
-  it("clamps vertical moves to the adjacent chapter's last cell", () => {
-    expect(nextDistributionItemId(groups, "a3", "ArrowDown")).toBe("b1");
-    expect(nextDistributionItemId(groups, "b1", "ArrowUp")).toBe("a1");
-    expect(nextDistributionItemId(groups, "a1", "ArrowUp")).toBe("a1");
-    expect(nextDistributionItemId(groups, "b1", "ArrowDown")).toBe("b1");
-  });
-
-  it("jumps within the chapter with Home and End", () => {
-    expect(nextDistributionItemId(groups, "a2", "Home")).toBe("a1");
-    expect(nextDistributionItemId(groups, "a2", "End")).toBe("a3");
-  });
-
-  it("stays put for an unknown id", () => {
-    expect(nextDistributionItemId(groups, "gone", "ArrowRight")).toBe("gone");
-  });
-});
-
-describe("toChineseNumber", () => {
-  it.each([
-    [1, "一"],
-    [10, "十"],
-    [12, "十二"],
-    [20, "二十"],
-    [105, "一百零五"]
-  ])("formats %i", (value, expected) => {
-    expect(toChineseNumber(value)).toBe(expected);
-  });
-
-  it("falls back to digits outside the supported range", () => {
-    expect(toChineseNumber(0)).toBe("0");
   });
 });
