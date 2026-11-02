@@ -641,7 +641,6 @@ function createItems(ids: string[]): QuestionItem[] {
     reviewStatus: "approved",
     solutionSource: "none",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: {

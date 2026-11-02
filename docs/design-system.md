@@ -23,7 +23,7 @@ No remote font dependency is required.
 ## Layout
 
 - Navigation is a side rail or a top bar, chosen by the skin, and owns page switching and the global save state. Below 760px it is always a top bar. Editor, Review, Review Distribution, and Bank Settings are peer pages.
-- The editor page has three columns: the question list, the editor and preview, and the collapsible 题目信息 panel, which holds review priority, source, chapter, topics, question types, pending status, variant link, attachments, and question actions.
+- The editor page has three columns: the question list, the editor and preview, and the collapsible 题目信息 panel, which holds review priority, source, chapter, topics, question types, pending status, attachments, and question actions.
 - The question list keeps search and the six filters visible. Rows show the source label, types, topics, and a review-priority mark. Sticky chapter headings, virtualization, drag reorder, and selection for export are preserved.
 - The active module gives source code about 55% of the width. The separator keeps a 35% to 65% range. Answer source and reference appear in the solution module.
 - Export is an on-demand panel opened from the editor header. Review hides export. Compile logs appear next to the check button.
@@ -39,13 +39,14 @@ No remote font dependency is required.
 - Review priority uses four labeled segments: 必须看 / 再看看 / 不用看 / 未标记. The pending state is a text badge with a single “批准” action; approved items do not keep a badge in the metadata panel.
 - Sidebar filters use compact multi-select menus that stay visible. Counts expose active filters without expanding the control labels; book, priority, and status filters pair text labels with their values.
 - Desktop sidebar question rows are virtualized with dynamic heights; keyboard navigation and export selection follow the complete logical list. Sticky chapter headings retain their push-away behaviour. Narrow layouts at 760px and below keep the ordinary list.
-- Sidebar question summaries show the source label, compact review-priority, pending-review, and variant badges plus one compact badge per question type, followed by topic tokens. Sidebar questions are grouped by chapter, with an opaque sticky chapter heading below the filters. The next chapter pushes the previous heading away. Only chapters with visible questions appear, including an uncategorized group last; current and selected lists share this behavior. Chapter names wrap in full and are not repeated as row tokens. Topic tokens remain rectangular, wrapping as whole tokens and breaking inside a token only when one name exceeds the available width.
+- Sidebar question summaries show the source label, compact review-priority, and pending-review badges plus one compact badge per question type, followed by topic tokens. Sidebar questions are grouped by chapter, with an opaque sticky chapter heading below the filters. The next chapter pushes the previous heading away. Only chapters with visible questions appear, including an uncategorized group last; current and selected lists share this behavior. Chapter names wrap in full and are not repeated as row tokens. Topic tokens remain rectangular, wrapping as whole tokens and breaking inside a token only when one name exceeds the available width.
 - The editor uses the same chapter, book, priority, and tag vocabulary while keeping the native chapter select and the existing tag add/remove behavior.
 - “Current list” and “Selected items” share one stable action slot. Selected-items mode replaces filter controls with a quiet note explaining that filters are preserved but paused.
 - Module tabs support Left, Right, Home, and End.
 - Editor and question-navigation separators are draggable and keyboard adjustable. Arrow keys move by one step, Home and End move to the limits, and every separator exposes its controlled panes and current range through ARIA.
 - Editor LaTeX previews own their horizontal and vertical scrolling. Trackpad and horizontal-wheel deltas scroll directly, Shift plus a vertical wheel scrolls horizontally, and overflowing content exposes a horizontal scrollbar.
 - Pending review is always written as「待审阅」.
+- With version management on, Review gains a「原题 / 版本」switch. The version queue is a list of originals beside one reading column: the original once, then each version with its answer in plain sight, and a sticky bar for the next decision. With it off, Review shows no trace of versions.
 - Review marks never rely on color alone: 必须看 is filled, 再看看 half filled, 不用看 a ring, and 未标记 a faint ring, and every mark has a text label. Opening a question from Review Distribution clears filters only when they would hide it. Selecting a count replaces the sidebar filters with that status. Returning from the editor restores expanded chapters and scroll position.
 - `⌘K` (Ctrl+K outside macOS) opens the command palette for pages, skins, and questions. It is a focus-trapped dialog.
 - Approving the current filtered set requires a confirmation with the count. Deleting an item keeps the existing ten-second undo. The review page selects the next pending item after approval or deletion and does not alter editor filters.
@@ -63,6 +64,14 @@ No remote font dependency is required.
 - Recovery disables restore, retry, and workspace transition controls while an operation runs. An uncertain workspace write pauses editing and offers “核对工作区状态”; it never silently replays the previous action.
 - An uncertain conflict save-as keeps its draft and dialog open and exposes “核对另存结果”. A successful check applies the original completed response; a still-pending check keeps editing paused.
 
+## Brand Icon
+
+The mark is a Q with vertical stress, as in Computer Modern, whose tail is the end-of-proof tombstone ∎: a question that ends in Q.E.D. Paper on ink, with one coral tombstone. It deliberately carries no paper, book, or pencil props.
+
+- `scripts/generate-brand-icons.ts` is the only source of the geometry. Change it and run `npm run brand:icons`; do not edit the PNG, ICO, or ICNS outputs by hand. Regenerating needs macOS for `iconutil`.
+- Sizes below 64px use a separate heavier drawing with a larger tombstone, because the display drawing's thin side collapses when downscaled.
+- macOS keeps the standard transparent margin and soft shadow on the 1024 grid; Windows and in-app icons crop tighter. `public/brand/icon-64.png` carries its own shape, so don't add a radius or box shadow around it.
+
 ## CSS Ownership
 
 - `foundation.css`: reset, semantic tokens, focus, reduced motion.
@@ -71,3 +80,13 @@ No remote font dependency is required.
 - CodeMirror selectors are scoped with `:global(...)` inside the module editor container.
 
 Avoid themed props, decorative gradients, glass effects, mixed radius systems, and generic cards around every section.
+
+## Papers
+
+The paper workspace reuses navigation, semantic skin tokens and shared controls. A narrow saved-paper list sits beside a single scrolling editor; at narrow widths the list stacks above the editor. The form exposes rules before slots, while section headings and numbered rows carry the main hierarchy. Missing questions and rule conflicts appear on their own slots. Ordinary editing has no motion; controls retain press feedback and reduced-motion support. Styles stay in `PapersScreen.module.css`.
+
+Primary-topic classification is an inline disclosure in Papers settings, with paged review rows, one editable standard group per question, explicit batch confirmation and visible stale/error states. Strict quotas are opt-in and appear as a compact table below paper rules. Target, selected, eligible and missing counts use aligned tabular numbers. Existing editor preview scrolling remains independent; inline paper previews chain scrolling to their parent.
+
+表达版本管理沿用组卷页的折叠设置、分隔线和按钮层级；默认关闭。当前原题位于族顶部，生成时原题与版本题面并排对照，窄屏单列。答案、解析与不可变历史折叠展开。审批必须显式勾选同族版本，基准变化时额外确认；专门纠错使用理由、确认与状态回馈，不混入普通题型编辑。
+
+- The expression-variant workbench keeps workspace enablement and Agent automatic enrollment as separate native checkbox rows. Automatic enrollment defaults off and stays disabled until version management is enabled. Its adjacent copy states that newly imported originals and variants require human review; it reuses the existing CSS Modules, typography, focus and 40px label targets.

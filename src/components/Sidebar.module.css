@@ -241,7 +241,7 @@
 .questionMeta { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; }
 .questionMeta strong { flex: 1 0 100%; min-width: 0; overflow-wrap: anywhere; font-size: var(--text-sm); font-weight: 500; line-height: 1.35; }
 .questionBadges { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; color: var(--dim); font-size: var(--text-xs); }
-.pendingBadge, .variantBadge, .typeBadge { font-size: var(--text-xs); line-height: 1.4; white-space: nowrap; }
+.pendingBadge, .typeBadge { font-size: var(--text-xs); line-height: 1.4; white-space: nowrap; }
 .pendingBadge { color: var(--warning); }
 .priorityDot { width: 10px; height: 10px; border-radius: 50%; }
 .priorityDot[data-priority="must"] { background: var(--must); }

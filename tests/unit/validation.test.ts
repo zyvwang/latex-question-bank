@@ -137,7 +137,6 @@ describe("shared validation", () => {
       { ...bank, items: [{ ...item, reviewStatus: "draft" }] },
       { ...bank, items: [{ ...item, solutionSource: "book" }] },
       { ...bank, items: [{ ...item, solutionRef: 5 }] },
-      { ...bank, items: [{ ...item, variantOf: 5 }] },
       { ...bank, items: [{ ...item, importBatchId: 5 }] },
       { ...bank, items: [{ ...item, importedAt: 5 }] },
       { ...bank, items: [{ ...item, modules: undefined }] },

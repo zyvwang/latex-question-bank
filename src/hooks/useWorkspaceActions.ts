@@ -1,3 +1,4 @@
+import { flushPaperChanges } from "../utils/pendingPaperChanges.js";
 import { useLatestCallback } from "./useLatestCallback.js";
 import { flushSync } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -194,6 +195,9 @@ export function useWorkspaceActions({
   }
 
   async function saveBeforeWorkspaceChange() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) flushSync(() => active.blur());
+    await flushPaperChanges();
     await Promise.all([
       flushPendingSettings(),
       persistCurrentBank()

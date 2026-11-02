@@ -13,30 +13,6 @@ vi.mock("../../src/components/LatexEditor.js", () => ({
 
 setupAppFixture();
 
-it("opens the original question from a variant and reports a deleted original", async () => {
-  const user = userEvent.setup();
-  setFixtureBank(withVariant("limit"));
-  const { unmount } = render(<App />);
-  await screen.findByText("2024-1");
-
-  await user.click(screen.getByText("2024-2"));
-  const variant = screen.getByLabelText("变式原题");
-  expect(within(variant).getByText("2024-1")).toBeInTheDocument();
-  await user.click(within(variant).getByRole("button", { name: /2024-1/ }));
-
-  expect(
-    within(screen.getByRole("region", { name: "题目元数据" }))
-      .getByLabelText("来源题号")
-  ).toHaveValue("2024-1");
-  unmount();
-
-  setFixtureBank(withVariant("deleted-question"));
-  render(<App />);
-  await screen.findByText("2024-1");
-  await user.click(screen.getByText("2024-2"));
-  expect(screen.getByText("原题已删除")).toBeInTheDocument();
-});
-
 it("shows an attachment thumbnail row and opens the image preview", async () => {
   const user = userEvent.setup();
   setFixtureBank(withAttachment());
@@ -62,15 +38,6 @@ it("shows an attachment thumbnail row and opens the image preview", async () => 
     screen.queryByRole("dialog", { name: "截图 2026-10-26.png" })
   ).not.toBeInTheDocument();
 });
-
-function withVariant(originalId: string): Bank {
-  return {
-    ...bank,
-    items: bank.items.map((item) =>
-      item.id === "matrix" ? { ...item, variantOf: originalId } : item
-    )
-  };
-}
 
 function withAttachment(): Bank {
   const asset = screenshotAsset();

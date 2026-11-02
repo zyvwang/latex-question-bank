@@ -86,7 +86,6 @@ export const QuestionListRow = memo(function QuestionListRow({
             {item.reviewStatus === "pending" ? (
               <span className={styles.pendingBadge}>待审阅</span>
             ) : null}
-            {item.variantOf ? <span className={styles.variantBadge}>变式</span> : null}
             {item.questionTypes.map((type) => (
               <span className={styles.typeBadge} key={type} title={type}>
                 {type}

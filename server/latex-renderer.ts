@@ -257,7 +257,7 @@ function renderFullItem(
   return blocks.join("\n");
 }
 
-function formatQuestionTex(item: QuestionItem): string {
+export function formatQuestionTex(item: QuestionItem): string {
   const tex = formatCompactChoices(stripDocumentCommands(item.modules.question.tex));
   return isChoiceQuestion(item) ? ensureChoiceParen(tex) : tex;
 }
@@ -344,7 +344,7 @@ function renderChoiceBlock(options: string[]): string {
   return `\\choices${options.map((option) => `{${option}}`).join("")}`;
 }
 
-function stripDocumentCommands(input: string): string {
+export function stripDocumentCommands(input: string): string {
   return input
     .replace(/\\documentclass(?:\[[^\]]*])?\{[^}]+}/g, "")
     .replace(/\\begin\{document}/g, "")

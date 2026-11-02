@@ -1,3 +1,4 @@
+import { flushPaperChanges } from "../utils/pendingPaperChanges.js";
 import { useLatestCallback } from "./useLatestCallback.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -143,10 +144,10 @@ export function useQuestionBankModel(): QuestionBankContextValues {
       resetAppView, setAppInfo, setBank, setActiveId, setLoadError,
       setRecoveryCandidates, setActiveModule, setExternalBankNotice, setNotice
     });
-  const reloadExternalBank = async () => {
+  const reloadExternalBank = async (options?: { confirmed?: boolean }) => {
     if (!appInfo?.currentWorkspacePath) return;
     if (
-      !window.confirm(
+      !options?.confirmed && !window.confirm(
         "重新加载会丢弃当前未保存的编辑，确定继续吗？"
       )
     ) {
@@ -250,6 +251,7 @@ export function useQuestionBankModel(): QuestionBankContextValues {
     [appInfo, autosave, applyBankSnapshot, runWorkspaceChange, setNotice]
   );
   const flushCurrentChanges = useLatestCallback(async () => {
+    await flushPaperChanges();
     await Promise.all([
       bank && appInfo?.currentWorkspacePath
         ? persistBank(bank)

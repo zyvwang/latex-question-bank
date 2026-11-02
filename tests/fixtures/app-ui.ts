@@ -47,7 +47,6 @@ export const bank: Bank = {
       reviewStatus: "approved",
       solutionSource: "user",
       solutionRef: null,
-      variantOf: null,
       importBatchId: null,
       importedAt: null,
       modules: {
@@ -70,7 +69,6 @@ export const bank: Bank = {
       reviewStatus: "pending",
       solutionSource: "agent",
       solutionRef: null,
-      variantOf: null,
       importBatchId: null,
       importedAt: null,
       modules: {

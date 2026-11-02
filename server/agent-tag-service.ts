@@ -1,3 +1,4 @@
+import { assertProtectedTypes } from './variant-storage.js';
 import path from "node:path";
 import type {
   AgentTagCounts,
@@ -53,6 +54,7 @@ export async function applyAgentTags(
       changes: plan.changes,
       warnings: plan.warnings
     };
+    await assertProtectedTypes(context.workspacePath,context.current,plan.bank);
     if (input.dryRun || plan.changes.length === 0) return summary;
 
     const revision = await commitBank(context, plan.bank);
@@ -102,6 +104,7 @@ export async function undoAgentTags(
       restored: plan.restored,
       conflicts: plan.conflicts
     };
+    await assertProtectedTypes(context.workspacePath,context.current,plan.bank);
     if (input.dryRun || plan.restored.length === 0) return summary;
 
     const revision = await commitBank(context, plan.bank);

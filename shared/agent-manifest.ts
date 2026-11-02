@@ -71,7 +71,6 @@ export interface AgentManifestQuestion {
   };
   solutionSource?: SolutionSource;
   solutionRef?: string | null;
-  variantOf?: string | null;
   assets?: string[];
 }
 
@@ -310,6 +309,9 @@ function parseQuestion(
       "题目不再有 tags 字段：考点写 topics，题型写 questionTypes（都不带前缀）。"
     );
   }
+  if (Object.hasOwn(value, "variantOf")) {
+    throw new ValidationError("变式关联功能已取消，不再支持 variantOf 字段；请作为普通题导入。");
+  }
   const topics = parseLabelList(value.topics ?? [], "topics", "考点");
   const questionTypes = parseLabelList(
     value.questionTypes ?? [],
@@ -335,9 +337,6 @@ function parseQuestion(
     ...(solutionSource ? { solutionSource } : {}),
     ...(Object.hasOwn(value, "solutionRef")
       ? { solutionRef: optionalNullableString(value, "solutionRef") }
-      : {}),
-    ...(Object.hasOwn(value, "variantOf")
-      ? { variantOf: optionalNullableString(value, "variantOf") }
       : {}),
     assets: questionAssets
   };

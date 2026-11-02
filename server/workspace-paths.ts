@@ -7,7 +7,7 @@ interface ResolveRealWorkspaceFileOptions {
 }
 
 /**
- * 校验 workspace 顶层子目录(.tmp/.history/assets/exports)在读、写、删、rename 前
+ * 校验 workspace 顶层子目录(.tmp/.history/assets/exports/papers)在读、写、删、rename 前
  * 确实是位于 workspace 内部的真实目录,而非指向外部路径的符号链接。
  *
  * fail-closed:子目录是符号链接或其 realpath 逃逸出 workspace 时抛 StorageError,

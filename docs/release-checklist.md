@@ -42,7 +42,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - review-priority and pending-review metadata badges, including approval from the metadata panel
    - multi-value chapter/tag/book/review-priority/review-status filtering with OR within fields and AND across fields
    - current/selected list switching, preserved filters, filter-independent export selection, and default select-all after workspace switch
-   - complete sidebar source labels, priority/pending/variant badges, separate wrapping chapter/tag tokens, and matching editor metadata tokens
+   - complete sidebar source labels, priority/pending badges, separate wrapping chapter/tag tokens, and matching editor metadata tokens
    - normal export order follows chapter order and chapter-local order; the export dock warns about selected pending-review items
    - rapid repeated edits to numbered or labelled equations, confirming one MathJax typeset at a time, stable final numbering, and no duplicate preview nodes
    - horizontal trackpad/wheel and Shift-wheel scrolling for wide MathJax in the editor preview
@@ -62,7 +62,7 @@ Use this checklist before producing a public macOS DMG or Windows NSIS installer
    - screenshot assets are validated, written under `assets/`, substituted from `{{asset:key}}`, and content-hashed
    - image uploads preserve UTF-8 original filenames in the attachment row and preview dialog
    - an attachment with no `{{asset:key}}` reference is still stored and shown in the details thumbnail row; the preview dialog traps focus and closes with Escape
-   - variant imports require an existing `variantOf`; the sidebar shows a 变式 badge, the details row links to the original, and a deleted original shows 原题已删除
+   - manifests containing the removed `variantOf` field are rejected; existing banks retain those questions as ordinary questions and discard only the legacy association on the next save
    - `npm run screenshots:readme` regenerates `main.png`, `review.png`, and `settings.png` at 1470×891 from synthetic data, and all three are inspected
    - agent import rejects a stale `baseRevision`, a mismatched workspace, and an invalid manifest without partial writes
    - the Review page approves, advances, bulk-approves, deletes with undo, shows the pending count, and handles empty/filtered-empty states

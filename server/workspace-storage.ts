@@ -1,3 +1,4 @@
+import { withWorkspaceWriteLock } from "./storage-lock.js";
 import { mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -36,6 +37,7 @@ export async function ensureProjectDirs() {
   }
   const state = await readAppState();
   if (state.currentWorkspacePath && (await workspaceExists(state.currentWorkspacePath))) {
+    await withWorkspaceWriteLock(state.currentWorkspacePath,async () => undefined);
     const dirs = getWorkspaceDirs(state.currentWorkspacePath);
     await recoverExportTransactions(dirs.exportDir, dirs.tempDir);
     await cleanupTempDirectory(dirs.tempDir);

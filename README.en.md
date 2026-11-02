@@ -36,10 +36,10 @@ The application interface currently uses Simplified Chinese. This README provide
 - Check the current item with a local XeLaTeX installation. The result stays bound to the exact item content that was compiled.
 - Organize items with formal chapters, books, source labels, topics (考点), and question types (题型); an item can have several of each.
 - Mark each item with a review priority (skip / review again / must review), and see the count and per-chapter spread of all four states on the Review Distribution page.
-- Let an external agent import selected examples, exercises, screenshots, or variants through the local `lqb` CLI, or import a whole book into a new bank; imported items enter pending review automatically.
+- Let an external agent import selected examples, exercises, or screenshots through the local `lqb` CLI, or import a whole book into a new bank; imported items enter pending review automatically.
 - Approve, edit, delete, or bulk-approve agent-imported items on a dedicated 待审阅 page.
 - Undo an agent import batch; approved or manually edited items are kept.
-- Variant questions link back to their original; screenshot attachments appear as expandable thumbnails in the details row.
+- Screenshot attachments appear as expandable thumbnails in the details row.
 - Combine keyword, chapter, topic, question-type, book, review-priority, and review-status filters. Multiple values within one field use OR, while different fields use AND.
 - Switch between the filtered current list and a selected-items list that ignores filters. Filtering never changes export selection.
 - Reorder items inside a chapter. Normal exports use chapter order followed by chapter-local order; seeded random order remains reproducible.
@@ -140,7 +140,7 @@ lqb type apply --file types.json --json
 lqb topic undo .lqb/topic-undo/<file>.json
 ```
 
-![Review page with a variant link and screenshot attachment](docs/screenshots/review.png)
+![Review page with imported questions and a figure attachment](docs/screenshots/review.png)
 
 ![Books and import history in Bank Settings](docs/screenshots/settings.png)
 
@@ -150,7 +150,19 @@ The app includes four skins, which you can switch in Bank Settings. Your own Age
 
 ![Review Distribution: counts and per-chapter layout of the four review priorities](docs/screenshots/distribution.png)
 
-This version supports selected examples/exercises, screenshot attachments, variant questions, whole-book imports, new-bank creation, batch undo, and topic/question-type organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+This version supports selected examples/exercises, screenshot attachments, whole-book imports, new-bank creation, batch undo, and topic/question-type organization. See [docs/agent-workflow.md](docs/agent-workflow.md) for commands, manifest fields, and security boundaries.
+
+## Assemble papers
+
+The Papers page creates fixed Mathematics I mock exams (the checked common 2021–2026 structure: 22 questions, 150 points, 180 minutes) and practice papers with optional chapter, topic and book filters. Map chapters to subjects explicitly in paper settings. Only approved questions are eligible. Lock, replace or manually select questions; keep incomplete drafts without repeats or relaxed constraints.
+
+Papers store independent question and attachment snapshots. Export question and solution PDFs, both TeX sources and a source table. Incomplete papers and rule conflicts block final export. New mock papers use primary-topic quotas based on the 2021–2026 corpus by default; they can be turned off per paper. Agents propose classifications for user approval, and `lqb paper` supports creation, replacement and explicit export. See [the paper guide](docs/papers.md) for details.
+
+![Paper editor with practice filters and locked questions](docs/screenshots/papers.png)
+
+Turn on 原题与版本 on the Papers page and an Agent can restate a question as choice, fill-in or free-response versions: only the form changes, never the conditions, values or goal. Proof questions stay as they are and get no versions. Versions are reviewed together in the 版本 queue on the Review page, and each paper separately decides whether to use them; a question appears at most once per paper.
+
+![Version review queue: the original once, with every answer in plain sight](docs/screenshots/variant-queue.png)
 
 ## Write LaTeX
 
@@ -274,3 +286,5 @@ React 19, Vite, TypeScript, Express, Electron, CodeMirror, MathJax, and XeLaTeX.
 ## License
 
 [MIT](LICENSE)
+
+After explicit workspace authorization, `lqb variant import` can ingest new or specified existing originals with multiple pending variants in one workflow. Expression variants are opt-in: protected original types, independent revision review, and per-paper admission with at most one member of each original family. See [the paper guide](docs/papers.md).

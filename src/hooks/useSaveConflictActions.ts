@@ -1,3 +1,4 @@
+import { flushPaperChanges, hasPaperBoundaries } from "../utils/pendingPaperChanges.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ApiRequestError, confirmSaveBankAs, fetchBank, fetchBankHead, saveBankAs } from "../api/client.js";
@@ -126,6 +127,7 @@ export function useSaveConflictActions({
     setIsSavingConflictAs(true);
     const operation = (async () => {
       try {
+        if (hasPaperBoundaries()) await flushPaperChanges();
         const targetWorkspacePath = uncertainSaveAsRef.current ? "" : await pickWorkspaceDirectory(
           "选择空文件夹另存当前题库", "输入一个空文件夹路径，用于另存当前题库"
         );

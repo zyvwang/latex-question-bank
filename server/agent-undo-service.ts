@@ -1,3 +1,4 @@
+import { assertProtectedTypes } from "./variant-storage.js";
 import { lstat, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -96,6 +97,7 @@ export async function undoAgentImport(
     const now = new Date().toISOString();
     const outcome = buildUndoBank(bank, snapshot, batch, now);
     const finalBank = validateUndoBank(outcome.bank);
+    await assertProtectedTypes(workspacePath,bank,finalBank);
     await writeJsonFileAtomic(dirs.bankPath, finalBank);
     const revision = revisionForContent(serializeJson(finalBank));
     const assetsRemoved = await removeUnreferencedAssets(

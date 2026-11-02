@@ -55,13 +55,11 @@
 .reviewField,
 .sourceField,
 .chapterField,
-.tagsGroup > label,
-.contextField { min-width: 0; display: grid; gap: 6px; }
+.tagsGroup > label { min-width: 0; display: grid; gap: 6px; }
 .reviewField > span:first-child,
 .sourceField > span,
 .chapterField > span,
-.tagsGroup > label > span,
-.contextField > span { color: var(--dim); font-size: var(--text-xs); }
+.tagsGroup > label > span { color: var(--dim); font-size: var(--text-xs); }
 .tagsGroup { display: grid; gap: 12px; }
 
 .sourceField { grid-template-columns: minmax(0, 1fr) auto; }
@@ -91,21 +89,6 @@
 }
 
 .contextRow { display: grid; gap: 12px; }
-.variantLink {
-  min-width: 0;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  background: transparent;
-  color: var(--text);
-  font-size: var(--text-sm);
-  text-decoration: underline;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.variantMissing { color: var(--danger); font-size: var(--text-sm); font-weight: 500; }
 
 .priorityOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--well); }
 .priorityOption {

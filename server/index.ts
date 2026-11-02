@@ -1,4 +1,7 @@
+import { createVariantRouter } from "./routes/variant-routes.js";
+import { createAgentPaperRouter } from "./routes/agent-paper-routes.js";
 import express from "express";
+import { createPaperRouter } from "./routes/paper-routes.js";
 import { createSkinRouter } from "./routes/skin-routes.js";
 import type { Server } from "node:http";
 import { fileURLToPath } from "node:url";
@@ -69,6 +72,9 @@ export function createApiApp(options: ApiAppOptions = {}): express.Express {
   );
   app.use("/api", createDocumentRouter({ jsonBodyLimitBytes }));
   app.use("/api", createSkinRouter());
+  app.use("/api", createPaperRouter());
+  app.use("/api", createVariantRouter());
+  app.use("/api", createAgentPaperRouter());
   app.use("/api", createAgentRouter({ jsonBodyLimitBytes }));
   app.use("/api", createEventsRouter());
   installFrontend(app);

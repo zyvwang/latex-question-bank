@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Check, CheckSquare, PenLine, Save, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, BarChart3, Check, CheckSquare, Files, PenLine, Save, SlidersHorizontal } from "lucide-react";
 import {
   useAppView,
   useLifecycle,
@@ -54,6 +54,11 @@ export function AppNavigation() {
         >
           <BarChart3 size={18} aria-hidden="true" />
           <span>复习分布</span>
+        </button>
+        <button className={appView.activeView === "papers" ? styles.active : ""}
+          aria-current={appView.activeView === "papers" ? "page" : undefined}
+          onClick={() => appView.setActiveView("papers")}>
+          <Files size={18} aria-hidden="true" /><span>组卷</span>
         </button>
         <button
           className={appView.activeView === "settings" ? styles.active : ""}

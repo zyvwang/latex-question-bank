@@ -16,7 +16,6 @@ function makeItem(overrides: Partial<QuestionItem> = {}): QuestionItem {
     reviewStatus: "approved",
     solutionSource: "none",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: { question: { tex: "" }, solution: { tex: "" }, note: { tex: "" } },

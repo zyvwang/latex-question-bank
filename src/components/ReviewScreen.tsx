@@ -1,14 +1,45 @@
-import { useEffect } from "react";
-import { useAppView } from "../context/questionBankContexts.js";
+import { useEffect, type ReactNode } from "react";
+import { useAppView, useWorkspace } from "../context/questionBankContexts.js";
 import {
   useQuestions,
   useSelection
 } from "../context/questionBankContexts.js";
+import { useVariantQueue } from "../hooks/useVariantQueue.js";
 import controls from "../styles/controls.module.css";
 import { EditorLayout } from "./EditorLayout.js";
+import { VariantReviewQueue } from "./VariantReviewQueue.js";
 import styles from "./ReviewScreen.module.css";
 
 export function ReviewScreen() {
+  const workspace = useWorkspace().appInfo?.currentWorkspacePath ?? "";
+  const appView = useAppView();
+  const { queue, reload, pause } = useVariantQueue(workspace);
+  const totalPending = useQuestions().bank?.items.filter((item) => item.reviewStatus === "pending").length ?? 0;
+  const tab = appView.reviewTab;
+
+  // The version system stays invisible until the user switches it on.
+  if (!queue?.enabled) return <OriginalsReview />;
+
+  const switcher: ReactNode = (
+    <nav className={styles.tabs} aria-label="审阅内容">
+      {([["originals", `原题 ${totalPending}`], ["versions", `版本 ${queue.total}`]] as const).map(([id, label]) => (
+        <button key={id} type="button" aria-pressed={tab === id} onClick={() => appView.setReviewTab(id)}>{label}</button>
+      ))}
+    </nav>
+  );
+  return (
+    <div className={styles.shell}>
+      {switcher}
+      <div className={styles.body}>
+        {tab === "versions"
+          ? <VariantReviewQueue workspace={workspace} queue={queue} reload={reload} pause={pause} />
+          : <OriginalsReview />}
+      </div>
+    </div>
+  );
+}
+
+function OriginalsReview() {
   const questions = useQuestions();
   const selection = useSelection();
   const appView = useAppView();

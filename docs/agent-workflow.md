@@ -9,14 +9,13 @@ LaTeX 题库的外部 Agent 工作流是**本地优先**的：Agent 读取本机
 - 分块导入共用 `--batch-id`，整批撤销；
 - 截图作为附件导入，详情区显示缩略图；
 - Agent 生成或从答案册提取解析；
-- 变式题通过 `variantOf` 关联原题，详情区可跳转；
 - 导入题自动「待审阅」；
 - 独立「待审阅」页批准、编辑、删除和批量批准；
 - 外部导入和撤销时应用自动刷新，编辑中显示提示横幅；
 - 书目路径、答案册和哈希元数据的设置页管理。
 - `lqb topic` / `lqb type` 分别整理考点和题型：批量加、删、改名、合并，先预演再写入，不改审阅状态，可按撤销文件还原。
 
-截图、变式和整书导入共用同一套清单与审阅流程。
+截图和整书导入共用同一套清单与审阅流程。
 
 ## 安装与连接
 
@@ -234,7 +233,7 @@ lqb import --file book-2.json --batch-id whole-book --json
 - **函数图像、几何图、坐标系、数轴、Venn 图、简单示意图**：用 TikZ/pgfplots 重绘，直接写在题目 TeX 里（内置），外层用 `\begin{center}…\end{center}`。线条黑色、`line width=0.6pt`，标注 `\small`；坐标轴带箭头、原点标 $O$；不加阴影、渐变或彩色填充；整体宽度不超过 0.45 栏宽（约 7.8cm）。
 - **照片、复杂统计图等 TikZ 难以忠实还原的图**：才用外置 PNG，并满足上面的图片标准。
 
-推荐内置的原因：TikZ 是矢量，字体、字号和线宽与正文一致，导出清晰；源码随 `bank.json` 一起保存、可以直接修改，变式题改个参数就能重画；不需要附件，也就没有尺寸、分辨率和裁剪问题。代价是应用内 MathJax 预览不渲染 TikZ（只显示「以真实编译为准」提示），需要用「当前题编译」查看。Agent 在本机有 xelatex 时，应把图形单独放进最小 ctexart + tikz/pgfplots 文档编译自检；没有时在汇报中提醒用户编译检查。
+推荐内置的原因：TikZ 是矢量，字体、字号和线宽与正文一致，导出清晰；源码随 `bank.json` 一起保存、可以直接修改，修改参数就能重画；不需要附件，也就没有尺寸、分辨率和裁剪问题。代价是应用内 MathJax 预览不渲染 TikZ（只显示「以真实编译为准」提示），需要用「当前题编译」查看。Agent 在本机有 xelatex 时，应把图形单独放进最小 ctexart + tikz/pgfplots 文档编译自检；没有时在汇报中提醒用户编译检查。
 
 ### 整理旧题
 
@@ -255,37 +254,6 @@ lqb image normalize --json
 2. 只改 `modules.question.tex`：选项换成 `\choices{…}{…}{…}{…}`，题干末尾换成 `\paren`，删除手写的 `（$\quad$）`；其余文字、公式、图片原样保留，不传 `solution`/`note`。
 3. 清单里的 `source` 用原题的书目和题号，这样会更新原题而不是新建；没有来源的题无法定位，列给用户手工处理。
 4. 用同一个 `--batch-id`（如 `options-cleanup`）先 `--dry-run`，再 `--overwrite` 导入。改过的题回到待审阅，用户在审阅页逐题确认；整批可用 `lqb import undo <batchId>` 撤销。
-
-## 变式题
-
-变式题独立导入，不复用原题记录。用 `variantOf` 指向当前题库已有题目 ID：
-
-```json
-{
-  "schemaVersion": 1,
-  "batch": { "note": "变式：洛必达法则", "agent": "qoder" },
-  "books": [{ "title": "A 书" }],
-  "questions": [
-    {
-      "source": { "bookTitle": "A 书", "label": "变式 1" },
-      "topics": ["洛必达"],
-      "questionTypes": ["解答"],
-      "modules": {
-        "question": { "tex": "更换参数后的变式题面。" },
-        "solution": { "tex": "变式解析。" }
-      },
-      "solutionSource": "agent",
-      "variantOf": "原题 ID"
-    }
-  ]
-}
-```
-
-- 先通过 `lqb get <id>` 或 `lqb search` 取得原题 ID。
-- `variantOf` 必须指向当前题库已有题目；同一清单内新题之间不能互相引用，需要分两次导入。
-- 变式默认 `pending`、复习优先级未标记、`solutionSource: "agent"`。
-- 单题来源时设置 `variantOf`；按章节/考点批量生成时可以设为 `null`，用 `topics` 写考点。
-- 应用侧栏显示「变式」徽标；题目详情区显示原题来源链接，原题已删除时显示「原题已删除」。
 
 ## 整理考点与题型
 
@@ -408,7 +376,8 @@ Agent 导入或撤销成功后，应用通过本地 SSE 收到通知：
 - 不自动批准、不自动删除、不自动编译导入内容。待审阅题可以编译和导出，导出时提示待审阅数量。
 - 复习优先级和审阅状态不打印进 PDF。
 - 手动新建题默认已审阅、优先级未标记；Agent 按「做错了」导入时通常设 `must`，整书导入默认未标记。
-- 不做按书目分组的侧栏、章节嵌套或变式嵌套树；变式只用 `variantOf` 平铺关联，不加 `variantType`。
+- 不做按书目分组的侧栏或章节嵌套。
+- 变式关联功能已取消：导入清单携带 `variantOf`（包括 `null`）时拒绝导入。旧题库中的相关题目保留为普通题，读取时忽略旧字段，下次正常保存时移除；读取本身不会改写文件。
 - 考点（`topics`）和题型（`questionTypes`）是两个独立字段，不再有通用标签和「考法」。侧栏筛选是考点、题型两个下拉（字段内「或」，两个下拉之间「且」），侧栏每行列出考点、题型缩成角标，详情区分两栏编辑。v3 题库里的考法和无前缀标签在迁移时丢弃，原文件保留在 `.history/` 和 `bank.json.bak`。
 - `lqb topic`/`lqb type` 是对「Agent 更新已有题一律回到待审阅」的有意例外：考点和题型是整理用的元数据，不是题目内容，所以不重置审阅状态。代价是这些改动不经过「待审阅」页，因此要先 dry-run，并保存撤销记录。
 
@@ -424,3 +393,119 @@ Agent 导入或撤销成功后，应用通过本地 SSE 收到通知：
 ## 自定义皮肤
 
 使用 `lqb skin init|validate|install|list|remove` 管理本地皮肤；`init` 和 `validate` 可离线运行。完整 token、选项、示例和错误修复见 [皮肤编写指南](skin-authoring.md)，结构定义见 [JSON Schema](skin.schema.json)。皮肤只写应用数据目录，不改题库。安装与删除仍需 Agent token，并沿用 Host/Origin 校验。
+
+## Agent 组卷与主考点建议
+
+只使用 `lqb paper` / `/api/agent/papers`，沿用当前应用的 token、loopback 和工作区检查，不直接修改 `papers/`。应用内不调用模型，也不需要新的 API key。全部命令输出 JSON，`--json` 可显式书写。
+
+```bash
+lqb paper catalog --json
+lqb paper classify list --json
+lqb paper classify propose --file proposals.json --dry-run --json
+lqb paper classify propose --file proposals.json --json
+# 用户在组卷页确认分类后：
+lqb paper create --file paper.json --dry-run --json
+lqb paper create --file paper.json --json
+lqb paper list --json
+lqb paper get <id> --json
+lqb paper candidates <id> --slot 17 --json
+lqb paper generate <id> --dry-run --json
+lqb paper replace <id> --file replacements.json --json
+lqb paper export <id> --json
+```
+
+分类提议清单为 `schemaVersion: 1`，包含读取时的 `bankRevision`、`topicsRevision` 和 `entries: [{ itemId, groupId, reason }]`。每批 1 至 500 项，理由 1 至 500 字符。标准组 ID 与蓝图从 `catalog` 读取；不得猜测其他组或自动确认。建议不改 bank，也不重置题目审阅状态。用户可修改建议、拒绝或批量确认；只有已确认且内容指纹仍匹配的分类才参与严格组卷。
+
+建卷清单包含：
+
+| 字段 | 约定 |
+| --- | --- |
+| `schemaVersion` / `id` | 版本 1、稳定 UUID；同 ID 已存在返回 `PAPER_EXISTS`，不覆盖 |
+| `kind` / `title` / `seed` | `mock` 或 `practice`，标题、随机种子 |
+| `mode` | `auto` 自动抽题，或 `manual` 指定题目 |
+| `quotaEnabled` | 模拟卷是否启用综合主考点配额，默认开启，传 false 关闭；练习卷不得为 true |
+| `filters` | `priorities/chapters/topics/books` 数组；优先级支持 `skip/recheck/must/unset`，空数组不限 |
+| `counts` | 仅练习卷可设置三个部分的题量，如 `[10,6,6]` |
+| `assignments` | 手动模式必须提供 `[{ number: 17, itemId: "题目ID" }]`，题号从 1 开始，不是内部索引 |
+| `bankRevision` / `topicsRevision` | 可显式固定到此前读取的 revision；省略时 CLI 在执行前读取当前 catalog，不覆盖清单已有值 |
+
+替换清单用相同的 `assignments` 数组；省略某项的 `itemId` 表示由系统为该位置挑替换题。已锁题位、重复题号、重复入卷题、题型/学科/主考点或筛选违规都会整批拒绝。服务端按 bank revision 读取题目并复制附件，Agent 不得提交自造快照。`generate` 保留锁题，配额不会因为候选不足改变。
+
+REST 接口：`GET /api/agent/papers`、`/catalog`、`/classifications`、`/:id`、`/:id/candidates?slot=N`；`POST /classifications/propose`、`/create`、`/:id/generate`、`/:id/replace`、`/:id/export`。所有请求带 `workspacePath`，GET 用 query；修改现有试卷带 `revision`，选题带 `bankRevision` 和 `topicsRevision`。Agent 没有分类确认、全局设置修改、删除或普通快照保存接口。
+
+`dryRun: true` 只适用于提议、创建、生成和替换，返回计划、配额、排除原因及缺口，不创建试卷目录/JSON/附件。自动选题不足可保存缺题草稿；缺题草稿与 dry-run 缺口退出码 3，校验错误 2，bank/paper/topics revision 冲突和 ID 已存在为 3，其余沿用原退出码。导出必须显式调用，不支持 dry-run；编译失败为退出码 1，保留旧输出并返回日志。
+
+网络中断或结果未知时不要自动重放写入；建卷按清单里的固定 ID 使用 `get` 核对，已有卷按 ID/revision 核对。Agent 更新通过专用 SSE 通知应用；存在本地草稿时只显示横幅。
+
+## 表达版本（用户主动开启）
+
+`lqb variant list` 返回开关、族及 bankRevision；`lqb variant read <familyId>` 返回当前原题指纹、族 revision、当前修订、生成基准、历史、拒绝记录与有效状态。用户须先在组卷页开启版本管理；默认由用户纳入原题。用户另行勾选「允许 Agent 自动纳管新题和指定旧题」后，可使用下述联合录入自动建立关联。Agent 无启用、授权、纠错或审批权限。
+
+`lqb variant propose|revise|refuse --file <json> [--dry-run]` 只通过本地 token API 写独立版本库。清单携带 `familyId`、`revision`、`bankRevision`、`rootFingerprint`。propose 另带调用方固定 UUID `variantId` 和 `content`；revise 还需 `versionRevision`，同一版本产生新修订且回到待审阅。content 形如：
+
+```json
+{
+  "targetKind": "B",
+  "question": "设 $f(x)=x^2$，则 $f'(1)=$\\blank。",
+  "answer": "2",
+  "solution": "$f'(x)=2x$，故 $f'(1)=2$。"
+}
+```
+
+A 需 `choiceKey` 为 A/B/C/D，且题面一组四个不同非空选项 `\choices{…}{…}{…}{…}`；B 需 `\blank`。ABC 仅 ABC；证明题保持原题，不改写，不生成版本。**只改题型表达，不改条件、数值、目标或子问**。附件引用沿用 read 返回的原题或版本路径，服务端复制为独立材料。不要把整题多问压缩成只问其中一问。形式校验不代替数学审阅。refuse 另带 `targetKind`、`reason`，保留不适合转换的依据，不生成占位版本。批准只在界面完成。
+
+版本 ID 已存在、revision 冲突或受保护题型返回退出码 3。网络结果不确定返回 5，先按固定 ID 读取核对，不能盲重放 propose。dry-run 完成同样校验且不创建版本目录/修订/附件。不能用普通导入的 `variantOf` 建立关联，该字段仍拒绝。
+
+每张 Agent 试卷需显式 `useVariants:true` 才可选版本，工作区开关仍需用户开启。候选返回 `origin.ref`。手动建卷/替换的 assignments 支持 `{ "number": 1, "ref": { "kind":"variant", "id":"UUID", "revision":"UUID" } }`，原题仍支持 itemId；引用的具体修订必须仍可用。同原题族最多一道，锁定和手动选择先保留，再做最大匹配；不足保存缺题，不重复也不降级。导出来源表保留原题族与修订追溯。
+
+
+### 原题与多个版本联合录入
+
+用户在组卷页「原题与版本」同时开启版本管理与「允许 Agent 自动纳管新题和指定旧题」后，一次指令即可联合录入。旧工作区升级不会自动授权。不接入模型服务、账号或 API key，外部 Agent 自行提取和生成内容。
+
+按以下顺序执行：
+
+1. `lqb status --json` 和 `lqb variant list --json` 检查当前工作区及 `config.enabled`、`config.agentAutoEnroll`；未授权时向用户说明设置位置，Agent 不可代为授权。
+2. 仅对用户本次指定的旧题运行 `lqb variant read-original <itemId> --json`，保存 `fingerprint`、`familyId`、`revision`。旧题必须已有唯一标准题型；不得通过联合录入改写正文或整理题型。已纳管题复用其族。
+3. 提取新原题，分配固定原题 ID、版本 UUID、每组稳定 `operationId` UUID。自行决定适合的题型和数量，不强制凑齐。自查所有条件、数值、目标、子问均保留；ABC 只转 ABC，证明题不生成版本。零版本时至少提交一条明确拒绝理由。
+4. `lqb variant import --file joint.json --dry-run --json`；修正失败组后再次校验，再执行去掉 `--dry-run` 的同一命令。
+5. 报告每组成功、失败、未确认结果及成功组 `pendingCount`。新原题与新版本均待审阅；旧题原有审阅状态保留。用户先批准原题，再审阅版本，批准后逐卷主动启用版本。
+
+清单示例：
+
+```json
+{
+  "schemaVersion": 1,
+  "groups": [{
+    "operationId": "81000000-0000-4000-8000-000000000001",
+    "original": {
+      "kind": "new",
+      "manifest": {
+        "schemaVersion": 1,
+        "questions": [{
+          "id": "81000000-0000-4000-8000-000000000002",
+          "questionTypes": ["解答"],
+          "solutionSource": "agent",
+          "modules": {
+            "question": {"tex": "求 $1+1$。"},
+            "solution": {"tex": "由加法得 2。"}
+          }
+        }]
+      }
+    },
+    "variants": [{
+      "id": "81000000-0000-4000-8000-000000000003",
+      "content": {"targetKind": "B", "question": "计算 $1+1=$\\blank。", "answer": "2", "solution": "由加法得 2。"}
+    }],
+    "refusals": [{"targetKind": "D", "reason": "原题为计算题，不跨入证明题型。"}]
+  }]
+}
+```
+
+旧题将 `original` 替换为 `{ "kind":"existing", "id":"原题ID", "fingerprint":"读取结果", "familyId":null, "revision":null }`；已纳管题使用返回的族 ID 和 revision。任何内容、题型、附件或关联变化都须重新读取。联合新题的 manifest 复用普通导入的 books、assets、来源、章节、考点等字段，仅允许一道带固定 ID 的新题，不接受 bank、chapters、batch；操作 ID 即新题导入批次 ID。原题 ID 或来源已存在直接冲突，绝不静默覆盖或关联旧题。撤销使用原有批次撤销命令，原题删除后保留版本历史并显示原题缺失。
+
+新题附件在 `original.manifest.assets` 声明 key、originalName、filePath，路径相对于联合清单文件，题目仍用原导入的附件占位符；版本沿用原题附件。CLI 读取文件后发送 `group.uploads: [{key,mimeType,base64}]`，服务端不读取任意本机路径。单附件最多 8 MB、单组 HTTP JSON 最大 64 MB；扩展名、MIME、签名、图像内容与尺寸全部校验。版本中的完整题面、答案、解析均必填，零版本使用 `variants:[]` 与非空 `refusals`。
+
+本地认证接口：`POST /api/agent/variants/import` 接受 `{workspacePath,group,dryRun}`，每次一组；`GET /api/agent/variants/import-result?workspacePath=…&operationId=…[&digest=…]` 查询 `completed`（含 result/digest）、`not-found` 或 `isolated`。CLI 对独立组串行请求，单组错误不妨碍其他组。退出码 3 表示有失败组，5 表示仍有未确认组。`lqb variant import-result <operationId> --json` 可恢复查询。
+
+相同 operationId 和相同规范化 JSON 内容（含附件字节）重复提交返回原结果，内容不同拒绝。网络或服务端 5xx 导致结果不确定时 CLI 自动查询该 ID 与提交摘要，绝不自动重放写请求；未确认组保留 ID，恢复连接后查询并核对，再决定下一步。事务会在下次 workspace 锁内按哈希恢复；未知外部修改保留全部文件并隔离对应组，暂停其入卷，不能宣称回滚成功。需要人工核对原文件及 `variants/import-tx-*.json`，不要删除事务后盲重试。dry-run 不产生本次写入文件，但可能先恢复此前已授权的正式事务。

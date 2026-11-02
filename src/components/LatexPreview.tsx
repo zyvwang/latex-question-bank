@@ -14,16 +14,18 @@ import styles from "./LatexPreview.module.css";
 export function LatexPreview({
   tex,
   assets,
-  compact = false
+  compact = false,
+  assetBaseUrl = "/assets"
 }: {
   tex: string;
   assets: QuestionAsset[];
   compact?: boolean;
+  assetBaseUrl?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const hasRenderedRef = useRef(false);
-  const parts = useMemo(() => splitLatexImages(tex, assets), [assets, tex]);
+  const parts = useMemo(() => splitLatexImages(tex, assets, assetBaseUrl), [assets, tex, assetBaseUrl]);
 
   useEffect(() => {
     const root = ref.current;
