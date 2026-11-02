@@ -59,7 +59,6 @@ export function createSampleBank(): Bank {
       reviewStatus: "approved",
       solutionSource: "user",
       solutionRef: null,
-      variantOf: null,
       importBatchId: null,
       importedAt: null,
       modules: {
@@ -87,7 +86,6 @@ export function createSampleBank(): Bank {
       reviewStatus: "approved",
       solutionSource: "user",
       solutionRef: null,
-      variantOf: null,
       importBatchId: null,
       importedAt: null,
       modules: {

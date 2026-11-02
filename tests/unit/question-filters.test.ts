@@ -208,7 +208,6 @@ function item(
     reviewStatus,
     solutionSource: "user",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: {

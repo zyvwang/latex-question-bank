@@ -1,0 +1,76 @@
+import { _electron as electron, expect, test } from '@playwright/test';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { createSampleBank } from '../../server/bank-schema.js';
+import { defaultPaperSettings, makeSlots, type PaperSnapshot } from '../../shared/papers.js';
+import { quotaRequirements } from '../../shared/paper-topics.js';
+import { hasTex } from '../fixtures/tex.js';
+
+const exec = promisify(execFile);
+test('reviews Agent classifications, protects local drafts and exports an Agent-built strict paper through the CLI',async () => {
+  test.setTimeout(120_000);
+  const root = path.resolve('.tmp/playwright-paper-agent');
+  await rm(root,{recursive:true,force:true});
+  const workspace = path.join(root,'workspace'); const data = path.join(root,'app-data'); const discovery = path.join(root,'agent.json');
+  await mkdir(path.join(workspace,'papers'),{recursive:true});
+  const bank = createSampleBank(); const slots = makeSlots('mock'); const required = quotaRequirements('agent-e2e');
+  bank.chapters = ['calculus','linear','probability'].map((id,i) => ({id,name:id,order:i+1}));
+  bank.items = slots.map((slot,i) => ({...structuredClone(bank.items[0]),id:`agent-q${i}`,source:{bookId:null,label:`演示 ${i+1}`},chapterId:slot.subject,chapterOrder:i+1,topics:[required[i]],questionTypes:[{choice:'选择',blank:'填空',answer:'解答'}[slot.section]]}));
+  bank.items.push({...structuredClone(bank.items[0]),id:'replacement',source:{bookId:null,label:'替换题'},chapterOrder:23});
+  await writeFile(path.join(workspace,'bank.json'),JSON.stringify(bank));
+  await writeFile(path.join(workspace,'papers','settings.json'),JSON.stringify({...defaultPaperSettings(),chapters:{calculus:'calculus',linear:'linear',probability:'probability'}}));
+  const app = await electron.launch({args:['.'],env:{...process.env,LQB_WORKSPACE_DIR:workspace,LQB_APP_DATA_DIR:data,LQB_AGENT_DISCOVERY_FILE:discovery}});
+  const cli = async (...args:string[]) => {
+    const result = await exec(process.execPath,[path.resolve('bin/lqb.mjs'),'paper',...args,'--json'],{cwd:workspace,env:{...process.env,LQB_AGENT_DISCOVERY_FILE:discovery},maxBuffer:16*1024*1024});
+    return JSON.parse(result.stdout);
+  };
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('navigation',{name:'题库页面'}).getByRole('button',{name:'组卷',exact:true}).click();
+    await expect(page.getByText(/主考点分类 ·/)).toBeVisible();
+    const c = await cli('catalog');
+    const proposalFile = path.join(root,'proposals.json');
+    await writeFile(proposalFile,JSON.stringify({schemaVersion:1,bankRevision:c.bankRevision,topicsRevision:c.topicsRevision,entries:bank.items.map((q,i) => ({itemId:q.id,groupId:required[i] ?? required[0],reason:'按主要解题任务提议，请用户确认'}))}));
+    await cli('classify','propose','--file',proposalFile,'--dry-run');
+    expect(await readdir(path.join(workspace,'papers'))).toEqual(['settings.json']);
+    await cli('classify','propose','--file',proposalFile);
+    await expect(page.getByText('主考点分类 · 23 条建议待确认')).toBeVisible();
+    await page.getByText('主考点分类 · 23 条建议待确认').click();
+    await page.getByText('勾选本页建议').click();
+    await page.getByText('确认勾选分类').click();
+    await expect(page.getByText('主考点分类 · 0 条建议待确认')).toBeVisible();
+    const id = '30000000-0000-4000-8000-000000000001'; const manifestFile = path.join(root,'paper.json');
+    await writeFile(manifestFile,JSON.stringify({schemaVersion:1,id,kind:'mock',title:'Agent 综合配额模拟卷',seed:'agent-e2e',mode:'auto',quotaEnabled:true}));
+    const preview = await cli('create','--file',manifestFile,'--dry-run');
+    expect(preview.report.problems.filter(Boolean)).toHaveLength(0);
+    expect(await readdir(path.join(workspace,'papers'))).not.toContain(`${id}.json`);
+    await cli('create','--file',manifestFile);
+    await expect(page.getByRole('button',{name:/Agent 综合配额模拟卷/})).toBeVisible();
+    await page.getByRole('button',{name:/Agent 综合配额模拟卷/}).click();
+    await expect(page.getByLabel('启用综合考点配额')).toBeChecked();
+    await expect(page.getByText('题位齐全，可正式导出')).toBeVisible();
+    const pool = await cli('candidates',id,'--slot','1');
+    const replacement = pool.items[0].id;
+    const swapFile = path.join(root,'swap.json'); await writeFile(swapFile,JSON.stringify({assignments:[{number:1,itemId:replacement}]}));
+    // Hold a real local autosave while an Agent replaces another slot.
+    let release!: () => void; const gate = new Promise<void>(r => {release = r;});
+    await page.route('**/api/papers/save',async route => {await gate; await route.continue();});
+    await page.getByLabel('标题',{exact:true}).fill('保留本地标题草稿');
+    await cli('replace',id,'--file',swapFile);
+    await expect(page.getByText('试卷或分类已在外部更新，当前草稿已保留。')).toBeVisible();
+    await expect(page.getByLabel('标题',{exact:true})).toHaveValue('保留本地标题草稿');
+    release(); await expect(page.getByRole('alert')).toContainText('试卷已被修改');
+    page.once('dialog',d => d.accept()); await page.getByRole('button',{name:'载入磁盘版本'}).click();
+    await expect(page.getByLabel('标题',{exact:true})).toHaveValue('Agent 综合配额模拟卷');
+    const disk = await cli('get',id) as PaperSnapshot;
+    expect(disk.paper.slots[0].snapshot?.id).toBe(replacement);
+    if (hasTex()) {
+      const output = await cli('export',id);
+      expect(output.ok).toBe(true);
+      expect(output.files).toEqual(expect.arrayContaining(['questions.pdf','full.pdf','questions.tex','full.tex','sources.md']));
+      expect((await readFile(path.join(output.exportPath,'questions.pdf'))).subarray(0,4).toString()).toBe('%PDF');
+    }
+  } finally {await app.evaluate(({app}) => app.exit(0)).catch(() => undefined);}
+});

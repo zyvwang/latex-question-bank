@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
+import { createSampleBank } from '../server/bank-schema.js';
+import { detectTexInstallation } from '../server/latex-runtime.js';
+import { copyPaperAttachments, writePaper } from '../server/paper-storage.js';
+import { exportPaper } from '../server/paper-export.js';
+import { defaultPaperSettings, fillPaper, makeSlots, slotProblems, type Paper } from '../shared/papers.js';
+
+const status = await detectTexInstallation();
+if (!status.available) {
+  if (process.env.LQB_REQUIRE_TEX === '1' || status.missingCommand === 'xelatex') throw new Error(status.message);
+  console.log(`Verification papers skipped PDF compile: ${status.message}`);
+  process.exit(0);
+}
+const workspace = path.resolve('.tmp/verify-papers-workspace');
+await rm(workspace,{ recursive: true,force: true });
+await Promise.all(['assets','.tmp','exports'].map(d => mkdir(path.join(workspace,d),{ recursive: true })));
+const bank = createSampleBank();
+const base = bank.items[0];
+const template = makeSlots('mock');
+bank.chapters = ['calculus','linear','probability'].map((id,i) => ({ id,name:id,order:i+1 }));
+bank.items = template.map((slot,i) => ({ ...structuredClone(base),id: `verify-paper-${i+1}`,chapterId:slot.subject,chapterOrder:i+1,topics:[`考点 ${i+1}`],questionTypes:[{ choice:'选择',blank:'填空',answer:'解答' }[slot.section]],modules:{ question:{ tex: slot.section === 'choice' ? '求极限 $\\displaystyle\\lim_{x\\to0}\\frac{\\sin x}{x}$ 的值。\\choices{0}{1}{2}{不存在}' : slot.section === 'blank' ? '$\\displaystyle\\int_0^1 x^2\\,dx=\\blank$。' : '计算积分 $\\displaystyle\\int_0^1 x^2\\,dx$，并说明理由。' },solution:{ tex:i === 20 ? '' : '由基本公式可得 $\\displaystyle\\int_0^1 x^2\\,dx=\\dfrac13$。' },note:{ tex:'PRIVATE NOTE MUST NOT APPEAR' } } }));
+const imageName = 'verify-figure.png';
+await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="180"><rect width="400" height="180" fill="white"/><path d="M40 15V150H370 M40 150Q200 150 350 20" fill="none" stroke="#14264f" stroke-width="2"/><text x="230" y="75" font-size="20">y = x²</text></svg>')).png().toFile(path.join(workspace,'assets',imageName));
+const bytes = await readFile(path.join(workspace,'assets',imageName));
+bank.items[16].assets = [{ id:'figure',fileName:imageName,relativePath:`assets/${imageName}`,originalName:imageName,mimeType:'image/png',size:bytes.length,uploadedAt:base.createdAt }];
+bank.items[16].modules.question.tex += `\n\\qimg[m]{assets/${imageName}}`;
+bank.items[18].modules.question.tex += '\n\n'+Array.from({ length: 25 },(_,i) => `第 ${i+1} 步：考虑 $f(x)=x^{${i+1}}$，在区间 $[0,1]$ 上讨论其连续性与积分。\\par`).join('\n');
+let paper: Paper = { version: 3, useVariants: false,quota:{ enabled:false,blueprintId:'math1-2021-2025-v1' },id:'verify-math-one',title:'数学一 · 导出验证',kind:'mock',seed:'fixed',rules:{ ...defaultPaperSettings(),chapters:{ calculus:'calculus',linear:'linear',probability:'probability' } },filters:{ priorities:[],chapters:[],topics:[],books:[] },latex:bank.settings,slots:template,createdAt:base.createdAt,updatedAt:base.createdAt };
+const empty = structuredClone(paper);
+paper = fillPaper(bank,paper);
+assert(!slotProblems(paper).some(Boolean));
+await copyPaperAttachments(workspace,paper,empty);
+paper.slots[17].space = 'page';
+paper.slots[18].space = 'compact';
+await writePaper(workspace,paper);
+// Independently stored attachments must survive source deletion.
+await rm(path.join(workspace,'assets',imageName));
+const output = await exportPaper(workspace,paper);
+assert(output.ok, output.results.questions.log+'\n'+output.results.full.log);
+assert(!/Overfull \\vbox/.test(output.results.questions.log+output.results.full.log),'Paper layout must not overflow page boxes');
+assert(output.files.includes('questions.pdf') && output.files.includes('full.pdf'));
+const old = await Promise.all(['questions.pdf','full.pdf'].map(f => readFile(path.join(output.exportPath,f))));
+const bad = structuredClone(paper);
+bad.slots[0].snapshot!.modules.question.tex = '\\ThisCommandMustFailPaperVerification';
+const failed = await exportPaper(workspace,bad);
+assert.equal(failed.ok,false);
+const after = await Promise.all(['questions.pdf','full.pdf'].map(f => readFile(path.join(output.exportPath,f))));
+assert.deepEqual(after,old,'Failed compilation must preserve both previous PDFs');
+await writeFile(path.join(workspace,'verification.txt'),`Successful two-PDF export: ${output.exportPath}\nFailed compile preserved both PDFs.\n`);
+console.log(`Verification papers passed: ${output.exportPath}`);

@@ -1,3 +1,4 @@
+import { assertProtectedTypes } from "./variant-storage.js";
 import { randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -266,6 +267,7 @@ async function importIntoBank(options: {
     revision: currentRevision,
     assetCount: assetPlan.toWrite.length
   });
+  await assertProtectedTypes(dirs.workspaceDir,current,draft.bank);
   if (input.dryRun) {
     parseV4Bank({ ...draft.bank, imports: current.imports });
     return summary;
@@ -348,6 +350,7 @@ async function commitImport(options: {
   } = options;
   const writtenPaths: string[] = [];
   try {
+    await assertProtectedTypes(dirs.workspaceDir,current,draft.bank);
     for (const prepared of assetPlan.toWrite) {
       await writePreparedAsset(prepared, dirs.assetDir);
       writtenPaths.push(path.join(dirs.assetDir, prepared.asset.fileName));

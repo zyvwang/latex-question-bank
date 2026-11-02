@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runLatexProcess, terminateProcessTree } from "../../server/latex-process.js";
@@ -9,6 +9,44 @@ afterEach(() => {
     try { process.kill(-pid, "SIGKILL"); } catch { /* Already reaped. */ }
   }
   groups.clear();
+});
+
+describe("TeX process group signal errors", () => {
+  it.each(["SIGTERM", 0] as const)("accepts darwin EPERM from signal %s", async (signal) => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+    const denied = Object.assign(new Error("signal denied"), { code: "EPERM" });
+    const kill = vi.spyOn(process, "kill").mockImplementation((_pid, currentSignal) => {
+      if (currentSignal === signal) throw denied;
+      return true;
+    });
+
+    await expect(terminateProcessTree({ pid: 12345 } as ChildProcess)).resolves.toBeUndefined();
+    expect(kill.mock.calls).toEqual(signal === "SIGTERM"
+      ? [[-12345, "SIGTERM"]]
+      : [[-12345, "SIGTERM"], [-12345, 0]]);
+  });
+
+  it.each(["darwin", "linux"] as const)("accepts ESRCH on %s", async (platform) => {
+    vi.spyOn(process, "platform", "get").mockReturnValue(platform);
+    const missing = Object.assign(new Error("group missing"), { code: "ESRCH" });
+    const kill = vi.spyOn(process, "kill").mockImplementation(() => { throw missing; });
+
+    await expect(terminateProcessTree({ pid: 12345 } as ChildProcess)).resolves.toBeUndefined();
+    expect(kill).toHaveBeenCalledExactlyOnceWith(-12345, "SIGTERM");
+  });
+
+  it.each([
+    ["linux", "EPERM"],
+    ["darwin", "EACCES"],
+    ["linux", "EACCES"]
+  ] as const)("propagates %s %s", async (platform, code) => {
+    vi.spyOn(process, "platform", "get").mockReturnValue(platform);
+    const denied = Object.assign(new Error("signal denied"), { code });
+    const kill = vi.spyOn(process, "kill").mockImplementation(() => { throw denied; });
+
+    await expect(terminateProcessTree({ pid: 12345 } as ChildProcess)).rejects.toBe(denied);
+    expect(kill).toHaveBeenCalledExactlyOnceWith(-12345, "SIGTERM");
+  });
 });
 
 describe.skipIf(process.platform === "win32")("TeX process group cleanup", () => {
@@ -64,7 +102,7 @@ describe("bounded TeX execution", () => {
 
 
 it.skipIf(process.platform === "win32")("blocks new TeX work after failed cleanup and retries before spawning", async () => {
-  const denied = Object.assign(new Error("signal denied"), { code: "EPERM" });
+  const denied = Object.assign(new Error("signal denied"), { code: "EACCES" });
   const kill = vi.spyOn(process, "kill").mockImplementation(() => { throw denied; });
   try {
     const result = await runLatexProcess(process.execPath, ["-e", "console.log(process.pid); setInterval(()=>{},1000)"], {

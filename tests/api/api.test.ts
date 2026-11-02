@@ -617,6 +617,66 @@ describe("API validation", () => {
       .expect(({ body }) => expect(body.code).toBe("IMAGE_MIME_MISMATCH"));
   });
 
+  it("reads former variants as ordinary questions and removes only their association on save", async () => {
+    const app = await listenLocal(createApiApp());
+    await request(app)
+      .post("/api/workspaces/create-empty")
+      .send({ workspacePath })
+      .expect(200);
+    const sample = createSampleBank();
+    const asset = {
+      id: "former-variant-asset",
+      fileName: "screenshot.png",
+      originalName: "截图.png",
+      relativePath: "assets/screenshot.png",
+      mimeType: "image/png",
+      size: validPng.length,
+      uploadedAt: "2026-01-01T00:00:00.000Z",
+      sha256: "a".repeat(64)
+    };
+    sample.items[1].assets = [asset];
+    await writeFile(path.join(workspacePath, "assets", asset.fileName), validPng);
+    const legacy = {
+      ...sample,
+      items: sample.items.map((item, index) => ({
+        ...item,
+        variantOf: index === 0 ? null : sample.items[0].id
+      }))
+    };
+    const raw = `${JSON.stringify(legacy, null, 2)}\n`;
+    const bankPath = path.join(workspacePath, "bank.json");
+    await writeFile(bankPath, raw, "utf8");
+
+    const loaded = await request(app).get("/api/bank").expect(200);
+    expect(loaded.body.revision).toBe(revisionForContent(raw));
+    expect(loaded.body.bank).toEqual(sample);
+    expect(await readFile(bankPath, "utf8")).toBe(raw);
+
+    // An external edit must still conflict before the legacy field can be removed.
+    const externalRaw = `${raw}\n`;
+    await writeFile(bankPath, externalRaw, "utf8");
+    await request(app)
+      .put("/api/bank")
+      .send({ workspacePath, baseRevision: loaded.body.revision, bank: loaded.body.bank })
+      .expect(409)
+      .expect(({ body }) => expect(body.code).toBe("BANK_CONFLICT"));
+    expect(await readFile(bankPath, "utf8")).toBe(externalRaw);
+
+    const latest = await request(app).get("/api/bank").expect(200);
+    await request(app)
+      .put("/api/bank")
+      .send({ workspacePath, baseRevision: latest.body.revision, bank: latest.body.bank })
+      .expect(200);
+
+    expect(JSON.parse(await readFile(bankPath, "utf8"))).toEqual(sample);
+    expect(await readFile(path.join(workspacePath, "assets", asset.fileName))).toEqual(validPng);
+    expect(await readFile(`${bankPath}.bak`, "utf8")).toBe(externalRaw);
+    const historyFiles = await readdir(path.join(workspacePath, ".history"));
+    expect(historyFiles).toHaveLength(1);
+    expect(await readFile(path.join(workspacePath, ".history", historyFiles[0]), "utf8"))
+      .toBe(externalRaw);
+  });
+
   it("reads v1 without rewriting it and preserves v1 before the first v4 save", async () => {
     const app = await listenLocal(createApiApp());
     await request(app)

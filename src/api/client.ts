@@ -184,6 +184,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 const pendingWorkspaceWrites = new Set<Promise<unknown>>();
+const pendingPaperWrites = new Set<Promise<unknown>>();
 let pendingSaveAs: Promise<unknown> | null = null;
 
 export async function confirmSaveBankAs(): Promise<SaveBankAsResponse> {
@@ -204,7 +205,7 @@ async function requestJson<T>(
   options: { allowedErrorStatuses?: number[] } = {}
 ): Promise<T> {
   const writing = Boolean(init?.method && init.method !== "GET");
-  const timeout = url === "/api/export" ? 180_000
+  const timeout = (url === "/api/export" || url === "/api/papers/export") ? 180_000
     : url === "/api/compile-item" ? 75_000 : writing ? 60_000 : 15_000;
   const controller = new AbortController();
   const operation = fetch(url, { ...init, signal: controller.signal })
@@ -212,6 +213,10 @@ async function requestJson<T>(
   // Keep workspace writes observable after the UI deadline. Aborting the fetch
   // would discard the response without proving that the server stopped writing.
   const workspaceWrite = writing && (url.startsWith("/api/workspaces/") || url === "/api/recovery");
+  if (writing && (url.startsWith("/api/papers/") || url.startsWith("/api/variants/"))) {
+    pendingPaperWrites.add(operation);
+    void operation.finally(() => pendingPaperWrites.delete(operation)).catch(() => undefined);
+  }
   if (url === "/api/workspaces/save-as") pendingSaveAs = operation;
   if (workspaceWrite) {
     pendingWorkspaceWrites.add(operation);
@@ -284,4 +289,16 @@ export class ApiRequestError extends Error {
 
 export async function fetchSkins(): Promise<SkinList> {
   return fetchJson<SkinList>("/api/skins");
+}
+
+export async function paperRequest<T>(action: string, workspacePath: string, body: Record<string, unknown> = {}): Promise<T> {
+  return postJson<T>(`/api/papers/${action}`, { ...body, workspacePath });
+}
+
+export async function waitForPaperWrites(): Promise<void> {
+  await deadline(Promise.allSettled([...pendingPaperWrites]),15_000,false);
+}
+
+export function variantRequest<T>(action: string, workspacePath: string, body: Record<string, unknown> = {}): Promise<T> {
+  return postJson<T>(`/api/variants/${action}`, { ...body, workspacePath });
 }

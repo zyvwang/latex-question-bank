@@ -52,6 +52,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
     { id: "editor", name: "打开编辑页", hint: "页面", run: () => appView.setActiveView("editor") },
     { id: "review", name: "打开待审阅", hint: "页面", run: () => appView.setActiveView("review") },
     { id: "distribution", name: "打开复习分布", hint: "页面", run: () => appView.setActiveView("distribution") },
+    { id: "papers", name: "打开组卷", hint: "页面", run: () => appView.setActiveView("papers") },
     { id: "settings", name: "打开题库设置", hint: "页面", run: () => appView.setActiveView("settings") },
     ...skins.map((skin) => ({
       id: `skin-${skin.id}`,

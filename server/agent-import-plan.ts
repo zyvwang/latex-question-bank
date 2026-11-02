@@ -147,7 +147,6 @@ export function planBank(input: PlanInput): PlanResult {
   const itemById = new Map(items.map((item) => [item.id, item]));
   const itemBySource = new Map<string, QuestionItem>();
   for (const item of items) indexSource(itemBySource, item);
-  const knownIds = new Set(items.map((item) => item.id));
   const bookTitles = new Set<string>();
   const conflicts: AgentImportSummary["conflicts"] = [];
   const warnings: AgentImportWarning[] = [];
@@ -213,7 +212,7 @@ export function planBank(input: PlanInput): PlanResult {
       const asset = input.assetsByKey.get(key);
       return asset ? [{ ...asset }] : [];
     });
-    const context = { input, items, knownIds, question, source, chapter, questionAssets };
+    const context = { input, items, question, source, chapter, questionAssets };
 
     let next: QuestionItem;
     if (target) {
@@ -232,7 +231,6 @@ export function planBank(input: PlanInput): PlanResult {
         throw new ValidationError(`题目 ID 已存在：${next.id}`);
       }
       items.push(next);
-      knownIds.add(next.id);
       createdIds.push(next.id);
     }
     itemById.set(next.id, next);
@@ -291,7 +289,6 @@ export function mergeBatchRecord(
 interface ItemContext {
   input: PlanInput;
   items: QuestionItem[];
-  knownIds: Set<string>;
   question: AgentManifestQuestion;
   source: QuestionSource | null;
   chapter: ResolvedChapter;
@@ -299,7 +296,7 @@ interface ItemContext {
 }
 
 function buildUpdatedItem(target: QuestionItem, context: ItemContext): QuestionItem {
-  const { input, items, knownIds, question, source, chapter, questionAssets } = context;
+  const { input, items, question, source, chapter, questionAssets } = context;
   const moving = chapter.provided && chapter.chapterId !== target.chapterId && chapter.chapterId !== null;
   const substitute = (tex: string) => substituteAssets(tex, input.assetsByKey);
   const modules = {
@@ -329,26 +326,18 @@ function buildUpdatedItem(target: QuestionItem, context: ItemContext): QuestionI
     solutionRef: Object.hasOwn(question, "solutionRef")
       ? (question.solutionRef ?? null)
       : target.solutionRef,
-    variantOf: Object.hasOwn(question, "variantOf")
-      ? (question.variantOf ?? null)
-      : target.variantOf,
     importBatchId: input.batchId,
     importedAt: input.now,
     modules,
     assets: mergeAssets(target.assets, questionAssets),
     updatedAt: input.now
   };
-  if (next.variantOf) {
-    validateVariant(next.variantOf, knownIds, next.id);
-  }
   return next;
 }
 
 function buildNewItem(context: ItemContext): QuestionItem {
-  const { input, items, knownIds, question, source, chapter, questionAssets } = context;
+  const { input, items, question, source, chapter, questionAssets } = context;
   const id = question.id ?? randomUUID();
-  const variantOf = question.variantOf ?? null;
-  if (variantOf) validateVariant(variantOf, knownIds, id);
   const solutionTex = question.modules.solution?.tex ?? "";
   const substitute = (tex: string) => substituteAssets(tex, input.assetsByKey);
   return {
@@ -363,7 +352,6 @@ function buildNewItem(context: ItemContext): QuestionItem {
     solutionSource:
       question.solutionSource ?? (solutionTex.trim() ? null : "none"),
     solutionRef: question.solutionRef ?? null,
-    variantOf,
     importBatchId: input.batchId,
     importedAt: input.now,
     modules: {
@@ -602,19 +590,6 @@ function mergeAssets(
 function replaceItem(items: QuestionItem[], next: QuestionItem): void {
   const index = items.findIndex((item) => item.id === next.id);
   if (index >= 0) items[index] = next;
-}
-
-function validateVariant(
-  variantOf: string,
-  knownIds: Set<string>,
-  itemId: string
-): void {
-  if (variantOf === itemId) {
-    throw new ValidationError("variantOf 不能指向题目自身。");
-  }
-  if (!knownIds.has(variantOf)) {
-    throw new ValidationError(`variantOf 指向不存在的题目：${variantOf}`);
-  }
 }
 
 function uniqueUnion(left: string[], right: string[]): string[] {

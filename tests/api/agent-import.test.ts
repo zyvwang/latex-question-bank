@@ -163,40 +163,20 @@ describe("agent import API", () => {
     expect(response.body.code).toBe("WORKSPACE_CHANGED");
   });
 
-  it("links variants to existing questions and rejects unknown originals", async () => {
+  it("rejects the removed variantOf field without changing the bank", async () => {
     const app = await setup();
-    await postImport(app, validManifest());
-    let snapshot = await getBank(app);
-    const original = snapshot.bank.items.find(
-      (item) => item.source?.label === "例 3.58"
-    )!;
-
-    const variantManifest = validManifest();
-    variantManifest.questions = [
-      {
-        ...variantManifest.questions[0],
-        source: { bookTitle: "A 书", label: "变式 1" },
-        variantOf: original.id,
-        solutionSource: "agent",
-        reviewPriority: null
-      }
-    ];
-    const variant = await postImport(app, variantManifest);
-    expect(variant.status).toBe(200);
-    snapshot = await getBank(app);
-    expect(
-      snapshot.bank.items.find((item) => item.source?.label === "变式 1")
-    ).toMatchObject({
-      variantOf: original.id,
-      reviewStatus: "pending",
-      solutionSource: "agent"
-    });
-
-    const missing = validManifest();
-    missing.questions[0].variantOf = "missing-question";
-    const rejected = await postImport(app, missing);
-    expect(rejected.status).toBe(400);
-    expect(rejected.body.code).toBe("AGENT_MANIFEST_INVALID");
+    const before = await getBank(app);
+    for (const variantOf of ["original-question", null]) {
+      const manifest = validManifest();
+      const response = await postImportRaw(app, {
+        ...manifest,
+        questions: [{ ...manifest.questions[0], variantOf }]
+      });
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe("AGENT_MANIFEST_INVALID");
+      expect(response.body.error).toContain("variantOf");
+    }
+    expect(await getBank(app)).toEqual(before);
   });
 
   it("preserves UTF-8 attachment filenames", async () => {

@@ -10,7 +10,13 @@
   font-size: 17px;
   line-height: 1.82;
 }
-.compact { min-height: 160px; height: 100%; padding: 22px 26px 30px; }
+/* Inline paper previews must allow wheel input to reach the surrounding page. */
+.compact {
+  min-height: 160px;
+  height: 100%;
+  padding: 22px 26px 30px;
+  overscroll-behavior: auto;
+}
 .previewPane::-webkit-scrollbar { width: 10px; height: 10px; }
 .previewPane::-webkit-scrollbar-thumb {
   border: 3px solid transparent;

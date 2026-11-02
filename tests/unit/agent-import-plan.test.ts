@@ -99,12 +99,9 @@ describe("planBank", () => {
     expect([...result.bookTitles]).toEqual(["新书"]);
   });
 
-  it("rejects duplicate sources, unknown variants, and missing asset keys", () => {
+  it("rejects duplicate sources and missing asset keys", () => {
     const question = { source: { bookId: "book-sample", label: "dup" }, modules: { question: { tex: "x" } } };
     expect(() => plan({ questions: [question, question] })).toThrow("来源题号重复");
-    expect(() =>
-      plan({ questions: [{ variantOf: "missing", modules: { question: { tex: "x" } } }] })
-    ).toThrow("variantOf 指向不存在的题目");
     expect(() =>
       plan({ questions: [{ modules: { question: { tex: "{{asset: fig}}" } } }] })
     ).toThrow("不存在的 key：fig");

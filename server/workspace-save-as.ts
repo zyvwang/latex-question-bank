@@ -1,3 +1,4 @@
+import { copyVariantWorkspace, assertProtectedTypes } from "./variant-storage.js";
 import {
   copyFile,
   lstat,
@@ -8,6 +9,7 @@ import {
   rmdir
 } from "node:fs/promises";
 import path from "node:path";
+import { copyPapersWorkspace } from "./paper-storage.js";
 import type {
   BankSnapshot,
   SaveBankAsRequest
@@ -67,11 +69,11 @@ export async function saveBankAsWorkspace(
     let committed = false;
 
     try {
-      await buildStagedWorkspace(
+      await withWorkspaceWriteLock(sourceWorkspacePath, () => buildStagedWorkspace(
         sourceWorkspacePath,
         stagingPath,
         bank
-      );
+      ));
       if (targetExisted) {
         // rmdir 只有在目录此刻仍为空时才成功，避免检查后竞态覆盖新文件。
         await rmdir(targetWorkspacePath);
@@ -176,6 +178,9 @@ async function buildStagedWorkspace(
     );
   }
 
+  await assertProtectedTypes(sourceWorkspacePath,{...bank,items:[]},bank);
+  await copyPapersWorkspace(sourceWorkspacePath, stagingPath);
+  await copyVariantWorkspace(sourceWorkspacePath, stagingPath);
   await writeJsonFileAtomic(stagingDirs.bankPath, bank, {
     backup: false
   });

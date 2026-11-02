@@ -1,3 +1,4 @@
+import { assertProtectedTypes } from "./variant-storage.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseV4Bank } from "../shared/bank-validation.js";
@@ -66,6 +67,7 @@ export async function commitBank(
   options: { snapshot?: boolean } = {}
 ): Promise<string> {
   const finalBank = parseV4Bank(bank);
+  await assertProtectedTypes(context.workspacePath,context.current,finalBank);
   if (options.snapshot || storedVersion(context.raw) !== finalBank.version) {
     await createHistorySnapshot(context.dirs, context.raw, context.revision);
   }

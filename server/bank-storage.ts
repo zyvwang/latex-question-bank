@@ -1,3 +1,4 @@
+import { assertProtectedTypes } from "./variant-storage.js";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -100,6 +101,9 @@ export async function saveBankSnapshot(request: SaveBankRequest): Promise<BankSn
     }
 
     const bank = requireValidBank(request.bank);
+    let previous: Bank;
+    try { previous = requireValidBank(JSON.parse(currentRaw)); } catch { previous = { ...bank,items:[] }; }
+    await assertProtectedTypes(workspacePath, previous, bank);
     if (!hasSessionHistory(workspacePath)) {
       await createHistorySnapshot(dirs, currentRaw, currentRevision);
       markSessionHistoryCreated(workspacePath);

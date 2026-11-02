@@ -215,7 +215,6 @@ function buildBankFromLegacy(input: {
       reviewStatus: pending ? "pending" : "approved",
       solutionSource: null,
       solutionRef: null,
-      variantOf: null,
       importBatchId: null,
       importedAt: null,
       modules: item.modules,

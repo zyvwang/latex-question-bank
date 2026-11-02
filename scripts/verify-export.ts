@@ -45,7 +45,6 @@ const items: QuestionItem[] = [
     reviewStatus: "approved",
     solutionSource: "user",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: {
@@ -84,7 +83,6 @@ const items: QuestionItem[] = [
     reviewStatus: "approved",
     solutionSource: "user",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: {
@@ -120,7 +118,6 @@ const items: QuestionItem[] = [
     reviewStatus: "approved",
     solutionSource: "user",
     solutionRef: null,
-    variantOf: null,
     importBatchId: null,
     importedAt: null,
     modules: {

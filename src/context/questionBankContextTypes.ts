@@ -26,7 +26,7 @@ import type {
   SaveIssue,
   SaveState
 } from "../hooks/controllerTypes.js";
-import type { AppView } from "../hooks/useAppView.js";
+import type { AppView, ReviewTab } from "../hooks/useAppView.js";
 import type { QuestionListMode } from "../hooks/useSelectionFilters.js";
 import type { DistributionStatus } from "../reviewDistribution.js";
 import type { DropPosition } from "../itemOrder.js";
@@ -42,7 +42,7 @@ export interface LifecycleContextValue {
   loadError: string | null;
   recoveryCandidates: RecoveryCandidate[];
   setNotice: (notice: Notice | null) => void;
-  reloadExternalBank: () => Promise<void>;
+  reloadExternalBank: (options?: { confirmed?: boolean }) => Promise<void>;
   dismissExternalBankNotice: () => void;
   retrySave: () => Promise<void>;
   refreshSaveConflict: () => Promise<void>;
@@ -126,6 +126,10 @@ export interface SelectionContextValue {
 export interface AppViewContextValue {
   activeView: AppView;
   setActiveView: (view: AppView) => void;
+  reviewTab: ReviewTab;
+  setReviewTab: (tab: ReviewTab) => void;
+  variantFocus: { familyId: string } | null;
+  focusVariantFamily: (familyId: string) => void;
   distributionExpanded: string[];
   toggleDistributionChapter: (id: string) => void;
   distributionScrollTop: number;

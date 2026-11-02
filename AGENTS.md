@@ -30,6 +30,7 @@ React UI
 - 构建本地 Agent CLI：`npm run build:cli`
 - 安装/链接本地 Agent CLI：`npm run link:cli`
 - 重新生成 README 实际界面截图：`npm run screenshots:readme`
+- 重新生成品牌图标：`npm run brand:icons`（需要 macOS 的 `iconutil`；图形只在 `scripts/generate-brand-icons.ts` 里改）
 - 类型检查：`npm run typecheck`
 - Lint：`npm run lint`
 - 依赖安全审计：`npm run audit:security`
@@ -46,7 +47,7 @@ React UI
 
 `npm run audit:security` 会对生产与开发依赖执行中高等级漏洞门禁；CI 和发布工作流会在安装依赖前执行它，审计服务不可用时也按失败处理。`npm run verify` 会执行 lint、测试、构建、覆盖率和导出验证，但不重复运行联网安全审计。`scripts/verify-export.ts` 会检查 `latexmk` 和 `xelatex`：未检测到可用的 `latexmk` 时可跳过真实 PDF 编译；如果已检测到 `latexmk` 但 `xelatex` 不可用，验证直接失败，不得转为成功跳过。只有输出 `Verification export passed` 时，才能声称真实 LaTeX 导出编译通过。导出、当前题编译以及部分发布核查依赖本机 TeX 环境，推荐安装可用的 `latexmk` 和 `xelatex`。
 
-设 `LQB_REQUIRE_TEX=1` 时，缺少 TeX 不再跳过而是直接失败。CI 的 `latex-export` job（`.github/workflows/ci.yml`，只在 push main 和 workflow_dispatch 上跑）和发布工作流的 `verify-latex` job（`.github/workflows/release.yml`）负责真实编译；PR 上的 `verify` job 没有 TeX，它的绿色不代表导出可用。改动 `server/latex-renderer.ts` 的 preamble 引入新宏包时，要同步检查这两个 job 的 apt 包清单，并保留 `LQB_REQUIRE_TEX=1`，避免缺少 TeX 时产生空验证。
+设 `LQB_REQUIRE_TEX=1` 时，缺少 TeX 不再跳过而是直接失败。CI 的 `latex-export` job（`.github/workflows/ci.yml`，只在 push main 和 workflow_dispatch 上跑）和发布工作流的 `verify-latex` job（`.github/workflows/release.yml`）负责真实编译；PR 上的 `verify` job 没有 TeX，它的绿色不代表导出可用。`desktop-smoke` 同样没有 TeX：桌面测试里的真实导出断言要放在 `tests/fixtures/tex.ts` 的 `hasTex()` 之后，缺 TeX 时只跳过这一步，`LQB_REQUIRE_TEX=1` 时直接失败。改动 `server/latex-renderer.ts` 的 preamble 引入新宏包时，要同步检查这两个 job 的 apt 包清单，并保留 `LQB_REQUIRE_TEX=1`，避免缺少 TeX 时产生空验证。
 
 开发端口约定：
 
@@ -66,11 +67,12 @@ React UI
 - `src/hooks/useAutosave.ts`：自动保存队列、单飞保存和 `flush()` 边界。
 - `src/components/`：聚焦的界面组件。保持组件职责窄，不要把业务协调逻辑塞回大组件。
 - `src/components/ReviewScreen.tsx`、`ReviewToolbar.tsx`：独立待审阅页，复用 `EditorLayout` 的侧栏和编辑器。
+- `src/components/VariantReviewQueue.tsx`、`src/hooks/useVariantQueue.ts`：待审阅页的版本总队列；只在开启版本管理后显示，批准仍走 `variantOperation` 的 `review`，Agent 不可读队列或审批。
 - `src/utils/latexText.ts`：预览专用的文本命令翻译，只处理公式以外的内容，不影响导出。TikZ 不编译，原位显示提示。
 - `src/components/DistributionScreen.tsx`、`src/reviewDistribution.ts`：只读的「复习分布」页和纯统计逻辑；不新增 API、不写题库。
 - `src/context/SkinProvider.tsx`、`src/components/SkinSettings.tsx`、`src/components/CommandPalette.tsx`：皮肤运行时、皮肤设置和 `⌘K` 命令面板。
 - `shared/skins.ts`、`shared/builtin-skins.ts`、`server/skin-storage.ts`、`server/routes/skin-routes.ts`、`docs/skin-authoring.md`、`docs/skin.schema.json`：皮肤约定、校验、存储和 Agent 文档。皮肤只含 token 与枚举选项，不含 CSS、脚本或 URL；token 是带版本的公开约定，改名属于破坏性变更。
-- `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览；变式原题链接在 `WorkspaceDetails.tsx` 的上下文行。
+- `src/components/QuestionAssets.tsx`：详情区附件缩略图与放大预览。
 - `src/hooks/useExternalBankSync.ts`：SSE 外部导入/撤销同步；空闲自动重载，有本地草稿时显示横幅。
 - `src/styles/foundation.css`：全局 reset、语义 token、focus 和 reduced motion。
 - `src/styles/controls.module.css`：共享按钮样式。
@@ -108,7 +110,7 @@ React UI
 - `reviewPriority: "skip" | "recheck" | "must" | null`：界面「复习优先级」。
 - `reviewStatus: "pending" | "approved"`：Agent 导入的题默认 pending。
 - `solutionSource: "answer-book" | "agent" | "user" | "none" | null`、`solutionRef`。
-- `variantOf`、`importBatchId`、`importedAt`。
+- `importBatchId`、`importedAt`。旧题库的 `variantOf` 读取时忽略，下次正常保存时移除，题目保留为普通题；Agent 导入清单携带该字段时直接拒绝。
 
 `Bank` 同时包含 `books: BookRecord[]` 和 `imports: ImportBatchRecord[]`。导入记录最多 50 条；同一 `batch.id` 的分块导入会合并为一条记录，并复用首块 `.history/` 快照作为整批撤销点。旧的 `masteryOptions`、`errorReasonOptions`、`masteryHistory` 已删除；「待审阅」是保留值，不能作为 `topics`/`questionTypes` 保存。迁移逻辑在 `shared/bank-migration.ts`（v3 的 `考点·x` 去前缀进 `topics`、`题型·x` 进 `questionTypes`，`考法·x` 与无前缀标签丢弃；v1/v2 早于前缀约定，无前缀标签按考点保留），来源解析与显示在 `shared/question-source.ts`，复习/答案来源枚举在 `shared/review-fields.ts`，Agent 清单校验在 `shared/agent-manifest.ts`，撤销请求/结果类型在 `shared/agent-undo.ts`。
 
@@ -171,8 +173,8 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 ### README 截图约定
 
 - README 实际界面截图只通过 `npm run screenshots:readme` 生成；源文件和确定性演示数据在 `scripts/capture-readme-screenshots.ts`。
-- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果；`setup.png` 只在首次启动界面变化时更新。
-- `main.png`、`review.png`、`distribution.png`、`settings.png` 固定为 1470×891。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示待审阅、变式徽标、原题链接和截图附件缩略图；复习分布页使用同一批 48 道题，但优先级改为偏态分布；设置页展示书目与导入记录。掌握历史已移除，不再生成对应截图。
+- 脚本只使用 `.tmp/readme-screenshots/` 下的合成 workspace 和合成截图附件，完成或失败后清理。不得用真实题库、用户 workspace 或临时手工截图替换生成结果。
+- `setup.png`、`main.png`、`review.png`、`distribution.png`、`settings.png` 固定为 1470×891。`setup.png` 用全新的应用数据目录启动，不带 workspace。主编辑器使用 48 道合成题，每题一个“洛必达”“求极限”“泰勒展开”等短考点和一个题型，保持侧栏密度；审阅页展示一次讲义积分章导入：6 道待审阅真题，首题带函数图形附件，不用占位题干或截图式附件；复习分布页使用同一批 48 道题，但优先级改为偏态分布；设置页展示书目与导入记录。掌握历史已移除，不再生成对应截图。
 - 布局变化后先更新脚本中的选择器或演示数据，再运行命令并实际检查生成的图片。除非用户明确修改截图方向，不要改回低密度两题样例。
 
 ## 后端与 Electron 约定
@@ -237,3 +239,25 @@ Agent 导入边界（命令、清单、分块与撤销语义见 `docs/agent-work
 - 如果改了 schema 或示例数据，同步迁移脚本、样例和测试。
 - 如果改了导出或编译，确认失败时不会破坏上一次成功输出。
 - 不要提交用户 workspace 内容、生成产物、覆盖率结果或本地应用数据。
+
+## 独立组卷
+
+- `shared/papers.ts`：version 2 试卷契约（v1 内存兼容，配额关闭）、固定数一模板、归类/筛选和确定性选题；题库继续使用 v4。
+- `server/paper-service.ts`、`paper-storage.ts`、`paper-export.ts`、`routes/paper-routes.ts`：试卷 revision、服务端快照与独立附件、双 PDF 导出；workspace 的 `papers/` 同样必须走目录和单文件路径守卫。
+- `PapersScreen` 在页面切换时保留挂载；`usePaperDraft` / `usePaperSettingsDraft` 保持单飞队列，关闭、工作区切换和另存调用 `flushPaperChanges`。超时写入先等待原请求并核对磁盘，不自动重放。
+- 试卷保存只能保留已有快照；新选题必须通过服务端按 bank revision 读取和复制。原题修改/删除不影响旧卷；规则变化保留快照并标记冲突，缺题或冲突禁止正式导出。
+- `scripts/verify-papers.ts` 已接入 `npm run verify`，真实编译两份 PDF 并检查失败保留旧输出。README 的 `papers.png`、`variant-queue.png` 仍只通过 `npm run screenshots:readme` 的合成数据生成；队列图用 6 道合成原题、每题两个版本，其中一道原题待审阅。详细约定见 `docs/papers.md`。
+
+- `shared/paper-topics.ts` 固定标准组、110 道真题主考点标注及种子配额，属于产品编辑统计口径，不是官方分类。配额先于库存确定，不能为补题放宽。
+- `server/paper-topic-service.ts` 管理 `papers/topics.json` 的分类建议、人工确认、语义指纹和独立 revision；Agent 只能提议，不能确认。分类不写 bank、不改审阅状态，旧卷分类快照独立。
+- `/api/agent/papers` 与 `lqb paper` 复用现有组卷服务、token、写锁和快照/附件守卫；题号从 1 开始。dry-run 不创建目录或文件，修改校验 bank/paper/topics revision。创建 UUID 不覆盖既有卷，导出只接受显式命令。
+
+## 表达版本补充边界
+
+- 题库保持 v4；版本库是 guarded `variants/` 的独立 v1 契约（`shared/variants.ts`），不能恢复普通题的 `variantOf`。
+- `variant-service.ts` / `variant-storage.ts` 管族、不可变修订、基准、审批、原题型 epoch 与纠错恢复。Agent 可 list/read/read-original/propose/revise/refuse/import/import-result；仅在用户同时开启版本管理及 agentAutoEnroll 后，联合录入可自动纳管新题与本次指定旧题。Agent 不可启用授权、纠错或审批。ABC 只改表达，D 仅 D，数学等价须用户审阅。
+- 用户纳入后原始标准题型保护适用于 bank save、Agent 导入/批改及撤销、另存。专门纠错用前后哈希意图事务，不能把两个 rename 称为原子提交；所有 bank 写锁先恢复，未知状态隔离族并保留原文件。
+- `variant-candidates.ts` 是版本入卷边界；paper v3 使用结构化来源及原题 ID，同族最多一道，锁题/手动先保留，跨题型须做族最大匹配。禁止按版本数量增加族权重。v1/v2 只读迁移，已有 paper 快照不依赖源题或版本库导出。
+- `VariantManager` 草稿、单飞写入和未知结果加入现有 close/workspace/save-as boundary；读取 SSE 时不得覆盖本地草稿或待审选择。
+
+- 联合录入协调在 `server/variant-import-service.ts`；`variant-import-storage.ts` 登记操作摘要、逐文件写前哈希及完整内容，在 workspace 锁内恢复。未知修改保留文件、隔离该组；CLI 超时先按 operationId 与内容摘要查询，禁止盲重放。新题复用原导入规划和撤销记录，旧题只引用不覆盖。

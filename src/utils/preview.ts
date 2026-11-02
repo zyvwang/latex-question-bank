@@ -16,7 +16,8 @@ export type LatexPreviewPart =
 
 export function splitLatexImages(
   tex: string,
-  assets: QuestionAsset[]
+  assets: QuestionAsset[],
+  assetBaseUrl = "/assets"
 ): LatexPreviewPart[] {
   const parts: LatexPreviewPart[] = [];
   const assetByPath = new Map(assets.map((asset) => [asset.relativePath, asset]));
@@ -29,7 +30,7 @@ export function splitLatexImages(
     const asset = assetByPath.get(imagePath);
     parts.push({
       type: "image",
-      src: asset ? `/assets/${asset.fileName}` : `/${imagePath}`,
+      src: asset ? `${assetBaseUrl}/${asset.fileName}` : `/${imagePath}`,
       alt: asset?.originalName ?? imagePath,
       size: match[1] === "qimg" ? parseImageSize(match[2]) : null
     });

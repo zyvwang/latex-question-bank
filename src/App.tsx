@@ -1,3 +1,4 @@
+import { PapersScreen } from "./components/PapersScreen.js";
 import { LoadingScreen } from "./components/LoadingScreen.js";
 import { AppErrorBoundary } from "./components/AppErrorBoundary.js";
 import { AppNavigation } from "./components/AppNavigation.js";
@@ -49,9 +50,10 @@ function AppContent() {
             <ReviewScreen />
           ) : appView.activeView === "distribution" ? (
             <DistributionScreen />
-          ) : (
+          ) : appView.activeView === "papers" ? null : (
             <SettingsScreen />
           )}
+          <PapersScreen key={workspace.appInfo.currentWorkspacePath} workspace={workspace.appInfo.currentWorkspacePath} visible={appView.activeView === "papers"} variantFocus={appView.variantFocus} />
         </div>
         {workspace.isWorkspaceUncertain && (
           <div role="alert" className={styles.workspaceRecovery}>

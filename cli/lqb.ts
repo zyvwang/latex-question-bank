@@ -1,3 +1,5 @@
+import { runVariantCommand } from './variant-commands.js';
+import { runPaperCommand } from "./paper-commands.js";
 import { BUILTIN_SKINS } from "../shared/builtin-skins.js";
 import { parseSkin, validateSkin } from "../shared/skins.js";
 import { createHash, randomBytes } from "node:crypto";
@@ -72,6 +74,7 @@ interface ParsedArgs {
 }
 
 const VALUE_FLAGS = new Set([
+  "slot",
   "from",
   "out",
   "workspace",
@@ -106,6 +109,21 @@ async function main(): Promise<void> {
     return;
   }
   switch (command) {
+    case "variant":
+    case "paper": {
+      const discovery = await readDiscovery();
+      const target = await resolveTarget(discovery, await agentStatus(discovery), args, true);
+      return (command === "variant" ? runVariantCommand : runPaperCommand)(rest, args.flags, target.workspacePath, async (pathname, init) => {
+        let response: Response;
+        try { response = await agentRequest(discovery, pathname, command === "variant" ? {signal:AbortSignal.timeout(30_000),...init} : init); }
+        catch { throw new CliError(5, command === "variant" ? "无法确认版本操作结果，请恢复连接后按原题族与固定版本 ID 读取核对；不要自动重试写入。" : "无法确认组卷操作结果，请恢复连接后按试卷 ID 读取核对；不要自动重试写入。"); }
+        let payload: unknown;
+        try {payload=await response.json();} catch {throw new CliError(5,"无法读取操作响应，请先查询结果，勿重复提交。");}
+        if (response.status >= 500 && command === "variant" && rest[0] === "import") throw new CliError(5,"联合录入响应失败，按 operationId 查询结果。");
+        if (!response.ok) throw apiError(response.status,payload);
+        return payload;
+      });
+    }
     case "skin":
       return skinCommand(args, rest);
     case "status":
@@ -1091,7 +1109,7 @@ function apiError(status: number, payload: unknown): CliError {
     typeof record.error === "string" ? record.error : `请求失败（${status}）。`;
   if (status === 401) return new CliError(5, message);
   if (code === "WORKSPACE_CHANGED") return new CliError(4, message);
-  if (code === "BANK_CONFLICT") return new CliError(3, message);
+  if (["BANK_CONFLICT", "PAPER_CONFLICT", "PAPER_TOPICS_CONFLICT", "PAPER_EXISTS", "VARIANT_CONFLICT", "VARIANT_EXISTS", "ORIGINAL_TYPE_PROTECTED", "VARIANTS_DISABLED", "VARIANT_SOURCE_UNAVAILABLE", "VARIANT_IMPORT_CONFLICT", "VARIANT_OPERATION_REUSED", "VARIANT_IMPORT_ISOLATED", "VARIANT_AUTO_ENROLL_DISABLED"].includes(code)) return new CliError(3, message);
   if (
     code === "UNDO_BATCH_NOT_FOUND" ||
     code === "UNDO_BATCH_ALREADY_UNDONE" ||
@@ -1199,7 +1217,6 @@ function summarizeItem(item: QuestionItem, bank: Bank) {
     questionTypes: item.questionTypes,
     reviewPriority: item.reviewPriority,
     reviewStatus: item.reviewStatus,
-    variantOf: item.variantOf,
     question: item.modules.question.tex.slice(0, 300)
   };
 }
@@ -1291,6 +1308,10 @@ function printHelp(): void {
   console.log(`lqb — LaTeX 题库本地 Agent CLI
 
 用法：
+  lqb variant read-original <itemId> | import-result <operationId>
+  lqb variant import --file <json> [--dry-run]
+  lqb variant list | read <familyId> | propose/revise/refuse --file <json> [--dry-run]
+  lqb paper catalog | classify list/propose --file <json> | list | get <id> | candidates <id> --slot <题号> | create --file <json> | generate <id> | replace <id> --file <json> | export <id> [--dry-run] [--json]
   lqb status [--json]
   lqb link [--workspace <path>] [--json]
   lqb agent-init [--dir <path>] [--force]
@@ -1319,5 +1340,5 @@ main().catch((error) => {
   const message =
     error instanceof Error ? error.message : "lqb 执行失败。";
   console.error(message);
-  process.exitCode = error instanceof CliError ? error.exitCode : 1;
+  process.exitCode = error instanceof CliError ? error.exitCode : process.exitCode || 1;
 });

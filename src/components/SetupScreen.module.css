@@ -24,12 +24,6 @@
   font-size: 18px;
 }
 
-.loadingMark img,
-.setupBrand img {
-  border-radius: var(--r-md);
-  box-shadow: var(--seg-shadow);
-}
-
 .setupPanel {
   width: min(580px, 100%);
   display: grid;

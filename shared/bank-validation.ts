@@ -371,7 +371,6 @@ export function parseQuestionItem(value: unknown): QuestionItem {
     reviewStatus: parseReviewStatus(value.reviewStatus),
     solutionSource: parseSolutionSource(value.solutionSource),
     solutionRef: optionalStringField(value, "solutionRef"),
-    variantOf: optionalIdField(value, "variantOf"),
     importBatchId: optionalIdField(value, "importBatchId"),
     importedAt: optionalStringField(value, "importedAt"),
     modules: parseModules(value),

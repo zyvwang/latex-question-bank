@@ -69,3 +69,13 @@ export function broadcastSkinsChanged(event: { id: string }): void {
     if (!client.writableEnded) client.write(payload);
   }
 }
+
+export function broadcastPaperChanged(event: { workspacePath: string; id?: string; revision: string; topics?: boolean; source?: "agent" | "ui" }) {
+  const payload = `event: ${event.topics ? "paper-topics-changed" : "paper-changed"}\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const client of clients) if (!client.writableEnded) client.write(payload);
+}
+
+export function broadcastVariantsChanged(event: { workspacePath:string; source:"agent"|"ui" }) {
+  const payload = `event: variants-changed\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const client of clients) if (!client.writableEnded) client.write(payload);
+}

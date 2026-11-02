@@ -91,7 +91,6 @@ export interface QuestionItem {
   reviewStatus: ReviewStatus;
   solutionSource: SolutionSource | null;
   solutionRef: string | null;
-  variantOf: string | null;
   importBatchId: string | null;
   importedAt: string | null;
   modules: QuestionModules;
