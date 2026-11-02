@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createSampleBank } from '../../server/bank-schema.js';
 import { defaultPaperSettings, makeSlots, type PaperSnapshot } from '../../shared/papers.js';
 import { quotaRequirements } from '../../shared/paper-topics.js';
+import { hasTex } from '../fixtures/tex.js';
 
 const exec = promisify(execFile);
 test('reviews Agent classifications, protects local drafts and exports an Agent-built strict paper through the CLI',async () => {
@@ -65,9 +66,11 @@ test('reviews Agent classifications, protects local drafts and exports an Agent-
     await expect(page.getByLabel('标题',{exact:true})).toHaveValue('Agent 综合配额模拟卷');
     const disk = await cli('get',id) as PaperSnapshot;
     expect(disk.paper.slots[0].snapshot?.id).toBe(replacement);
-    const output = await cli('export',id);
-    expect(output.ok).toBe(true);
-    expect(output.files).toEqual(expect.arrayContaining(['questions.pdf','full.pdf','questions.tex','full.tex','sources.md']));
-    expect((await readFile(path.join(output.exportPath,'questions.pdf'))).subarray(0,4).toString()).toBe('%PDF');
+    if (hasTex()) {
+      const output = await cli('export',id);
+      expect(output.ok).toBe(true);
+      expect(output.files).toEqual(expect.arrayContaining(['questions.pdf','full.pdf','questions.tex','full.tex','sources.md']));
+      expect((await readFile(path.join(output.exportPath,'questions.pdf'))).subarray(0,4).toString()).toBe('%PDF');
+    }
   } finally {await app.evaluate(({app}) => app.exit(0)).catch(() => undefined);}
 });

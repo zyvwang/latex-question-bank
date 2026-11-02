@@ -1,3 +1,4 @@
+import { hasTex } from '../fixtures/tex.js';
 import {_electron as electron,expect,test} from '@playwright/test';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -24,7 +25,7 @@ test('Agent proposes, user reviews, a version paper exports and a focused revisi
     v=await cli('variant','read',v.family.id);const paperId='70000000-0000-4000-8000-000000000002';const paperFile=path.join(root,'paper.json');
     await writeFile(paperFile,JSON.stringify({schemaVersion:1,id:paperId,kind:'practice',title:'表达版本练习卷',mode:'manual',useVariants:true,counts:[0,1,0],assignments:[{number:1,ref:{kind:'variant',id:variantId,revision:v.rows[0].revision.id}}]}));
     const created=await cli('paper','create','--file',paperFile) as PaperSnapshot;expect(created.paper.slots[0].origin?.rootId).toBe(bank.items[0].id);
-    const output=await cli('paper','export',paperId);expect(output.ok).toBe(true);expect((await readFile(path.join(output.exportPath,'questions.pdf'))).subarray(0,4).toString()).toBe('%PDF');expect(await readFile(path.join(output.exportPath,'sources.md'),'utf8')).toContain(variantId);
+    if (hasTex()) {const output=await cli('paper','export',paperId);expect(output.ok).toBe(true);expect((await readFile(path.join(output.exportPath,'questions.pdf'))).subarray(0,4).toString()).toBe('%PDF');expect(await readFile(path.join(output.exportPath,'sources.md'),'utf8')).toContain(variantId);}
     await page.getByText('专门纠错：原始题型').click();await page.getByLabel('正确题型').selectOption('B');await page.getByLabel('纠错理由').fill('原始题型标记应为填空');page.once('dialog',d => d.accept());await page.getByText('确认纠错并标记待复核').click();await expect(page.getByText('待复核',{exact:true})).toBeVisible();
     o=await cli('variant','list');v=await cli('variant','read',v.family.id);expect(v.family.typeEpoch).toBe(2);expect(o.config.enabled).toBe(true);await page.getByLabel('开启本工作区版本管理').click();await expect(page.getByLabel('开启本工作区版本管理')).not.toBeChecked();expect((await cli('paper','export',paperId)).ok).toBe(true);await page.getByLabel('开启本工作区版本管理').click();await expect(page.getByLabel('开启本工作区版本管理')).toBeChecked();
     await page.getByRole('button',{name:'修订',exact:true}).click();const answer=page.getByRole('group',{name:'答案',exact:true}).locator('.cm-content');await answer.fill('2（退出前补充答案说明）');

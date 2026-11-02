@@ -1,3 +1,4 @@
+import { hasTex } from '../fixtures/tex.js';
 import {_electron as electron,expect,test} from '@playwright/test';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -27,8 +28,8 @@ test('one joint import, human original/version review, version paper and both PD
     await expect(page.getByLabel(`勾选版本 ${ids[2]}`)).toBeVisible();await page.getByLabel(`勾选版本 ${ids[2]}`).check();await page.getByLabel(`勾选版本 ${ids[3]}`).check();await page.getByText('批准勾选版本').click();await expect(page.locator('#variant-manager').getByText('已批准',{exact:true})).toHaveCount(2);
     const v=await cli('variant','read',result.familyId) as FamilyView;expect(v.rows.every(r => r.eligible)).toBe(true);
     const paperFile=path.join(root,'paper.json');await writeFile(paperFile,JSON.stringify({schemaVersion:1,id:'82000000-0000-4000-8000-000000000005',kind:'practice',title:'联合录入版本验收',mode:'manual',useVariants:true,counts:[0,1,0],assignments:[{number:1,ref:{kind:'variant',id:ids[2],revision:v.rows[0].revision.id}}]}));
-    const paper=await cli('paper','create','--file',paperFile) as PaperSnapshot;expect(paper.paper.slots[0].origin?.rootId).toBe(ids[1]);const output=await cli('paper','export',paper.paper.id);expect(output.ok).toBe(true);
-    for (const name of ['questions.pdf','full.pdf']) expect((await readFile(path.join(output.exportPath,name))).subarray(0,4).toString()).toBe('%PDF');
+    const paper=await cli('paper','create','--file',paperFile) as PaperSnapshot;expect(paper.paper.slots[0].origin?.rootId).toBe(ids[1]);
+    if (hasTex()) {const output=await cli('paper','export',paper.paper.id);expect(output.ok).toBe(true);for (const name of ['questions.pdf','full.pdf']) expect((await readFile(path.join(output.exportPath,name))).subarray(0,4).toString()).toBe('%PDF');}
     await page.setViewportSize({width:900,height:700});await page.locator('#variant-manager > summary').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(root,'authorization-narrow.png')});
   } finally {await app.evaluate(({app}) => app.exit(0)).catch(() => undefined);}
 });
