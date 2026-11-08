@@ -9,15 +9,16 @@
   background: transparent;
 }
 
+/* 扩展命中区只向右延伸：分隔线左侧紧贴的是可滚动窗格（题目列表、代码编辑器）的滚动条，
+   居中的命中区会盖住滚动条，导致拖动滚动条变成调整宽度。 */
 .handle::before {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 40px;
+  top: 0;
+  left: 0;
+  width: 12px;
   height: 100%;
   min-height: 40px;
-  transform: translate(-50%, -50%);
 }
 
 .handle::after {
