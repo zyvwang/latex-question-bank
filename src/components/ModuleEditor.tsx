@@ -19,6 +19,7 @@ import { UI_LAYOUT_LIMITS } from "../../shared/ui-layout-preferences.js";
 import { useLayoutPreferences } from "../context/layoutPreferences.js";
 import { useQuestions } from "../context/questionBankContexts.js";
 import { appendTex } from "../utils/form.js";
+import { editorHistoryKey } from "../utils/editorHistory.js";
 import { LatexPreview } from "./LatexPreview.js";
 import { PaneResizeHandle } from "./PaneResizeHandle.js";
 import controls from "../styles/controls.module.css";
@@ -134,9 +135,16 @@ export function ModuleEditor({ kind, value, item, onChange, onUpload }: ModuleEd
           "--module-editor-percent": `${preferences.moduleEditorPercent}%`
         } as CSSProperties}
       >
-        <div className={styles.editorRegion} id={`module-editor-${kind}`}>
+        <div className={styles.editorRegion} id={`module-editor-${kind}`} data-focus-return>
           <Suspense fallback={<div className={`${styles.editorPane} ${styles.editorFallback}`}>编辑器加载中</div>}>
-            <LatexEditor value={value} onChange={handleChange} viewRef={editorViewRef} />
+            <LatexEditor
+              // 撤销历史的边界：换题、换模块或整库替换后重建编辑器，
+              // 否则 ⌘Z 会把别处的文本撤销进当前模块并被自动保存。
+              key={editorHistoryKey(questions.snapshotEpoch, item.id, kind)}
+              value={value}
+              onChange={handleChange}
+              viewRef={editorViewRef}
+            />
           </Suspense>
         </div>
         <PaneResizeHandle

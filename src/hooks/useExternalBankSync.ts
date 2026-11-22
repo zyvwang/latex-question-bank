@@ -71,6 +71,11 @@ export function useExternalBankSync(options: ExternalBankSyncOptions): void {
       void fetchBank()
         .then((snapshot) => {
           if (snapshot.workspacePath !== latest.current.workspacePath) return;
+          // 请求期间用户可能又开始编辑：应用前再查一次，有草稿就只显示横幅，不覆盖。
+          if (hasLocalWork(latest.current)) {
+            latest.current.setExternalBankNotice(externalBankNotice(payload));
+            return;
+          }
           latest.current.applySnapshot(snapshot);
           latest.current.setExternalBankNotice(null);
           latest.current.showNotice({

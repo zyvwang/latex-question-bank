@@ -26,6 +26,10 @@ export function useFocusTrap<T extends HTMLElement>() {
     if (!container) return;
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // 原焦点所在的“焦点归还区域”：区域里的元素可能在对话框打开期间被重建（编辑器按
+    // 题目和模块重建），关闭时原元素已断开，就把焦点交给区域里新的可编辑元素。
+    const returnRegion =
+      previouslyFocused?.closest<HTMLElement>("[data-focus-return]") ?? null;
 
     initialTarget(container)?.focus();
 
@@ -56,10 +60,21 @@ export function useFocusTrap<T extends HTMLElement>() {
       document.removeEventListener("keydown", handleKeyDown, true);
       // 触发元素可能随对话框一起消失(右键菜单里的入口就是),那时不还焦点。
       if (previouslyFocused?.isConnected) previouslyFocused.focus();
+      else if (returnRegion?.isConnected) focusRegionWhenReady(returnRegion);
     };
   }, []);
 
   return containerRef;
+}
+
+// 新编辑器在下一帧之前才会挂载完成；别处已经拿到焦点时不抢。
+function focusRegionWhenReady(region: HTMLElement) {
+  window.requestAnimationFrame(() => {
+    if (!region.isConnected) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement) return;
+    region.querySelector<HTMLElement>(`.cm-content, ${FOCUSABLE_SELECTOR}`)?.focus();
+  });
 }
 
 function initialTarget(container: HTMLElement): HTMLElement | null {
