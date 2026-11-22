@@ -112,6 +112,7 @@ export function useQuestionBankContextSlices({
     bank,
     activeId,
     activeItem: derived.activeItem,
+    snapshotEpoch: autosave.snapshotEpoch,
     orderedItems: derived.orderedItems,
     numberById: derived.numberById,
     setActiveId,

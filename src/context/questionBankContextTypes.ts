@@ -80,6 +80,8 @@ export interface QuestionContextValue {
   bank: Bank | null;
   activeId: string | null;
   activeItem: QuestionItem | null;
+  /** 整库快照代次：每次整库替换都会变化，用作编辑器撤销历史的边界。 */
+  snapshotEpoch: number;
   orderedItems: QuestionItem[];
   numberById: Map<string, number>;
   setActiveId: Dispatch<SetStateAction<string | null>>;

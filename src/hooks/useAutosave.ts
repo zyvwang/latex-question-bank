@@ -18,6 +18,9 @@ export function useAutosave(
 ) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveIssue, setSaveIssueState] = useState<SaveIssue | null>(null);
+  // 每次整库替换（切换工作区、外部同步、采用磁盘版本、恢复备份）都加一；
+  // 编辑器以它为撤销历史的边界，避免把替换前的文本撤销回来。
+  const [snapshotEpoch, setSnapshotEpoch] = useState(0);
   const skipNextSave = useRef(true);
   const timerRef = useRef<number | null>(null);
   const workspacePathRef = useRef("");
@@ -221,6 +224,7 @@ export function useAutosave(
   const resetAutosave = useCallback(
     (snapshot: BankSnapshot | null) => {
       generationRef.current += 1;
+      setSnapshotEpoch((epoch) => epoch + 1);
       uncertainSaveRef.current = null;
       latestBankRef.current = snapshot?.bank ?? null;
       clearTimer();
@@ -309,6 +313,7 @@ export function useAutosave(
   return {
     saveState,
     saveIssue,
+    snapshotEpoch,
     persistBank: flush,
     captureSaveSession,
     isSaveSessionCurrent,
