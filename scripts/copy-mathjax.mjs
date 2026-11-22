@@ -10,11 +10,12 @@ const fontSource = path.join(
   "node_modules",
   "@mathjax",
   "mathjax-newcm-font",
-  "chtml",
-  "woff2"
+  "chtml"
 );
 const fontVendorTarget = path.join(root, "public", "vendor", "mathjax-fonts");
-const fontTarget = path.join(fontVendorTarget, "mathjax-newcm-font", "chtml", "woff2");
+// 必须连同 dynamic/ 一起复制：\mathbb、\mathcal 等字形按需加载这些脚本，
+// 缺一个文件整次 typeset 都会 reject，整块预览退回源码。
+const fontTarget = path.join(fontVendorTarget, "mathjax-newcm-font", "chtml");
 
 await mkdir(path.dirname(mathJaxTarget), { recursive: true });
 await rm(mathJaxTarget, { recursive: true, force: true });
